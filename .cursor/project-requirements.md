@@ -117,3 +117,166 @@
 - Documentation completion
 - Production deployment setup
 - Monitoring and alerting configuration 
+
+moonvpn/
+├── core/                    # Core application components
+│   ├── database/           # Database models and migrations
+│   ├── services/           # Core services
+│   ├── tests/              # Test files
+│   ├── config/             # Configuration files
+│   └── middlewares/        # Middleware components
+├── backend/                # Backend application
+│   ├── api/               # API endpoints
+│   ├── bot/               # Telegram bot
+│   ├── models/            # Backend-specific models
+│   └── routes/            # Route definitions
+├── frontend/              # Frontend application
+├── docs/                  # Documentation
+├── docker/                # Docker configuration
+├── logs/                  # Application logs
+└── .cursor/              # Cursor IDE configuration 
+
+## Core Requirements
+
+### 1. VPN Service
+- [x] VPN account management
+- [x] Server management
+- [x] Traffic monitoring
+- [x] Subscription handling
+- [ ] Automated server health checks
+- [ ] Load balancing
+- [ ] Failover support
+
+### 2. Payment System
+- [x] Multiple payment gateways
+- [x] Subscription management
+- [x] Invoice generation
+- [x] Payment verification
+- [ ] Automated refunds
+- [ ] Payment dispute handling
+- [ ] Tax calculation
+
+### 3. Points System
+- [x] Points earning
+- [x] Points redemption
+- [x] Points history
+- [x] Reward rules
+- [ ] Points expiration
+- [ ] Points transfer
+- [ ] Points analytics
+
+### 4. Live Chat
+- [x] Real-time messaging
+- [x] Operator management
+- [x] Chat history
+- [x] Rating system
+- [ ] File sharing
+- [ ] Chat analytics
+- [ ] Automated responses
+
+### 5. API System
+- [x] API key management
+- [x] Rate limiting
+- [x] Request logging
+- [x] Webhook support
+- [ ] API analytics
+- [ ] API documentation
+- [ ] API versioning
+
+### 6. Enhancement Features
+- [x] System health monitoring
+- [x] Automated backups
+- [x] Notification system
+- [x] Reporting system
+- [x] System logging
+- [x] Configuration management
+- [x] System metrics
+- [ ] Real-time alerts
+- [ ] Performance optimization
+- [ ] Resource scaling
+
+### 7. Telegram Bot
+- [ ] User authentication
+- [ ] Account management
+- [ ] Payment processing
+- [ ] Support chat
+- [ ] Points management
+- [ ] System monitoring
+- [ ] Admin commands
+- [ ] Interactive menus
+- [ ] Inline keyboards
+- [ ] Command aliases
+
+## Technical Requirements
+
+### 1. Performance
+- [x] FastAPI framework
+- [x] SQLAlchemy ORM
+- [x] Async operations
+- [x] Connection pooling
+- [ ] Caching system
+- [ ] Load balancing
+- [ ] CDN integration
+
+### 2. Security
+- [x] JWT authentication
+- [x] Role-based access
+- [x] Rate limiting
+- [x] Input validation
+- [ ] IP whitelisting
+- [ ] DDoS protection
+- [ ] SSL/TLS
+- [ ] Security headers
+
+### 3. Monitoring
+- [x] Health checks
+- [x] System metrics
+- [x] Error logging
+- [x] Audit trails
+- [ ] Performance metrics
+- [ ] User analytics
+- [ ] System alerts
+
+### 4. Development
+- [x] Type hints
+- [x] Code documentation
+- [x] Error handling
+- [x] Testing framework
+- [ ] CI/CD pipeline
+- [ ] Code quality checks
+- [ ] Automated testing
+
+## Dependencies
+
+### Core Dependencies
+- FastAPI
+- SQLAlchemy
+- Alembic
+- Pydantic
+- python-jose
+- passlib
+- python-multipart
+- aiohttp
+- python-telegram-bot
+- apscheduler
+- prometheus-client
+
+### Development Dependencies
+- pytest
+- pytest-asyncio
+- pytest-cov
+- black
+- isort
+- flake8
+- mypy
+- pre-commit
+
+## Next Steps
+1. Implement Telegram bot integration
+2. Set up automated monitoring
+3. Enhance security features
+4. Improve user experience
+5. Add caching system
+6. Implement CDN integration
+7. Set up CI/CD pipeline
+8. Add comprehensive testing 

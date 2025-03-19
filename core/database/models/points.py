@@ -1,132 +1,136 @@
+"""
+Points-related models for MoonVPN.
+Defines points transactions, redemption rules, and redemptions.
+"""
+
 from django.db import models
 from django.conf import settings
 from django.utils.translation import gettext_lazy as _
 from django.core.validators import MinValueValidator
 from django.core.exceptions import ValidationError
 from django.utils import timezone
+from datetime import datetime
+from typing import Optional, List
+from sqlalchemy import Column, String, Integer, Boolean, DateTime, ForeignKey, Numeric, Enum, JSON
+from sqlalchemy.orm import relationship
+import enum
 
-class PointsTransaction(models.Model):
-    """Model for tracking points transactions."""
-    
-    class TransactionType(models.TextChoices):
-        EARN = 'earn', _('Earn')
-        SPEND = 'spend', _('Spend')
-        EXPIRE = 'expire', _('Expire')
-        ADJUST = 'adjust', _('Adjust')
-    
-    user = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name='points_transactions'
-    )
-    type = models.CharField(
-        max_length=10,
-        choices=TransactionType.choices,
-        default=TransactionType.EARN
-    )
-    points = models.IntegerField(
-        validators=[MinValueValidator(1)],
-        help_text=_('Number of points (positive for earn, negative for spend)')
-    )
-    description = models.CharField(max_length=255)
-    created_at = models.DateTimeField(auto_now_add=True)
-    
-    class Meta:
-        ordering = ['-created_at']
-        indexes = [
-            models.Index(fields=['user', 'type']),
-            models.Index(fields=['created_at']),
-        ]
-    
-    def __str__(self):
-        return f"{self.user.username} - {self.type} {abs(self.points)} points"
-    
-    def clean(self):
-        if self.type in [self.TransactionType.SPEND, self.TransactionType.EXPIRE]:
-            if self.points > 0:
-                raise ValidationError(_('Points must be negative for spend/expire transactions'))
-        elif self.type in [self.TransactionType.EARN, self.TransactionType.ADJUST]:
-            if self.points < 0:
-                raise ValidationError(_('Points must be positive for earn/adjust transactions'))
+from .base import BaseModel
 
-class PointsRedemptionRule(models.Model):
-    """Model for defining points redemption rules."""
-    
-    class RewardType(models.TextChoices):
-        DISCOUNT = 'discount', _('Discount')
-        VIP = 'vip', _('VIP Status')
-        TRAFFIC = 'traffic', _('Extra Traffic')
-        CUSTOM = 'custom', _('Custom Reward')
-    
-    name = models.CharField(max_length=100)
-    description = models.TextField()
-    points_required = models.IntegerField(
-        validators=[MinValueValidator(1)],
-        help_text=_('Points required to redeem this reward')
-    )
-    reward_type = models.CharField(
-        max_length=20,
-        choices=RewardType.choices,
-        default=RewardType.DISCOUNT
-    )
-    reward_value = models.IntegerField(
-        validators=[MinValueValidator(1)],
-        help_text=_('Value of the reward (e.g., discount percentage, VIP days)')
-    )
-    is_active = models.BooleanField(default=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    
-    class Meta:
-        ordering = ['points_required']
-        indexes = [
-            models.Index(fields=['is_active']),
-            models.Index(fields=['reward_type']),
-        ]
-    
-    def __str__(self):
-        return f"{self.name} ({self.points_required} points)"
-    
-    def clean(self):
-        if self.reward_type == self.RewardType.DISCOUNT:
-            if self.reward_value > 100:
-                raise ValidationError(_('Discount percentage cannot exceed 100%'))
+class PointsTransactionType(enum.Enum):
+    """Points transaction types."""
+    EARN = "earn"
+    REDEEM = "redeem"
+    ADJUST = "adjust"
+    EXPIRE = "expire"
 
-class PointsRedemption(models.Model):
-    """Model for tracking points redemptions."""
+class PointsTransaction(BaseModel):
+    """
+    Points transaction model.
+    Records all points-related transactions.
+    """
     
-    user = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name='points_redemptions'
-    )
-    rule = models.ForeignKey(
-        PointsRedemptionRule,
-        on_delete=models.PROTECT,
-        related_name='redemptions'
-    )
-    points_spent = models.IntegerField(
-        validators=[MinValueValidator(1)],
-        help_text=_('Points spent on this redemption')
-    )
-    reward_value = models.IntegerField(
-        validators=[MinValueValidator(1)],
-        help_text=_('Value of the reward received')
-    )
-    created_at = models.DateTimeField(auto_now_add=True)
+    amount = Column(Integer, nullable=False)
+    type = Column(Enum(PointsTransactionType), nullable=False)
+    description = Column(String(500), nullable=True)
+    metadata = Column(JSON, nullable=True)
     
-    class Meta:
-        ordering = ['-created_at']
-        indexes = [
-            models.Index(fields=['user', 'created_at']),
-            models.Index(fields=['rule']),
-        ]
+    # Relationships
+    user_id = Column(Integer, ForeignKey("user.id"), nullable=False)
+    user = relationship("User", back_populates="points_transactions")
     
-    def __str__(self):
-        return f"{self.user.username} redeemed {self.rule.name}"
+    def __repr__(self) -> str:
+        return f"<PointsTransaction(type='{self.type.value}', amount={self.amount})>"
+
+class PointsRedemptionRule(BaseModel):
+    """
+    Points redemption rule model.
+    Defines rules for redeeming points.
+    """
     
-    def clean(self):
-        if self.points_spent != self.rule.points_required:
-            raise ValidationError(_('Points spent must match rule requirements'))
-        if self.reward_value != self.rule.reward_value:
-            raise ValidationError(_('Reward value must match rule value')) 
+    name = Column(String(100), nullable=False)
+    description = Column(String(500), nullable=True)
+    points_cost = Column(Integer, nullable=False)
+    discount_percentage = Column(Integer, nullable=False)
+    is_active = Column(Boolean, default=True)
+    start_date = Column(DateTime, nullable=True)
+    end_date = Column(DateTime, nullable=True)
+    max_uses = Column(Integer, nullable=True)
+    current_uses = Column(Integer, default=0)
+    min_subscription_days = Column(Integer, nullable=True)
+    applicable_plans = Column(JSON, nullable=True)  # List of plan IDs
+    metadata = Column(JSON, nullable=True)
+    
+    # Relationships
+    redemptions = relationship("PointsRedemption", back_populates="rule", cascade="all, delete-orphan")
+    
+    def __repr__(self) -> str:
+        return f"<PointsRedemptionRule(name='{self.name}', points={self.points_cost})>"
+    
+    def is_valid(self) -> bool:
+        """Check if rule is currently valid."""
+        now = datetime.utcnow()
+        
+        if not self.is_active:
+            return False
+        
+        if self.start_date and now < self.start_date:
+            return False
+        
+        if self.end_date and now > self.end_date:
+            return False
+        
+        if self.max_uses and self.current_uses >= self.max_uses:
+            return False
+        
+        return True
+    
+    def can_be_used(self, user_points: int, subscription_days: Optional[int] = None) -> bool:
+        """Check if rule can be used by a user."""
+        if not self.is_valid():
+            return False
+        
+        if user_points < self.points_cost:
+            return False
+        
+        if self.min_subscription_days and subscription_days and subscription_days < self.min_subscription_days:
+            return False
+        
+        return True
+    
+    def increment_uses(self) -> None:
+        """Increment the number of times this rule has been used."""
+        if self.max_uses:
+            self.current_uses += 1
+            if self.current_uses >= self.max_uses:
+                self.is_active = False
+
+class PointsRedemption(BaseModel):
+    """
+    Points redemption model.
+    Records when users redeem points using rules.
+    """
+    
+    points_cost = Column(Integer, nullable=False)
+    discount_applied = Column(Integer, nullable=False)
+    subscription_id = Column(Integer, ForeignKey("subscription.id"), nullable=True)
+    subscription = relationship("Subscription")
+    metadata = Column(JSON, nullable=True)
+    
+    # Relationships
+    user_id = Column(Integer, ForeignKey("user.id"), nullable=False)
+    user = relationship("User")
+    rule_id = Column(Integer, ForeignKey("pointsredemptionrule.id"), nullable=False)
+    rule = relationship("PointsRedemptionRule", back_populates="redemptions")
+    
+    def __repr__(self) -> str:
+        return f"<PointsRedemption(points={self.points_cost}, discount={self.discount_applied})>"
+    
+    def apply_discount(self, subscription: "Subscription") -> None:
+        """Apply discount to subscription."""
+        if not subscription or not subscription.plan:
+            return
+        
+        original_price = subscription.plan.price
+        discount_amount = (original_price * self.discount_applied) / 100
+        subscription.price = original_price - discount_amount 

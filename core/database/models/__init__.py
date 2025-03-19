@@ -1,8 +1,45 @@
 """
-Core Database Models
-
-This module defines the database models for the MoonVPN application.
+Core database models for MoonVPN.
+This module contains all database models organized by domain.
 """
+
+from .base import Base, BaseModel
+from .user import User
+from .vpn import VPNAccount, Server, Location, TrafficLog
+from .payment import Payment, CardPayment, ZarinpalPayment
+from .subscription import Plan, Subscription
+from .points import PointsTransaction, PointsRedemptionRule, PointsRedemption
+from .chat import LiveChatSession, LiveChatMessage, LiveChatOperator, LiveChatRating
+from .api import APIKey, APIRequest, APIRateLimit, Webhook
+from .role import Role, Permission
+
+__all__ = [
+    'Base',
+    'BaseModel',
+    'User',
+    'VPNAccount',
+    'Server',
+    'Location',
+    'TrafficLog',
+    'Payment',
+    'CardPayment',
+    'ZarinpalPayment',
+    'Plan',
+    'Subscription',
+    'PointsTransaction',
+    'PointsRedemptionRule',
+    'PointsRedemption',
+    'LiveChatSession',
+    'LiveChatMessage',
+    'LiveChatOperator',
+    'LiveChatRating',
+    'APIKey',
+    'APIRequest',
+    'APIRateLimit',
+    'Webhook',
+    'Role',
+    'Permission'
+]
 
 # Import all models for convenience
 try:
@@ -157,11 +194,6 @@ except ImportError:
 
 try:
     from core.database.models.subscription_plan import *
-except ImportError:
-    pass
-
-try:
-    from core.database.models.user import *
 except ImportError:
     pass
 

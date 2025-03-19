@@ -5,7 +5,8 @@ This module handles the process of purchasing new VPN accounts.
 """
 
 import logging
-from typing import Dict, Any, List, Optional
+from typing import Dict, List, Any, Optional
+from datetime import datetime
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
@@ -20,7 +21,11 @@ from telegram.constants import ParseMode
 from django.utils import timezone
 from django.conf import settings
 
-from models import User, Server, SubscriptionPlan
+from core.config import settings
+from core.database import get_db
+from core.models.user import User
+from core.models.server import Server
+from core.models.subscription_plan import SubscriptionPlan
 from core.utils.i18n import _
 from core.database import get_subscription_plans, get_user
 from core.utils.formatting import allowed_group_filter
@@ -30,6 +35,9 @@ from backend.payments.services import PaymentService
 from backend.accounts.services import AccountService
 from core.utils.helpers import format_number, get_user, human_readable_size
 from core.utils.helpers import get_back_button
+from core.models.vpn_account import VPNAccount
+from core.models.transaction import Transaction
+from core.models.system_config import SystemConfig
 
 logger = logging.getLogger(__name__)
 

@@ -12,8 +12,14 @@ from telegram.ext import (
     CallbackQueryHandler,
     ConversationHandler,
 )
+from typing import Dict, List, Any, Optional
+from datetime import datetime
 
-from models import User
+from core.config import settings
+from core.database import get_db
+from core.models.user import User
+from core.models.vpn_account import VPNAccount
+from core.models.server import Server
 from core.utils.i18n import _
 import constants
 

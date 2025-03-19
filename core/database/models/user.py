@@ -8,16 +8,116 @@ import logging
 import re
 import uuid
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any, Tuple, Union
+import enum
 
 from core.database import execute_query, execute_insert, execute_update, execute_delete, cache_get, cache_set, cache_delete
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text, JSON, Enum
+from sqlalchemy.orm import relationship
+from sqlalchemy.dialects.postgresql import UUID
+from core.database.base import BaseModel
 
 logger = logging.getLogger(__name__)
 
-class User:
-    """User model for managing user data and operations."""
+class UserStatus(enum.Enum):
+    """User account status."""
+    ACTIVE = "active"
+    INACTIVE = "inactive"
+    SUSPENDED = "suspended"
+    BANNED = "banned"
+
+class User(BaseModel):
+    """
+    User model representing a MoonVPN user.
+    Handles user authentication, profile information, and relationships.
+    """
     
+    # Basic Information
+    username = Column(String(50), unique=True, nullable=False, index=True)
+    phone_number = Column(String(15), unique=True, nullable=False, index=True)
+    email = Column(String(255), unique=True, nullable=True)
+    full_name = Column(String(100), nullable=True)
+    status = Column(Enum(UserStatus), default=UserStatus.ACTIVE, nullable=False)
+    
+    # Authentication
+    password_hash = Column(String(255), nullable=False)
+    last_login = Column(DateTime, nullable=True)
+    failed_login_attempts = Column(Integer, default=0)
+    is_verified = Column(Boolean, default=False)
+    verification_code = Column(String(6), nullable=True)
+    verification_code_expires = Column(DateTime, nullable=True)
+    
+    # Profile
+    telegram_id = Column(String(50), unique=True, nullable=True)
+    telegram_username = Column(String(50), nullable=True)
+    profile_picture = Column(String(255), nullable=True)
+    language = Column(String(10), default="en", nullable=False)
+    timezone = Column(String(50), nullable=True)
+    
+    # Relationships
+    vpn_accounts = relationship("VPNAccount", back_populates="user", cascade="all, delete-orphan")
+    subscriptions = relationship("Subscription", back_populates="user", cascade="all, delete-orphan")
+    payments = relationship("Payment", back_populates="user", cascade="all, delete-orphan")
+    points_transactions = relationship("PointsTransaction", back_populates="user", cascade="all, delete-orphan")
+    chat_sessions = relationship("LiveChatSession", back_populates="user", cascade="all, delete-orphan")
+    
+    # Role and Permissions
+    role_id = Column(Integer, ForeignKey("role.id"), nullable=True)
+    role = relationship("Role", back_populates="users")
+    
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        if not self.language:
+            self.language = "en"
+    
+    def verify_phone(self, code: str) -> bool:
+        """Verify user's phone number with given code."""
+        if not self.verification_code or not self.verification_code_expires:
+            return False
+        
+        if datetime.utcnow() > self.verification_code_expires:
+            return False
+        
+        if self.verification_code != code:
+            return False
+        
+        self.is_verified = True
+        self.verification_code = None
+        self.verification_code_expires = None
+        return True
+    
+    def generate_verification_code(self) -> str:
+        """Generate a new verification code."""
+        import random
+        self.verification_code = str(random.randint(100000, 999999))
+        self.verification_code_expires = datetime.utcnow() + timedelta(minutes=10)
+        return self.verification_code
+    
+    def update_login_attempt(self, success: bool) -> None:
+        """Update login attempt counter."""
+        if success:
+            self.failed_login_attempts = 0
+            self.last_login = datetime.utcnow()
+        else:
+            self.failed_login_attempts += 1
+            if self.failed_login_attempts >= 5:
+                self.status = UserStatus.SUSPENDED
+    
+    def has_active_subscription(self) -> bool:
+        """Check if user has any active subscription."""
+        return any(sub.is_active for sub in self.subscriptions)
+    
+    def get_active_vpn_account(self) -> Optional["VPNAccount"]:
+        """Get user's active VPN account if any."""
+        for account in self.vpn_accounts:
+            if account.is_active:
+                return account
+        return None
+
+    def __str__(self):
+        return self.username
+
     def __init__(self, user_data: Dict[str, Any]):
         """
         Initialize a user object.
@@ -40,6 +140,47 @@ class User:
         self.created_at = user_data.get('created_at')
         self.updated_at = user_data.get('updated_at')
         
+    @classmethod
+    def get_by_username(cls, db, username):
+        """Get user by username"""
+        try:
+            return db.query(cls).filter(cls.username == username).first()
+        except Exception as e:
+            logger.error(f"Error getting user by username: {str(e)}")
+            return None
+
+    @classmethod
+    def get_by_email(cls, db, email):
+        """Get user by email"""
+        try:
+            return db.query(cls).filter(cls.email == email).first()
+        except Exception as e:
+            logger.error(f"Error getting user by email: {str(e)}")
+            return None
+
+    def set_password(self, password):
+        """Set user password"""
+        from passlib.context import CryptContext
+        pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+        self.password_hash = pwd_context.hash(password)
+
+    def verify_password(self, password):
+        """Verify user password"""
+        from passlib.context import CryptContext
+        pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+        return pwd_context.verify(password, self.password_hash)
+
+    def is_admin(self):
+        """Check if user is admin"""
+        return self.is_superuser or self.is_staff
+
+    def to_dict(self):
+        """Convert user to dictionary"""
+        data = super().to_dict()
+        # Remove sensitive data
+        data.pop('password_hash', None)
+        return data
+
     @staticmethod
     def get_by_telegram_id(telegram_id: int) -> Optional['User']:
         """
@@ -90,28 +231,6 @@ class User:
         if result:
             # Cache user data
             cache_set(f"user:id:{user_id}", dict(result), 300)  # Cache for 5 minutes
-            return User(result)
-            
-        return None
-        
-    @staticmethod
-    def get_by_username(username: str) -> Optional['User']:
-        """
-        Get a user by username.
-        
-        Args:
-            username (str): Telegram username
-            
-        Returns:
-            Optional[User]: User object or None if not found
-        """
-        username = username.lower().strip('@')
-        
-        # Get from database
-        query = "SELECT * FROM users WHERE LOWER(username) = %s"
-        result = execute_query(query, (username,), fetch="one")
-        
-        if result:
             return User(result)
             
         return None
@@ -557,15 +676,6 @@ class User:
             
         return execute_query(query, params)
         
-    def is_admin(self) -> bool:
-        """
-        Check if user is an admin.
-        
-        Returns:
-            bool: True if user is an admin, False otherwise
-        """
-        return self.role in ('admin', 'superadmin')
-        
     def is_superadmin(self) -> bool:
         """
         Check if user is a superadmin.
@@ -743,30 +853,4 @@ class User:
             'new_users_today': new_users_today,
             'new_users_week': new_users_week,
             'new_users_month': new_users_month
-        }
-        
-    def to_dict(self) -> Dict[str, Any]:
-        """
-        Convert user to dictionary.
-        
-        Returns:
-            Dict[str, Any]: User data as dictionary
-        """
-        return {
-            'id': self.id,
-            'telegram_id': self.telegram_id,
-            'username': self.username,
-            'first_name': self.first_name,
-            'last_name': self.last_name,
-            'phone': self.phone,
-            'language': self.language,
-            'role': self.role,
-            'wallet_balance': self.wallet_balance,
-            'referral_code': self.referral_code,
-            'referred_by': self.referred_by,
-            'is_active': self.is_active,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
-            'is_admin': self.is_admin(),
-            'is_superadmin': self.is_superadmin()
         } 

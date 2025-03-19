@@ -15,6 +15,8 @@ import psycopg2
 import os
 import json
 
+from .config import DATABASE_CONFIG
+
 logger = logging.getLogger(__name__)
 
 class DatabaseManager:
@@ -353,4 +355,12 @@ class DatabaseManager:
                 return True
         except Exception as e:
             logger.error(f"Failed to kill connection {pid}: {e}")
+            return False
+
+def get_db() -> Generator[Session, None, None]:
+    """Get database session."""
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
             return False 

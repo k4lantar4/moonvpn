@@ -1,5 +1,5 @@
 """
-V2Ray account management handler for the Telegram bot.
+Account management handler for the Telegram bot.
 
 This module implements handlers for managing V2Ray accounts including:
 - Account creation
@@ -27,7 +27,12 @@ from telegram.constants import ParseMode
 
 from core.utils.i18n import get_text
 from core.utils.formatting import format_number, format_date
-from models import User, VPNAccount, SubscriptionPlan, Server
+from core.config import settings
+from core.database import get_db
+from core.models.user import User
+from core.models.vpn_account import VPNAccount
+from core.models.subscription_plan import SubscriptionPlan
+from core.models.server import Server
 from services import AccountService, PaymentService
 from core.utils.helpers import require_auth
 from bot.constants import (

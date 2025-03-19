@@ -1,37 +1,41 @@
-FROM python:3.11-slim
+# Use Python 3.10 slim image
+FROM python:3.10-slim
 
 # Set environment variables
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
-ENV PYTHONPATH=/app:/app/core:/app/utils:/app/config
-
-# Set work directory
-WORKDIR /app
-COPY core /app/core
-COPY utils /app/utils
-COPY config /app/config
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    POETRY_VERSION=1.7.1 \
+    POETRY_HOME="/opt/poetry" \
+    POETRY_VIRTUALENVS_CREATE=false
 
 # Install system dependencies
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends gcc libpq-dev \
-    && apt-get clean \
+    && apt-get install -y --no-install-recommends \
+        build-essential \
+        curl \
+        libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Install Poetry
+RUN curl -sSL https://install.python-poetry.org | python3 -
+ENV PATH="${POETRY_HOME}/bin:$PATH"
 
-# Copy project
+# Set working directory
+WORKDIR /app
+
+# Copy poetry files
+COPY pyproject.toml poetry.lock ./
+
+# Install dependencies
+RUN poetry install --no-root --no-dev
+
+# Copy project files
 COPY . .
 
-# Create log directory
-RUN mkdir -p /app/logs
+# Create non-root user
+RUN adduser --disabled-password --gecos "" appuser
+RUN chown -R appuser:appuser /app
+USER appuser
 
-# Set permissions
-RUN chmod +x /app/bot/entrypoint.sh
-
-# Set entrypoint
-ENTRYPOINT ["/app/bot/entrypoint.sh"]
-
-# Run the bot
-CMD ["python", "-m", "bot.main"] 
+# Run FastAPI
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"] 

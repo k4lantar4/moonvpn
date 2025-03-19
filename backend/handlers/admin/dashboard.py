@@ -8,6 +8,7 @@ allowing administrators to manage and control all aspects of the bot.
 import logging
 from typing import Dict, Any, List, Optional
 import asyncio
+from datetime import datetime, timedelta
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
 from telegram.ext import ContextTypes, CallbackQueryHandler, CommandHandler, MessageHandler
@@ -15,9 +16,16 @@ from telegram.constants import ParseMode
 
 from core.utils.i18n import get_text
 from core.utils.helpers import require_admin
-from models import FeatureFlag, SystemConfig, User, VPNAccount, Transaction
+from core.config import settings
+from core.database import get_db
+from core.models.feature_flag import FeatureFlag
+from core.models.system_config import SystemConfig
+from core.models.user import User
+from core.models.vpn_account import VPNAccount
+from core.models.transaction import Transaction
 from core.database import get_system_stats
 from core.utils.helpers import get_all_servers_health
+from core.models.server import Server
 
 logger = logging.getLogger(__name__)
 
@@ -209,7 +217,6 @@ async def handle_server_management(update: Update, context: ContextTypes.DEFAULT
     language_code = context.user_data.get("language", "en")
     
     # Get server info from database
-    from models import Server
     servers = Server.objects.all()
     
     # Check server health (for active servers)
@@ -355,7 +362,6 @@ async def process_server_add(update: Update, context: ContextTypes.DEFAULT_TYPE)
         password = lines[5].strip() if len(lines) > 5 else ""
         
         # Create new server
-        from models import Server
         server = Server.objects.create(
             name=name,
             location=location,
@@ -412,7 +418,6 @@ async def toggle_server(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     
     # Toggle server
     try:
-        from models import Server
         server = Server.objects.get(id=server_id)
         server.is_active = not server.is_active
         server.save()

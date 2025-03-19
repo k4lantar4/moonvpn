@@ -6,6 +6,7 @@ This module handles the process of changing VPN account location.
 
 import logging
 from typing import Dict, List, Optional
+from datetime import datetime
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
@@ -16,7 +17,11 @@ from telegram.ext import (
 )
 from telegram.constants import ParseMode
 
-from models import User, VPNAccount, Server
+from core.config import settings
+from core.database import get_db
+from core.models.user import User
+from core.models.vpn_account import VPNAccount
+from core.models.server import Server
 from core.utils.i18n import _
 from core.utils.formatting import allowed_group_filter
 from core.utils.helpers import require_feature

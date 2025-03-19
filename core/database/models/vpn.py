@@ -1,5 +1,6 @@
 """
-Models for VPN module
+VPN-related models for MoonVPN.
+Defines VPN accounts, servers, locations, and traffic logging.
 """
 
 from django.db import models
@@ -9,101 +10,165 @@ from django.contrib.postgres.fields import ArrayField
 import uuid
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.utils.translation import gettext_lazy as _
+from datetime import datetime
+from typing import Optional, List
+from sqlalchemy import Column, String, Integer, Boolean, DateTime, ForeignKey, BigInteger, JSON, Enum
+from sqlalchemy.orm import relationship
+import enum
 
 User = get_user_model()
 
-class Server(models.Model):
-    """Model for storing VPN server information"""
-    name = models.CharField(_("Server Name"), max_length=100)
-    description = models.TextField(_("Description"), blank=True)
-    type = models.CharField(_("Server Type"), max_length=50, choices=[
-        ('standard', 'Standard'),
-        ('premium', 'Premium'),
-        ('enterprise', 'Enterprise')
-    ], default='standard')
-    ip_address = models.GenericIPAddressField(_("IP Address"), null=True, blank=True)
-    port = models.IntegerField(_("Port"), validators=[MinValueValidator(1), MaxValueValidator(65535)])
-    username = models.CharField(_("Panel Username"), max_length=50)
-    password = models.CharField(_("Panel Password"), max_length=50)
-    location = models.CharField(_("Location"), max_length=50)
-    country = models.CharField(_("Country"), max_length=50)
-    country_code = models.CharField(_("Country Code"), max_length=2)
-    panel_path = models.CharField(_("Panel Path"), max_length=100, default="/panel")
-    is_active = models.BooleanField(_("Is Active"), default=True)
-    max_clients = models.IntegerField(_("Maximum Clients"), default=0)  # 0 means unlimited
-    bandwidth_limit = models.BigIntegerField(_("Bandwidth Limit (bytes)"), default=0)  # 0 means unlimited
-    protocols = ArrayField(
-        models.CharField(max_length=20),
-        verbose_name=_("Supported Protocols"),
-        default=list
-    )
-    default_protocol = models.CharField(_("Default Protocol"), max_length=20, default='vmess')
-    config = models.JSONField(_("Configuration"), default=dict, blank=True)
-    status = models.CharField(_("Status"), max_length=20, choices=[
-        ('online', 'Online'),
-        ('offline', 'Offline'),
-        ('maintenance', 'Maintenance')
-    ], default='offline')
-    created_at = models.DateTimeField(_("Created At"), auto_now_add=True)
-    updated_at = models.DateTimeField(_("Updated At"), auto_now=True)
-    
-    class Meta:
-        verbose_name = _("Server")
-        verbose_name_plural = _("Servers")
-        ordering = ["name"]
-    
-    def __str__(self):
-        return f"{self.name} ({self.location})"
-    
-    @property
-    def panel_url(self):
-        """Get full panel URL"""
-        protocol = "https" if self.port in [443, 2053, 2083, 2087, 2096] else "http"
-        return f"{protocol}://{self.ip_address}:{self.port}{self.panel_path}"
-    
-    @property
-    def host(self):
-        """Get server host"""
-        return f"{self.ip_address}:{self.port}"
-    
-    @property
-    def url(self):
-        """Get server URL"""
-        return self.panel_url
-    
-    @property
-    def cpu_usage(self):
-        """Get latest CPU usage"""
-        latest = self.status_history.order_by('-timestamp').first()
-        return latest.cpu_usage if latest else 0
-    
-    @property
-    def memory_usage(self):
-        """Get latest memory usage"""
-        latest = self.status_history.order_by('-timestamp').first()
-        return latest.memory_usage if latest else 0
-    
-    @property
-    def disk_usage(self):
-        """Get latest disk usage"""
-        latest = self.status_history.order_by('-timestamp').first()
-        return latest.disk_usage if latest else 0
-    
-    @property
-    def last_sync(self):
-        """Get last sync time"""
-        latest = self.status_history.order_by('-timestamp').first()
-        return latest.timestamp if latest else None
-    
-    def get_active_users_count(self):
-        """Get count of active clients on this server"""
-        return self.client_set.filter(is_active=True).count()
-    
-    def is_at_capacity(self):
-        """Check if server has reached its maximum client capacity"""
-        return self.max_clients > 0 and self.get_active_users_count() >= self.max_clients
+class ServerStatus(enum.Enum):
+    """VPN server status."""
+    ACTIVE = "active"
+    MAINTENANCE = "maintenance"
+    OFFLINE = "offline"
+    OVERLOADED = "overloaded"
 
-class ServerStatus(models.Model):
+class VPNAccountStatus(enum.Enum):
+    """VPN account status."""
+    ACTIVE = "active"
+    EXPIRED = "expired"
+    SUSPENDED = "suspended"
+    CANCELLED = "cancelled"
+
+class Location(models.Model):
+    """
+    VPN server location model.
+    Represents a geographical location where VPN servers are available.
+    """
+    
+    name = models.CharField(max_length=100, null=False)
+    country_code = models.CharField(max_length=2, null=False)
+    city = models.CharField(max_length=100, null=True)
+    is_active = models.BooleanField(default=True)
+    priority = models.IntegerField(default=0)
+    description = models.TextField(max_length=500, null=True)
+    
+    # Relationships
+    servers = relationship("Server", back_populates="location", cascade="all, delete-orphan")
+    
+    def __repr__(self) -> str:
+        return f"<Location(name='{self.name}', country='{self.country_code}')>"
+
+class Server(models.Model):
+    """
+    VPN server model.
+    Represents a physical or virtual VPN server instance.
+    """
+    
+    name = models.CharField(max_length=100, null=False)
+    host = models.CharField(max_length=255, null=False)
+    port = models.IntegerField(null=False)
+    status = models.CharField(max_length=20, choices=[
+        ('active', 'Active'),
+        ('maintenance', 'Maintenance'),
+        ('offline', 'Offline'),
+        ('overloaded', 'Overloaded')
+    ], default='active', null=False)
+    is_active = models.BooleanField(default=True)
+    max_users = models.IntegerField(null=False)
+    current_users = models.IntegerField(default=0)
+    bandwidth_limit = models.BigIntegerField(null=True)  # in bytes
+    panel_url = models.CharField(max_length=255, null=False)
+    panel_username = models.CharField(max_length=100, null=False)
+    panel_password = models.CharField(max_length=255, null=False)
+    panel_cookie = models.CharField(max_length=1000, null=True)
+    last_sync = models.DateTimeField(null=True)
+    config = models.JSONField(null=True)
+    
+    # Relationships
+    location_id = models.IntegerField(ForeignKey("location.id"), null=False)
+    location = relationship("Location", back_populates="servers")
+    vpn_accounts = relationship("VPNAccount", back_populates="server", cascade="all, delete-orphan")
+    traffic_logs = relationship("TrafficLog", back_populates="server", cascade="all, delete-orphan")
+    
+    def update_status(self, status: ServerStatus) -> None:
+        """Update server status and related fields."""
+        self.status = status.value
+        self.is_active = status == ServerStatus.ACTIVE
+    
+    def update_user_count(self, count: int) -> None:
+        """Update current user count."""
+        self.current_users = count
+        if count >= self.max_users:
+            self.status = ServerStatus.OVERLOADED.value
+            self.is_active = False
+    
+    def sync_panel(self) -> None:
+        """Update last sync time."""
+        self.last_sync = datetime.utcnow()
+
+class VPNAccount(models.Model):
+    """
+    VPN account model.
+    Represents a user's VPN account with configuration and status.
+    """
+    
+    username = models.CharField(max_length=100, unique=True, null=False)
+    password = models.CharField(max_length=100, null=False)
+    status = models.CharField(max_length=20, choices=[
+        ('active', 'Active'),
+        ('expired', 'Expired'),
+        ('suspended', 'Suspended'),
+        ('cancelled', 'Cancelled')
+    ], default='active', null=False)
+    is_active = models.BooleanField(default=True)
+    traffic_limit = models.BigIntegerField(null=True)  # in bytes
+    upload_traffic = models.BigIntegerField(default=0)  # in bytes
+    download_traffic = models.BigIntegerField(default=0)  # in bytes
+    last_connection = models.DateTimeField(null=True)
+    config = models.JSONField(null=True)
+    
+    # Relationships
+    user_id = models.IntegerField(ForeignKey("user.id"), null=False)
+    user = relationship("User", back_populates="vpn_accounts")
+    server_id = models.IntegerField(ForeignKey("server.id"), null=False)
+    server = relationship("Server", back_populates="vpn_accounts")
+    traffic_logs = relationship("TrafficLog", back_populates="vpn_account", cascade="all, delete-orphan")
+    
+    def update_status(self, status: VPNAccountStatus) -> None:
+        """Update account status and related fields."""
+        self.status = status.value
+        self.is_active = status == VPNAccountStatus.ACTIVE
+    
+    def update_traffic(self, upload: int, download: int) -> None:
+        """Update traffic usage."""
+        self.upload_traffic += upload
+        self.download_traffic += download
+    
+    def has_traffic_limit(self) -> bool:
+        """Check if account has traffic limit."""
+        return self.traffic_limit is not None
+    
+    def has_exceeded_traffic_limit(self) -> bool:
+        """Check if account has exceeded traffic limit."""
+        if not self.has_traffic_limit():
+            return False
+        return (self.upload_traffic + self.download_traffic) >= self.traffic_limit
+
+class TrafficLog(models.Model):
+    """
+    Traffic logging model.
+    Records VPN traffic usage for accounts and servers.
+    """
+    
+    upload_traffic = models.BigIntegerField(null=False)  # in bytes
+    download_traffic = models.BigIntegerField(null=False)  # in bytes
+    timestamp = models.DateTimeField(null=False)
+    
+    # Relationships
+    vpn_account_id = models.IntegerField(ForeignKey("vpaccount.id"), null=False)
+    vpn_account = relationship("VPNAccount", back_populates="traffic_logs")
+    server_id = models.IntegerField(ForeignKey("server.id"), null=False)
+    server = relationship("Server", back_populates="traffic_logs")
+    
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        if not self.timestamp:
+            self.timestamp = datetime.utcnow()
+
+class ServerStatusHistory(models.Model):
     """Model for storing server status history"""
     server = models.ForeignKey(Server, on_delete=models.CASCADE, related_name="status_history")
     cpu_usage = models.FloatField(_("CPU Usage %"), validators=[MinValueValidator(0), MaxValueValidator(100)])

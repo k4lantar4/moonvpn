@@ -10,12 +10,15 @@ from telegram.constants import ParseMode
 
 import logging
 from typing import Dict, Any, List, Optional
+from datetime import datetime
 
 from core.utils.i18n import get_text
 from core.database import get_user_language
-
-# Replace the User import with proper model import
-from models import User
+from core.config import settings
+from core.database import get_db
+from core.models.user import User
+from core.models.vpn_account import VPNAccount
+from core.models.server import Server
 
 # Import handlers
 from handlers import start

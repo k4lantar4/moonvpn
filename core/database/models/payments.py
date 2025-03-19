@@ -1,41 +1,41 @@
-from django.db import models
-from django.utils.translation import gettext_lazy as _
-from django.utils import timezone
-from django.conf import settings
-import secrets
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text, Numeric, JSON, UniqueConstraint, Table
+from sqlalchemy.orm import relationship
+from sqlalchemy.dialects.postgresql import UUID
+from datetime import datetime, timedelta
 import uuid
+import secrets
 import logging
-from django.contrib.auth import get_user_model
+from core.database.base import BaseModel
+from core.database.models.user import User
 
-User = get_user_model()
 logger = logging.getLogger(__name__)
 
-# Create your models here.
+# Association table for PaymentPlan and DiscountCode many-to-many relationship
+payment_plan_discount_codes = Table(
+    'payment_plan_discount_codes',
+    BaseModel.metadata,
+    Column('payment_plan_id', Integer, ForeignKey('payment_plans.id'), primary_key=True),
+    Column('discount_code_id', Integer, ForeignKey('discount_codes.id'), primary_key=True)
+)
 
-class CardOwner(models.Model):
+class CardOwner(BaseModel):
     """Model for tracking card owners"""
-    name = models.CharField(max_length=100, verbose_name=_('Owner Name'))
-    card_number = models.CharField(max_length=20, unique=True, verbose_name=_('Card Number'))
-    bank_name = models.CharField(max_length=50, verbose_name=_('Bank Name'))
-    is_active = models.BooleanField(default=True, verbose_name=_('Is Active'))
-    is_verified = models.BooleanField(default=False, verbose_name=_('Is Verified'))
-    verification_date = models.DateTimeField(null=True, blank=True)
-    verified_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='payment_verified_card_owners'
-    )
-    notes = models.TextField(blank=True, verbose_name=_('Notes'))
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    
-    class Meta:
-        app_label = 'payments'
-        verbose_name = _('Card Owner')
-        verbose_name_plural = _('Card Owners')
-        ordering = ['-created_at']
+    __tablename__ = 'card_owners'
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String(100), nullable=False)
+    card_number = Column(String(20), unique=True, nullable=False)
+    bank_name = Column(String(50), nullable=False)
+    is_active = Column(Boolean, default=True)
+    is_verified = Column(Boolean, default=False)
+    verification_date = Column(DateTime, nullable=True)
+    verified_by_id = Column(Integer, ForeignKey('users.id'), nullable=True)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    verified_by = relationship("User", foreign_keys=[verified_by_id])
+    payments = relationship("CardPayment", back_populates="card_owner")
     
     def __str__(self):
         return f"{self.name} - {self.card_number}"
@@ -43,115 +43,74 @@ class CardOwner(models.Model):
     def verify(self, admin_user):
         """Verify a card owner"""
         self.is_verified = True
-        self.verification_date = timezone.now()
-        self.verified_by = admin_user
-        self.save()
+        self.verification_date = datetime.utcnow()
+        self.verified_by_id = admin_user.id
 
-class Transaction(models.Model):
+class Transaction(BaseModel):
     """Base model for all transactions"""
-    STATUS_CHOICES = (
-        ('pending', _('Pending')),
-        ('completed', _('Completed')),
-        ('failed', _('Failed')),
-        ('expired', _('Expired')),
-        ('refunded', _('Refunded')),
-    )
-    
-    TYPE_CHOICES = (
-        ('deposit', _('Deposit')),
-        ('purchase', _('Purchase')),
-        ('refund', _('Refund')),
-        ('admin', _('Admin Adjustment')),
-    )
-    
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='payment_transactions')
-    amount = models.DecimalField(max_digits=10, decimal_places=2)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
-    type = models.CharField(max_length=20, choices=TYPE_CHOICES)
-    description = models.TextField(blank=True)
-    reference_id = models.CharField(max_length=100, unique=True, default=uuid.uuid4)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    
-    class Meta:
-        app_label = 'payments'
+    __tablename__ = 'transactions'
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    amount = Column(Numeric(10, 2), nullable=False)
+    status = Column(String(20), nullable=False, default='pending')
+    type = Column(String(20), nullable=False)
+    description = Column(Text, nullable=True)
+    reference_id = Column(String(100), unique=True, default=lambda: str(uuid.uuid4()))
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    user = relationship("User", back_populates="transactions")
+    card_payment = relationship("CardPayment", back_populates="transaction", uselist=False)
+    zarinpal_payment = relationship("ZarinpalPayment", back_populates="transaction", uselist=False)
     
     def __str__(self):
         return f"{self.user.username} - {self.amount} - {self.type} - {self.status}"
 
-
-class CardPayment(models.Model):
+class CardPayment(BaseModel):
     """Model for card to card payments"""
-    STATUS_CHOICES = (
-        ('pending', _('Pending')),
-        ('verified', _('Verified')),
-        ('rejected', _('Rejected')),
-        ('expired', _('Expired')),
-        ('retry', _('Retry Required')),
-    )
-    
-    VERIFICATION_METHOD_CHOICES = (
-        ('manual', _('Manual Verification')),
-        ('ocr', _('OCR Verification')),
-        ('both', _('Both Manual & OCR')),
-    )
-    
-    transaction = models.OneToOneField(Transaction, on_delete=models.CASCADE, related_name='payment_card_payment_details')
-    card_owner = models.ForeignKey(CardOwner, on_delete=models.PROTECT, related_name='payment_payments', null=True)
-    card_number = models.CharField(max_length=20)
-    reference_number = models.CharField(max_length=100)
-    transfer_time = models.DateTimeField()
-    verification_code = models.CharField(max_length=10, unique=True)
-    expires_at = models.DateTimeField()
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
-    verification_method = models.CharField(
-        max_length=10,
-        choices=VERIFICATION_METHOD_CHOICES,
-        default='manual'
-    )
-    receipt_image = models.ImageField(
-        upload_to='receipts/%Y/%m/%d/',
-        null=True,
-        blank=True,
-        verbose_name=_('Receipt Image')
-    )
-    ocr_verified = models.BooleanField(default=False, verbose_name=_('OCR Verified'))
-    ocr_data = models.JSONField(null=True, blank=True, verbose_name=_('OCR Data'))
-    admin_note = models.TextField(blank=True)
-    verified_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='payment_verified_card_payments'
-    )
-    verified_at = models.DateTimeField(null=True, blank=True)
-    retry_count = models.PositiveSmallIntegerField(default=0, verbose_name=_('Retry Count'))
-    max_retries = models.PositiveSmallIntegerField(default=3, verbose_name=_('Max Retries'))
-    last_retry_at = models.DateTimeField(null=True, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    
-    class Meta:
-        app_label = 'payments'
-        verbose_name = _('Card Payment')
-        verbose_name_plural = _('Card Payments')
-        ordering = ['-created_at']
-    
+    __tablename__ = 'card_payments'
+
+    id = Column(Integer, primary_key=True)
+    transaction_id = Column(Integer, ForeignKey('transactions.id'), nullable=False)
+    card_owner_id = Column(Integer, ForeignKey('card_owners.id'), nullable=True)
+    card_number = Column(String(20), nullable=False)
+    reference_number = Column(String(100), nullable=False)
+    transfer_time = Column(DateTime, nullable=False)
+    verification_code = Column(String(10), unique=True, nullable=False)
+    expires_at = Column(DateTime, nullable=False)
+    status = Column(String(20), nullable=False, default='pending')
+    verification_method = Column(String(10), nullable=False, default='manual')
+    receipt_image = Column(String(255), nullable=True)
+    ocr_verified = Column(Boolean, default=False)
+    ocr_data = Column(JSON, nullable=True)
+    admin_note = Column(Text, nullable=True)
+    verified_by_id = Column(Integer, ForeignKey('users.id'), nullable=True)
+    verified_at = Column(DateTime, nullable=True)
+    retry_count = Column(Integer, default=0)
+    max_retries = Column(Integer, default=3)
+    last_retry_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    transaction = relationship("Transaction", back_populates="card_payment")
+    card_owner = relationship("CardOwner", back_populates="payments")
+    verified_by = relationship("User", foreign_keys=[verified_by_id])
+
     def __str__(self):
         return f"{self.transaction.user.username} - {self.verification_code}"
     
-    def save(self, *args, **kwargs):
+    def save(self, db):
+        """Save card payment with verification code generation"""
         if not self.verification_code:
             self.verification_code = secrets.token_hex(5)[:10]
         if not self.expires_at:
-            # Set expiry time to 30 minutes from now
-            timeout_minutes = getattr(settings, 'CARD_PAYMENT_VERIFICATION_TIMEOUT_MINUTES', 30)
-            self.expires_at = timezone.now() + timezone.timedelta(minutes=timeout_minutes)
-        super().save(*args, **kwargs)
+            self.expires_at = datetime.utcnow() + timedelta(minutes=30)
+        return super().save(db)
     
     def is_expired(self):
-        return timezone.now() > self.expires_at
+        """Check if payment is expired"""
+        return datetime.utcnow() > self.expires_at
     
     def can_retry(self):
         """Check if payment can be retried"""
@@ -160,19 +119,17 @@ class CardPayment(models.Model):
             self.retry_count < self.max_retries
         )
     
-    def retry_payment(self):
+    def retry_payment(self, db):
         """Retry a failed payment"""
         if not self.can_retry():
             return False
         
         self.status = 'pending'
         self.retry_count += 1
-        self.last_retry_at = timezone.now()
+        self.last_retry_at = datetime.utcnow()
         # Reset expiry time
-        timeout_minutes = getattr(settings, 'CARD_PAYMENT_VERIFICATION_TIMEOUT_MINUTES', 30)
-        self.expires_at = timezone.now() + timezone.timedelta(minutes=timeout_minutes)
-        self.save()
-        return True
+        self.expires_at = datetime.utcnow() + timedelta(minutes=30)
+        return self.save(db)
     
     def verify_with_ocr(self, ocr_data):
         """Verify payment using OCR data"""
@@ -185,343 +142,244 @@ class CardPayment(models.Model):
             ):
                 self.ocr_verified = True
                 self.ocr_data = ocr_data
-                self.save()
                 return True
             return False
         except Exception as e:
             logger.error(f"OCR verification error: {str(e)}")
             return False
 
-
-class ZarinpalPayment(models.Model):
+class ZarinpalPayment(BaseModel):
     """Model for Zarinpal payments"""
-    STATUS_CHOICES = (
-        ('pending', _('Pending')),
-        ('verified', _('Verified')),
-        ('failed', _('Failed')),
-    )
+    __tablename__ = 'zarinpal_payments'
+
+    id = Column(Integer, primary_key=True)
+    transaction_id = Column(Integer, ForeignKey('transactions.id'), nullable=False)
+    authority = Column(String(100), nullable=True)
+    ref_id = Column(String(100), nullable=True)
+    status = Column(String(20), nullable=False, default='pending')
+    payment_url = Column(String(255), nullable=True)
     
-    transaction = models.OneToOneField(Transaction, on_delete=models.CASCADE, related_name='payment_zarinpal_payment_details')
-    authority = models.CharField(max_length=100, blank=True, null=True)
-    ref_id = models.CharField(max_length=100, blank=True, null=True)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
-    payment_url = models.URLField(blank=True, null=True)
+    transaction = relationship("Transaction", back_populates="zarinpal_payment")
     
     def __str__(self):
         return f"{self.transaction.user.username} - {self.authority}"
 
-
-class PaymentMethod(models.Model):
+class PaymentMethod(BaseModel):
     """Payment method configuration"""
-    CARD = 'card'
-    ZARINPAL = 'zarinpal'
-    
-    METHOD_CHOICES = [
-        (CARD, _('Card to Card')),
-        (ZARINPAL, _('ZarinPal')),
-    ]
-    
-    name = models.CharField(_('Name'), max_length=50, choices=METHOD_CHOICES, unique=True)
-    is_active = models.BooleanField(_('Is Active'), default=True)
-    icon = models.ImageField(_('Icon'), upload_to='payment_icons/', null=True, blank=True)
-    description = models.TextField(_('Description'), blank=True, null=True)
+    __tablename__ = 'payment_methods'
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String(50), unique=True, nullable=False)
+    is_active = Column(Boolean, default=True)
+    icon = Column(String(255), nullable=True)
+    description = Column(Text, nullable=True)
     
     # Card payment specific fields
-    card_number = models.CharField(_('Card Number'), max_length=50, blank=True, null=True)
-    card_holder = models.CharField(_('Card Holder'), max_length=100, blank=True, null=True)
-    bank_name = models.CharField(_('Bank Name'), max_length=100, blank=True, null=True)
+    card_number = Column(String(50), nullable=True)
+    card_holder = Column(String(100), nullable=True)
+    bank_name = Column(String(100), nullable=True)
     
     # Zarinpal specific fields
-    merchant_id = models.CharField(_('Merchant ID'), max_length=100, blank=True, null=True)
-    callback_url = models.URLField(_('Callback URL'), blank=True, null=True)
+    merchant_id = Column(String(100), nullable=True)
+    callback_url = Column(String(255), nullable=True)
     
     # Additional configurations
-    min_amount = models.PositiveIntegerField(_('Minimum Amount'), default=50000)  # e.g., 50,000 Tomans
-    max_amount = models.PositiveIntegerField(_('Maximum Amount'), default=10000000)  # e.g., 10M Tomans
-    verification_timeout = models.PositiveIntegerField(
-        _('Verification Timeout (minutes)'), 
-        default=30, 
-        help_text=_('How long to wait for payment verification')
-    )
+    min_amount = Column(Integer, default=50000)  # e.g., 50,000 Tomans
+    max_amount = Column(Integer, default=10000000)  # e.g., 10M Tomans
+    verification_timeout = Column(Integer, default=30)
     
-    created_at = models.DateTimeField(_('Created At'), default=timezone.now)
-    updated_at = models.DateTimeField(_('Updated At'), auto_now=True)
-    
-    class Meta:
-        verbose_name = _('Payment Method')
-        verbose_name_plural = _('Payment Methods')
-    
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    payments = relationship("Payment", back_populates="payment_method")
+
     def __str__(self):
-        return self.get_name_display()
-    
-    def save(self, *args, **kwargs):
-        # Load defaults from environment variables if not set
-        if self.name == self.CARD and not self.card_number:
-            self.card_number = settings.CARD_PAYMENT_NUMBER
-            self.card_holder = settings.CARD_PAYMENT_HOLDER
-            self.bank_name = settings.CARD_PAYMENT_BANK
-        elif self.name == self.ZARINPAL and not self.merchant_id:
-            self.merchant_id = settings.ZARINPAL_MERCHANT_ID
-            self.callback_url = settings.PAYMENT_CALLBACK_URL
-        
-        super().save(*args, **kwargs)
+        return self.name
 
-
-class PaymentPlan(models.Model):
+class PaymentPlan(BaseModel):
     """Available payment plans/packages"""
-    TRAFFIC_UNIT_CHOICES = [
-        ('MB', _('Megabytes')),
-        ('GB', _('Gigabytes')),
-        ('TB', _('Terabytes')),
-    ]
-    
-    name = models.CharField(_('Name'), max_length=100)
-    description = models.TextField(_('Description'), blank=True, null=True)
-    traffic_amount = models.PositiveIntegerField(_('Traffic Amount'))
-    traffic_unit = models.CharField(_('Traffic Unit'), max_length=2, choices=TRAFFIC_UNIT_CHOICES, default='GB')
-    duration_days = models.PositiveIntegerField(_('Duration (days)'))
-    price = models.PositiveIntegerField(_('Price (IRR)'))
-    discount_price = models.PositiveIntegerField(_('Discount Price (IRR)'), null=True, blank=True)
-    is_active = models.BooleanField(_('Is Active'), default=True)
-    is_featured = models.BooleanField(_('Is Featured'), default=False)
-    server_id = models.PositiveIntegerField(_('Server ID'), null=True, blank=True)
-    inbound_id = models.PositiveIntegerField(_('Inbound ID'), null=True, blank=True)
-    order = models.PositiveIntegerField(_('Order'), default=0, help_text=_('Display order'))
-    icon = models.CharField(_('Icon'), max_length=50, blank=True, null=True)
-    badge_text = models.CharField(_('Badge Text'), max_length=50, blank=True, null=True)
-    created_at = models.DateTimeField(_('Created At'), auto_now_add=True)
-    updated_at = models.DateTimeField(_('Updated At'), auto_now=True)
-    
-    class Meta:
-        verbose_name = _('Payment Plan')
-        verbose_name_plural = _('Payment Plans')
-        ordering = ['order', 'price']
-    
+    __tablename__ = 'payment_plans'
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String(100), nullable=False)
+    description = Column(Text, nullable=True)
+    traffic_amount = Column(Integer, nullable=False)
+    traffic_unit = Column(String(2), nullable=False, default='GB')
+    duration_days = Column(Integer, nullable=False)
+    price = Column(Integer, nullable=False)
+    discount_price = Column(Integer, nullable=True)
+    is_active = Column(Boolean, default=True)
+    is_featured = Column(Boolean, default=False)
+    server_id = Column(Integer, nullable=True)
+    inbound_id = Column(Integer, nullable=True)
+    order = Column(Integer, default=0)
+    icon = Column(String(50), nullable=True)
+    badge_text = Column(String(50), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    payments = relationship("Payment", back_populates="plan")
+    discount_codes = relationship("DiscountCode", secondary="payment_plan_discount_codes")
+
     def __str__(self):
-        return f"{self.name} ({self.traffic_amount} {self.traffic_unit}, {self.duration_days} days)"
-    
+        return self.name
+
     @property
     def traffic_bytes(self):
         """Convert traffic amount to bytes"""
-        multiplier = 1024 * 1024  # default MB
-        if self.traffic_unit == 'GB':
-            multiplier = 1024 * 1024 * 1024
-        elif self.traffic_unit == 'TB':
-            multiplier = 1024 * 1024 * 1024 * 1024
-        
-        return self.traffic_amount * multiplier
-    
+        multiplier = {
+            'MB': 1024 * 1024,
+            'GB': 1024 * 1024 * 1024,
+            'TB': 1024 * 1024 * 1024 * 1024
+        }
+        return self.traffic_amount * multiplier.get(self.traffic_unit, 1024 * 1024 * 1024)
+
     @property
     def display_price(self):
-        """Return the effective price (discount price if available)"""
+        """Get display price (with discount if available)"""
         return self.discount_price if self.discount_price else self.price
-    
+
     @property
     def discount_percentage(self):
-        """Calculate discount percentage if discount price is set"""
-        if self.discount_price and self.price > 0:
-            return int(((self.price - self.discount_price) / self.price) * 100)
-        return 0
+        """Calculate discount percentage"""
+        if not self.discount_price:
+            return 0
+        return int(((self.price - self.discount_price) / self.price) * 100)
 
-
-class DiscountCode(models.Model):
+class DiscountCode(BaseModel):
     """Discount codes for payments"""
-    code = models.CharField(_('Code'), max_length=50, unique=True)
-    description = models.TextField(_('Description'), blank=True, null=True)
-    discount_percentage = models.PositiveIntegerField(_('Discount Percentage'), default=10)
-    max_uses = models.PositiveIntegerField(_('Maximum Uses'), null=True, blank=True)
-    used_count = models.PositiveIntegerField(_('Used Count'), default=0)
-    is_active = models.BooleanField(_('Is Active'), default=True)
-    valid_from = models.DateTimeField(_('Valid From'), default=timezone.now)
-    valid_until = models.DateTimeField(_('Valid Until'), null=True, blank=True)
-    plans = models.ManyToManyField(PaymentPlan, blank=True, related_name='discount_codes')
-    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_discounts')
-    created_at = models.DateTimeField(_('Created At'), auto_now_add=True)
-    updated_at = models.DateTimeField(_('Updated At'), auto_now=True)
-    
-    class Meta:
-        verbose_name = _('Discount Code')
-        verbose_name_plural = _('Discount Codes')
-    
+    __tablename__ = 'discount_codes'
+
+    id = Column(Integer, primary_key=True)
+    code = Column(String(50), unique=True, nullable=False)
+    description = Column(Text, nullable=True)
+    discount_percentage = Column(Integer, default=10)
+    max_uses = Column(Integer, nullable=True)
+    used_count = Column(Integer, default=0)
+    is_active = Column(Boolean, default=True)
+    valid_from = Column(DateTime, default=datetime.utcnow)
+    valid_until = Column(DateTime, nullable=True)
+    created_by_id = Column(Integer, ForeignKey('users.id'), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    created_by = relationship("User", foreign_keys=[created_by_id])
+    payments = relationship("Payment", back_populates="discount_code")
+    plans = relationship("PaymentPlan", secondary="payment_plan_discount_codes")
+
     def __str__(self):
-        return f"{self.code} ({self.discount_percentage}%)"
-    
+        return self.code
+
     @property
     def is_valid(self):
-        """Check if discount code is valid for use"""
-        now = timezone.now()
-        max_uses_valid = self.max_uses is None or self.used_count < self.max_uses
-        date_valid = (self.valid_from <= now) and (self.valid_until is None or now <= self.valid_until)
-        return self.is_active and max_uses_valid and date_valid
+        """Check if discount code is valid"""
+        now = datetime.utcnow()
+        return (
+            self.is_active and
+            self.valid_from <= now and
+            (not self.valid_until or self.valid_until >= now) and
+            (not self.max_uses or self.used_count < self.max_uses)
+        )
 
     def apply_discount(self, amount):
-        """Apply the discount to the given amount"""
+        """Apply discount to amount"""
         if not self.is_valid:
             return amount
-        
-        discounted = amount - (amount * self.discount_percentage / 100)
-        return int(discounted)
+        return int(amount * (1 - self.discount_percentage / 100))
 
-
-class Payment(models.Model):
+class Payment(BaseModel):
     """Payment record for tracking transactions"""
-    PENDING = 'pending'
-    PROCESSING = 'processing'
-    COMPLETED = 'completed'
-    FAILED = 'failed'
-    EXPIRED = 'expired'
-    CANCELED = 'canceled'
-    REFUNDED = 'refunded'
+    __tablename__ = 'payments'
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    plan_id = Column(Integer, ForeignKey('payment_plans.id'), nullable=True)
+    payment_method_id = Column(Integer, ForeignKey('payment_methods.id'), nullable=True)
+    discount_code_id = Column(Integer, ForeignKey('discount_codes.id'), nullable=True)
     
-    STATUS_CHOICES = [
-        (PENDING, _('Pending')),
-        (PROCESSING, _('Processing')),
-        (COMPLETED, _('Completed')),
-        (FAILED, _('Failed')),
-        (EXPIRED, _('Expired')),
-        (CANCELED, _('Canceled')),
-        (REFUNDED, _('Refunded')),
-    ]
-    
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='payments')
-    plan = models.ForeignKey(PaymentPlan, on_delete=models.SET_NULL, null=True, blank=True, related_name='payments')
-    payment_method = models.ForeignKey(PaymentMethod, on_delete=models.SET_NULL, null=True, related_name='payments')
-    discount_code = models.ForeignKey(DiscountCode, on_delete=models.SET_NULL, null=True, blank=True, related_name='payments')
-    
-    amount = models.PositiveIntegerField(_('Amount (IRR)'))
-    original_amount = models.PositiveIntegerField(_('Original Amount (IRR)'), null=True, blank=True)
-    description = models.TextField(_('Description'), blank=True, null=True)
-    status = models.CharField(_('Status'), max_length=15, choices=STATUS_CHOICES, default=PENDING)
-    reference_code = models.CharField(_('Reference Code'), max_length=100, null=True, blank=True)
-    tracking_code = models.CharField(_('Tracking Code'), max_length=100, null=True, blank=True)
-    payment_date = models.DateTimeField(_('Payment Date'), null=True, blank=True)
-    expires_at = models.DateTimeField(_('Expires At'), null=True, blank=True)
+    amount = Column(Integer, nullable=False)
+    original_amount = Column(Integer, nullable=True)
+    description = Column(Text, nullable=True)
+    status = Column(String(15), nullable=False, default='pending')
+    reference_code = Column(String(100), nullable=True)
+    tracking_code = Column(String(100), nullable=True)
+    payment_date = Column(DateTime, nullable=True)
+    expires_at = Column(DateTime, nullable=True)
     
     # For card payments
-    card_number = models.CharField(_('Card Number (last 4 digits)'), max_length=4, blank=True, null=True)
-    payer_name = models.CharField(_('Payer Name'), max_length=150, blank=True, null=True)
-    payer_bank = models.CharField(_('Payer Bank'), max_length=100, blank=True, null=True)
-    payment_time = models.DateTimeField(_('Payment Time'), null=True, blank=True)
+    card_number = Column(String(4), nullable=True)
+    payer_name = Column(String(150), nullable=True)
+    payer_bank = Column(String(100), nullable=True)
+    payment_time = Column(DateTime, nullable=True)
     
     # For online payments
-    transaction_id = models.CharField(_('Transaction ID'), max_length=100, blank=True, null=True)
-    verification_code = models.CharField(_('Verification Code'), max_length=100, blank=True, null=True)
-    gateway_response = models.JSONField(_('Gateway Response'), null=True, blank=True)
+    transaction_id = Column(String(100), nullable=True)
+    verification_code = Column(String(100), nullable=True)
+    gateway_response = Column(JSON, nullable=True)
     
     # Account data (what was purchased)
-    traffic_amount = models.PositiveIntegerField(_('Traffic Amount (bytes)'), null=True, blank=True)
-    duration_days = models.PositiveIntegerField(_('Duration (days)'), null=True, blank=True)
-    server_id = models.PositiveIntegerField(_('Server ID'), null=True, blank=True)
-    inbound_id = models.PositiveIntegerField(_('Inbound ID'), null=True, blank=True)
+    traffic_amount = Column(Integer, nullable=True)
+    duration_days = Column(Integer, nullable=True)
+    server_id = Column(Integer, nullable=True)
+    inbound_id = Column(Integer, nullable=True)
     
-    created_at = models.DateTimeField(_('Created At'), auto_now_add=True)
-    updated_at = models.DateTimeField(_('Updated At'), auto_now=True)
-    
-    class Meta:
-        verbose_name = _('Payment')
-        verbose_name_plural = _('Payments')
-        ordering = ['-created_at']
-    
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    user = relationship("User", back_populates="payments")
+    plan = relationship("PaymentPlan", back_populates="payments")
+    payment_method = relationship("PaymentMethod", back_populates="payments")
+    discount_code = relationship("DiscountCode", back_populates="payments")
+
     def __str__(self):
-        return f"{self.id} - {self.user.username} - {self.get_status_display()} - {self.amount} IRR"
-    
-    def save(self, *args, **kwargs):
-        # Set original amount if not set and this is a new record
-        if not self.original_amount and not self.pk:
+        return f"{self.user.username} - {self.amount} - {self.status}"
+
+    def save(self, db):
+        """Save payment with original amount"""
+        if not self.original_amount and not self.id:
             self.original_amount = self.amount
-        
-        # Set expiration time if not set
-        if not self.expires_at and self.payment_method:
-            timeout_minutes = self.payment_method.verification_timeout or 30
-            self.expires_at = timezone.now() + timezone.timedelta(minutes=timeout_minutes)
-        
-        # Save plan details for historical records
-        if self.plan and not self.traffic_amount:
-            self.traffic_amount = self.plan.traffic_bytes
-            self.duration_days = self.plan.duration_days
-            self.server_id = self.plan.server_id
-            self.inbound_id = self.plan.inbound_id
-        
-        super().save(*args, **kwargs)
-    
-    def mark_as_completed(self, reference_code=None, tracking_code=None):
+        return super().save(db)
+
+    def mark_as_completed(self, db, reference_code=None, tracking_code=None):
         """Mark payment as completed"""
-        self.status = self.COMPLETED
-        self.payment_date = timezone.now()
-        
+        self.status = 'completed'
+        self.payment_date = datetime.utcnow()
         if reference_code:
             self.reference_code = reference_code
-        
         if tracking_code:
             self.tracking_code = tracking_code
-        
-        # Apply discount code usage
-        if self.discount_code and self.discount_code.is_valid:
-            self.discount_code.used_count += 1
-            self.discount_code.save()
-        
-        self.save()
-        
-        # Log success
-        logger.info(f"Payment {self.id} marked as completed. Amount: {self.amount} IRR")
-        
-        return True
-    
-    def mark_as_failed(self, reason=None):
+        return self.save(db)
+
+    def mark_as_failed(self, db, reason=None):
         """Mark payment as failed"""
-        self.status = self.FAILED
+        self.status = 'failed'
         if reason:
-            self.description = (self.description or '') + f"\nFailure reason: {reason}"
-        self.save()
-        
-        # Log failure
-        logger.warning(f"Payment {self.id} marked as failed. Reason: {reason}")
-        
-        return True
-    
-    def mark_as_expired(self):
+            self.description = reason
+        return self.save(db)
+
+    def mark_as_expired(self, db):
         """Mark payment as expired"""
-        if self.status == self.PENDING:
-            self.status = self.EXPIRED
-            self.save()
-            
-            # Log expiration
-            logger.info(f"Payment {self.id} marked as expired.")
-            
-            return True
-        return False
-    
-    def mark_as_canceled(self, reason=None):
+        self.status = 'expired'
+        return self.save(db)
+
+    def mark_as_canceled(self, db, reason=None):
         """Mark payment as canceled"""
-        self.status = self.CANCELED
+        self.status = 'canceled'
         if reason:
-            self.description = (self.description or '') + f"\nCancellation reason: {reason}"
-        self.save()
-        
-        # Log cancellation
-        logger.info(f"Payment {self.id} canceled by user. Reason: {reason}")
-        
-        return True
-    
+            self.description = reason
+        return self.save(db)
+
     @property
     def is_paid(self):
-        """Check if payment is completed"""
-        return self.status == self.COMPLETED
-    
+        """Check if payment is paid"""
+        return self.status == 'completed'
+
     @property
     def is_pending(self):
-        """Check if payment is still pending"""
-        return self.status == self.PENDING
-    
+        """Check if payment is pending"""
+        return self.status == 'pending'
+
     @property
     def is_expired(self):
         """Check if payment is expired"""
-        if self.status == self.EXPIRED:
-            return True
-        
-        if self.status == self.PENDING and self.expires_at and timezone.now() > self.expires_at:
-            self.mark_as_expired()
-            return True
-        
-        return False
+        return self.status == 'expired' or (self.expires_at and datetime.utcnow() > self.expires_at)

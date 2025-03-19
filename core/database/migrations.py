@@ -9,12 +9,128 @@ from datetime import datetime
 from typing import List, Dict, Optional
 from sqlalchemy import text
 from .connection import DatabaseManager
+from alembic import command
+from alembic.config import Config
+from core.database.config import (
+    DATABASE_URL,
+    MIGRATION_DIR,
+    ALEMBIC_INI,
+    LOG_LEVEL,
+    LOG_FORMAT,
+    LOG_FILE
+)
 
+# Configure logging
+logging.basicConfig(
+    level=LOG_LEVEL,
+    format=LOG_FORMAT,
+    filename=LOG_FILE
+)
 logger = logging.getLogger(__name__)
 
 class MigrationManager:
-    """Manages database migrations."""
+    """Manager for handling database migrations"""
     
+    def __init__(self):
+        """Initialize migration manager"""
+        self.alembic_cfg = Config(ALEMBIC_INI)
+        self.alembic_cfg.set_main_option('sqlalchemy.url', DATABASE_URL)
+        self.alembic_cfg.set_main_option('script_location', MIGRATION_DIR)
+        
+        # Ensure migration directory exists
+        os.makedirs(MIGRATION_DIR, exist_ok=True)
+        
+        # Initialize alembic if not already initialized
+        if not os.path.exists(os.path.join(MIGRATION_DIR, 'versions')):
+            self.init_migrations()
+
+    def init_migrations(self) -> bool:
+        """Initialize alembic migrations"""
+        try:
+            command.init(self.alembic_cfg, MIGRATION_DIR)
+            logger.info("Alembic migrations initialized successfully")
+            return True
+        except Exception as e:
+            logger.error(f"Error initializing alembic migrations: {str(e)}")
+            return False
+
+    def create_migration(self, message: str) -> bool:
+        """Create a new migration"""
+        try:
+            command.revision(self.alembic_cfg, message=message, autogenerate=True)
+            logger.info(f"Created new migration: {message}")
+            return True
+        except Exception as e:
+            logger.error(f"Error creating migration: {str(e)}")
+            return False
+
+    def upgrade(self, revision: str = 'head') -> bool:
+        """Upgrade database to specified revision"""
+        try:
+            command.upgrade(self.alembic_cfg, revision)
+            logger.info(f"Database upgraded to revision: {revision}")
+            return True
+        except Exception as e:
+            logger.error(f"Error upgrading database: {str(e)}")
+            return False
+
+    def downgrade(self, revision: str = '-1') -> bool:
+        """Downgrade database to specified revision"""
+        try:
+            command.downgrade(self.alembic_cfg, revision)
+            logger.info(f"Database downgraded to revision: {revision}")
+            return True
+        except Exception as e:
+            logger.error(f"Error downgrading database: {str(e)}")
+            return False
+
+    def current_revision(self) -> str:
+        """Get current database revision"""
+        try:
+            return command.current(self.alembic_cfg)
+        except Exception as e:
+            logger.error(f"Error getting current revision: {str(e)}")
+            return ""
+
+    def history(self) -> list:
+        """Get migration history"""
+        try:
+            return command.history(self.alembic_cfg)
+        except Exception as e:
+            logger.error(f"Error getting migration history: {str(e)}")
+            return []
+
+    def stamp(self, revision: str = 'head') -> bool:
+        """Stamp database with specified revision"""
+        try:
+            command.stamp(self.alembic_cfg, revision)
+            logger.info(f"Database stamped with revision: {revision}")
+            return True
+        except Exception as e:
+            logger.error(f"Error stamping database: {str(e)}")
+            return False
+
+    def check(self) -> bool:
+        """Check if database is up to date"""
+        try:
+            current = self.current_revision()
+            head = command.head(self.alembic_cfg)
+            return current == head
+        except Exception as e:
+            logger.error(f"Error checking database status: {str(e)}")
+            return False
+
+    def merge(self, revisions: list[str], message: str) -> bool:
+        """Merge multiple revisions into one"""
+        try:
+            command.merge(self.alembic_cfg, revisions, message=message)
+            logger.info(f"Merged revisions: {revisions}")
+            return True
+        except Exception as e:
+            logger.error(f"Error merging revisions: {str(e)}")
+            return False
+
+# Create global migration manager instance
     def __init__(self, db_manager: DatabaseManager, migrations_dir: str):
         """Initialize migration manager."""
         self.db = db_manager

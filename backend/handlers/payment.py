@@ -1,12 +1,15 @@
 """
-Payment handler for MoonVPN Telegram Bot.
-
-This module handles the payment process and tracking.
+Payment handler for managing user payments.
 """
 
 import logging
-import datetime
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Any, Optional
+from datetime import datetime
+
+from core.config import settings
+from core.database import get_db
+from core.models.user import User
+from core.models.payment import Payment
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
@@ -19,7 +22,6 @@ from telegram.ext import (
 )
 from telegram.constants import ParseMode
 
-from models import User, Payment
 from core.utils.i18n import _
 from core.utils.formatting import allowed_group_filter, admin_filter
 from core.utils.helpers import require_feature

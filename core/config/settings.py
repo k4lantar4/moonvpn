@@ -161,8 +161,8 @@ class Settings(BaseSettings):
         'payment_confirmations': True,
         'service_updates': True
     }
-    
-    # Cache settings
+
+# Cache settings
     CACHE_TTL: Dict[str, int] = {
         "user": 300,        # 5 minutes
         "account": 300,     # 5 minutes

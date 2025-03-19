@@ -7,6 +7,7 @@ This module provides handlers for managing VPN servers via the Telegram bot.
 import logging
 import re
 from typing import Dict, List, Tuple, Optional
+from datetime import datetime
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
@@ -19,7 +20,11 @@ from telegram.ext import (
 )
 from telegram.constants import ParseMode
 
-from models import Server
+from core.config import settings
+from core.database import get_db
+from core.models.server import Server
+from core.models.vpn_account import VPNAccount
+from core.models.user import User
 from core.utils.helpers import admin_required
 from core.utils.i18n import _
 from core.utils.formatting import admin_filter

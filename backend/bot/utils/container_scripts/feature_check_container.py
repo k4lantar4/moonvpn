@@ -1,5 +1,5 @@
 """
-Feature check utilities for MoonVPN Telegram Bot.
+Feature check container script.
 
 This module contains functions for checking feature flags,
 maintenance mode, and admin status.
@@ -11,11 +11,17 @@ import asyncio
 import time
 from functools import wraps
 from typing import Callable, Any, Optional, Dict, Union, List
+from datetime import datetime
 
 from telegram import Update
 from telegram.ext import ContextTypes
 
-from models import FeatureFlag, SystemConfig, User, Server
+from core.config import settings
+from core.database import get_db
+from core.models.feature_flag import FeatureFlag
+from core.models.system_config import SystemConfig
+from core.models.user import User
+from core.models.server import Server
 from core.utils.i18n import get_text
 
 logger = logging.getLogger(__name__)
@@ -288,8 +294,6 @@ async def get_all_servers_health():
         - offline: number of offline servers
         - servers: list of server status dicts
     """
-    from models import Server
-    
     servers = Server.get_all()
     total = len(servers)
     online = 0

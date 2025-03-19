@@ -6,12 +6,129 @@ This module provides the Payment model for managing payment transactions.
 
 import logging
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any, Union
 
 from core.database import execute_query, execute_insert, execute_update, execute_delete, cache_get, cache_set, cache_delete
+from sqlalchemy import Column, String, Integer, Boolean, DateTime, ForeignKey, Numeric, Enum, JSON
+from sqlalchemy.orm import relationship
+import enum
 
 logger = logging.getLogger(__name__)
+
+class PaymentStatus(enum.Enum):
+    """Payment transaction status."""
+    PENDING = "pending"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    REFUNDED = "refunded"
+    CANCELLED = "cancelled"
+
+class PaymentMethod(enum.Enum):
+    """Payment method types."""
+    CARD = "card"
+    ZARINPAL = "zarinpal"
+    WALLET = "wallet"
+
+class Payment(BaseModel):
+    """
+    Base payment model.
+    Represents a payment transaction with common fields and relationships.
+    """
+    
+    amount = Column(Numeric(10, 2), nullable=False)
+    status = Column(Enum(PaymentStatus), default=PaymentStatus.PENDING, nullable=False)
+    method = Column(Enum(PaymentMethod), nullable=False)
+    description = Column(String(500), nullable=True)
+    transaction_id = Column(String(100), unique=True, nullable=True)
+    payment_date = Column(DateTime, nullable=True)
+    refund_date = Column(DateTime, nullable=True)
+    metadata = Column(JSON, nullable=True)
+    
+    # Relationships
+    user_id = Column(Integer, ForeignKey("user.id"), nullable=False)
+    user = relationship("User", back_populates="payments")
+    
+    def complete(self, transaction_id: str) -> None:
+        """Mark payment as completed."""
+        self.status = PaymentStatus.COMPLETED
+        self.transaction_id = transaction_id
+        self.payment_date = datetime.utcnow()
+    
+    def fail(self) -> None:
+        """Mark payment as failed."""
+        self.status = PaymentStatus.FAILED
+    
+    def refund(self) -> None:
+        """Mark payment as refunded."""
+        self.status = PaymentStatus.REFUNDED
+        self.refund_date = datetime.utcnow()
+    
+    def cancel(self) -> None:
+        """Mark payment as cancelled."""
+        self.status = PaymentStatus.CANCELLED
+
+class CardPayment(Payment):
+    """
+    Card payment model.
+    Extends base payment model with card-specific fields.
+    """
+    
+    __tablename__ = "card_payments"
+    
+    card_number = Column(String(16), nullable=False)
+    card_holder = Column(String(100), nullable=False)
+    expiry_month = Column(Integer, nullable=False)
+    expiry_year = Column(Integer, nullable=False)
+    cvv = Column(String(4), nullable=False)
+    is_verified = Column(Boolean, default=False)
+    verification_code = Column(String(6), nullable=True)
+    verification_code_expires = Column(DateTime, nullable=True)
+    
+    def verify_card(self, code: str) -> bool:
+        """Verify card with given code."""
+        if not self.verification_code or not self.verification_code_expires:
+            return False
+        
+        if datetime.utcnow() > self.verification_code_expires:
+            return False
+        
+        if self.verification_code != code:
+            return False
+        
+        self.is_verified = True
+        self.verification_code = None
+        self.verification_code_expires = None
+        return True
+    
+    def generate_verification_code(self) -> str:
+        """Generate a new verification code."""
+        import random
+        self.verification_code = str(random.randint(100000, 999999))
+        self.verification_code_expires = datetime.utcnow() + timedelta(minutes=10)
+        return self.verification_code
+
+class ZarinpalPayment(Payment):
+    """
+    Zarinpal payment model.
+    Extends base payment model with Zarinpal-specific fields.
+    """
+    
+    __tablename__ = "zarinpal_payments"
+    
+    authority = Column(String(100), nullable=True)
+    ref_id = Column(String(100), nullable=True)
+    callback_url = Column(String(255), nullable=False)
+    description = Column(String(500), nullable=True)
+    
+    def set_authority(self, authority: str) -> None:
+        """Set Zarinpal authority."""
+        self.authority = authority
+    
+    def complete_payment(self, ref_id: str) -> None:
+        """Complete Zarinpal payment."""
+        self.ref_id = ref_id
+        self.complete(f"ZARINPAL_{ref_id}")
 
 class Payment:
     """Payment model for managing payment transactions."""

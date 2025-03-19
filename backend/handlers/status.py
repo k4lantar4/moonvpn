@@ -12,7 +12,11 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, ConversationHandler, CommandHandler, CallbackQueryHandler
 from telegram.constants import ParseMode
 
-from models import User, VPNAccount
+from core.config import settings
+from core.database import get_db
+from core.models.user import User
+from core.models.vpn_account import VPNAccount
+from core.models.server import Server
 from core.utils.i18n import _
 from core.database import get_user_accounts
 from core.utils.formatting import allowed_group_filter

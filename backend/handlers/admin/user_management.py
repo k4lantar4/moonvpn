@@ -7,7 +7,7 @@ allowing administrators to view, edit, and manage users.
 
 import logging
 from typing import Dict, Any, List, Optional, Tuple
-import datetime
+from datetime import datetime
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, CallbackQueryHandler, CommandHandler, ConversationHandler, MessageHandler, filters
@@ -15,7 +15,11 @@ from telegram.constants import ParseMode
 
 from core.utils.i18n import get_text, format_number
 from core.utils.helpers import require_admin
-from models import User, VPNAccount, Transaction
+from core.config import settings
+from core.database import get_db
+from core.models.user import User
+from core.models.vpn_account import VPNAccount
+from core.models.transaction import Transaction
 from django.db.models import Sum, Count, Q
 
 logger = logging.getLogger(__name__)

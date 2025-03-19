@@ -11,8 +11,12 @@ import random
 import string
 import asyncio
 from typing import Dict, List, Optional, Tuple, Any
+from datetime import datetime
 
-from models import Server, VPNAccount
+from core.config import settings
+from core.database import get_db
+from core.models.server import Server
+from core.models.vpn_account import VPNAccount
 
 logger = logging.getLogger(__name__)
 

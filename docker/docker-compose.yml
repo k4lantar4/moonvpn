@@ -41,7 +41,7 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  # Redis for caching and Celery
+  # Redis for caching
   redis:
     image: redis:7-alpine
     container_name: moonvpn_redis
@@ -57,27 +57,23 @@ services:
       timeout: 5s
       retries: 5
 
-  # Django Backend API
+  # FastAPI Backend
   backend:
     build:
       context: ..
       dockerfile: backend/Dockerfile
-    container_name: moonvpn_backend
+    container_name: moonvpn_fastapi
     restart: always
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     volumes:
       - ../backend:/app
-      - ../requirements.txt:/app/requirements.txt
-      - backend_media:/app/media
-      - staticfiles_data:/app/staticfiles
     environment:
       - DEBUG=${DEBUG:-False}
-      - SECRET_KEY=${SECRET_KEY}
       - ALLOWED_HOSTS=${ALLOWED_HOSTS:-localhost,127.0.0.1}
-      - CSRF_TRUSTED_ORIGINS=${CSRF_TRUSTED_ORIGINS}
-      - DB_ENGINE=${DB_ENGINE:-django.db.backends.postgresql}
       - DB_NAME=${DB_NAME:-moonvpn}
       - DB_USER=${DB_USER:-moonvpn}
       - DB_PASSWORD=${DB_PASSWORD:-moonvpn}
@@ -85,15 +81,11 @@ services:
       - DB_PORT=5432
       - REDIS_URL=redis://redis:6379/${REDIS_DB:-0}
       - REDIS_PASSWORD=${REDIS_PASSWORD}
-      - CREATE_SUPERUSER=${CREATE_SUPERUSER:-true}
-      - DJANGO_SUPERUSER_USERNAME=${DJANGO_ADMIN_USER:-admin}
-      - DJANGO_SUPERUSER_EMAIL=${DJANGO_ADMIN_EMAIL:-admin@example.com}
-      - DJANGO_SUPERUSER_PASSWORD=${DJANGO_ADMIN_PASSWORD:-admin}
-      - ENABLE_METRICS=${ENABLE_METRICS:-false}
+      - SECRET_KEY=${SECRET_KEY:-your-secret-key}
+      - FIELD_ENCRYPTION_KEY=${FIELD_ENCRYPTION_KEY:-your-encryption-key}
     ports:
       - "${BACKEND_PORT:-8000}:8000"
-    command: >
-      gunicorn config.wsgi:application --workers 4 --bind 0.0.0.0:8000
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
   # Telegram Bot
   bot:
@@ -149,8 +141,6 @@ services:
     volumes:
       - ../frontend:/app
       - node_modules:/app/node_modules
-      - backend_static:/usr/share/nginx/html/static
-      - backend_media:/usr/share/nginx/html/media
     environment:
       - REACT_APP_API_URL=http://localhost:${BACKEND_PORT:-8000}/api/v1
       - NODE_ENV=production
@@ -169,8 +159,6 @@ services:
     volumes:
       - ../nginx/conf.d:/etc/nginx/conf.d
       - ../nginx/ssl:/etc/nginx/ssl
-      - backend_static:/var/www/static
-      - backend_media:/var/www/media
       - certbot_data:/etc/letsencrypt
       - certbot_www:/var/www/certbot
     environment:
@@ -191,10 +179,8 @@ services:
 volumes:
   postgres_data:
   redis_data:
-  backend_static:
-  backend_media:
   node_modules:
   certbot_data:
   certbot_www:
-  staticfiles_data:
-  pgadmin_data: 
+  pgadmin_data:
+  staticfiles_data: 
