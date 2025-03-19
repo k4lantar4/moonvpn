@@ -1,0 +1,126 @@
+.points-menu {
+    padding: 24px;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.points-menu .ant-card {
+    margin-bottom: 24px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.points-menu .ant-card-head {
+    border-bottom: 1px solid #f0f0f0;
+    padding: 16px 24px;
+}
+
+.points-menu .ant-card-head-title {
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.points-menu .ant-card-body {
+    padding: 24px;
+}
+
+.points-menu h2 {
+    font-size: 32px;
+    font-weight: 700;
+    color: #1890ff;
+    margin: 0;
+    text-align: center;
+}
+
+.points-menu .ant-list-item {
+    padding: 16px;
+    border-radius: 4px;
+    transition: all 0.3s;
+}
+
+.points-menu .ant-list-item:hover {
+    background-color: #f5f5f5;
+}
+
+.points-menu .ant-list-item-meta-title {
+    font-size: 16px;
+    font-weight: 500;
+    margin-bottom: 8px;
+}
+
+.points-menu .ant-list-item-meta-description {
+    color: #666;
+}
+
+.points-menu .ant-btn {
+    border-radius: 4px;
+    padding: 4px 16px;
+    height: auto;
+}
+
+.points-menu .ant-btn[disabled] {
+    background-color: #f5f5f5;
+    color: #999;
+}
+
+.points-menu .anticon {
+    margin-right: 8px;
+    font-size: 16px;
+}
+
+/* Points balance card */
+.points-menu .ant-card:first-child {
+    background: linear-gradient(135deg, #1890ff 0%, #096dd9 100%);
+    color: white;
+}
+
+.points-menu .ant-card:first-child .ant-card-head {
+    border-bottom-color: rgba(255, 255, 255, 0.1);
+}
+
+.points-menu .ant-card:first-child .ant-card-head-title {
+    color: white;
+}
+
+/* Points history */
+.points-menu .ant-list-item-meta-title span {
+    font-size: 18px;
+}
+
+/* Points rules */
+.points-menu .ant-list-item-actions {
+    margin-left: 16px;
+}
+
+.points-menu .ant-list-item-actions .ant-btn {
+    min-width: 120px;
+}
+
+/* Points earn info */
+.points-menu .ant-list-item-meta-title {
+    color: #1890ff;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .points-menu {
+        padding: 16px;
+    }
+
+    .points-menu .ant-card-body {
+        padding: 16px;
+    }
+
+    .points-menu h2 {
+        font-size: 24px;
+    }
+
+    .points-menu .ant-list-item-actions {
+        margin-left: 0;
+        margin-top: 8px;
+    }
+
+    .points-menu .ant-list-item-actions .ant-btn {
+        width: 100%;
+    }
+} 

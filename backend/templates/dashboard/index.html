@@ -1,0 +1,332 @@
+{% extends "dashboard/base.html" %}
+
+{% block page_title %}Dashboard Overview{% endblock %}
+{% block page_subtitle %}System metrics and key performance indicators{% endblock %}
+
+{% block content %}
+<!-- Stats Overview -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    <!-- Active Users -->
+    <div class="bg-white dark:bg-gray-700 rounded-lg shadow p-6">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-gray-500 dark:text-gray-400 text-sm font-medium">Active Users</h3>
+            <span class="text-green-500">
+                <i class="fas fa-users"></i>
+            </span>
+        </div>
+        <div class="flex items-center">
+            <span class="text-3xl font-bold text-gray-900 dark:text-white">{{ stats.active_users }}</span>
+            <span class="ml-2 text-sm {% if stats.user_growth >= 0 %}text-green-500{% else %}text-red-500{% endif %}">
+                <i class="fas fa-{% if stats.user_growth >= 0 %}arrow-up{% else %}arrow-down{% endif %}"></i>
+                {{ stats.user_growth|abs }}%
+            </span>
+        </div>
+        <div class="text-sm text-gray-500 dark:text-gray-400 mt-2">
+            vs last period
+        </div>
+    </div>
+
+    <!-- Total Traffic -->
+    <div class="bg-white dark:bg-gray-700 rounded-lg shadow p-6">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-gray-500 dark:text-gray-400 text-sm font-medium">Total Traffic</h3>
+            <span class="text-blue-500">
+                <i class="fas fa-network-wired"></i>
+            </span>
+        </div>
+        <div class="flex items-center">
+            <span class="text-3xl font-bold text-gray-900 dark:text-white">{{ stats.total_traffic|filesizeformat }}</span>
+            <span class="ml-2 text-sm {% if stats.traffic_growth >= 0 %}text-green-500{% else %}text-red-500{% endif %}">
+                <i class="fas fa-{% if stats.traffic_growth >= 0 %}arrow-up{% else %}arrow-down{% endif %}"></i>
+                {{ stats.traffic_growth|abs }}%
+            </span>
+        </div>
+        <div class="text-sm text-gray-500 dark:text-gray-400 mt-2">
+            vs last period
+        </div>
+    </div>
+
+    <!-- Server Load -->
+    <div class="bg-white dark:bg-gray-700 rounded-lg shadow p-6">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-gray-500 dark:text-gray-400 text-sm font-medium">Server Load</h3>
+            <span class="text-yellow-500">
+                <i class="fas fa-server"></i>
+            </span>
+        </div>
+        <div class="flex items-center">
+            <span class="text-3xl font-bold text-gray-900 dark:text-white">{{ stats.server_load }}%</span>
+            <span class="ml-2 text-sm {% if stats.load_change >= 0 %}text-red-500{% else %}text-green-500{% endif %}">
+                <i class="fas fa-{% if stats.load_change >= 0 %}arrow-up{% else %}arrow-down{% endif %}"></i>
+                {{ stats.load_change|abs }}%
+            </span>
+        </div>
+        <div class="text-sm text-gray-500 dark:text-gray-400 mt-2">
+            Average across all servers
+        </div>
+    </div>
+
+    <!-- Security Status -->
+    <div class="bg-white dark:bg-gray-700 rounded-lg shadow p-6">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-gray-500 dark:text-gray-400 text-sm font-medium">Security Status</h3>
+            <span class="{% if stats.security_score >= 80 %}text-green-500{% elif stats.security_score >= 60 %}text-yellow-500{% else %}text-red-500{% endif %}">
+                <i class="fas fa-shield-alt"></i>
+            </span>
+        </div>
+        <div class="flex items-center">
+            <span class="text-3xl font-bold text-gray-900 dark:text-white">{{ stats.security_score }}</span>
+            <span class="ml-2 text-sm {% if stats.security_change >= 0 %}text-green-500{% else %}text-red-500{% endif %}">
+                <i class="fas fa-{% if stats.security_change >= 0 %}arrow-up{% else %}arrow-down{% endif %}"></i>
+                {{ stats.security_change|abs }}
+            </span>
+        </div>
+        <div class="text-sm text-gray-500 dark:text-gray-400 mt-2">
+            Security score out of 100
+        </div>
+    </div>
+</div>
+
+<!-- Charts -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+    <!-- Traffic Chart -->
+    <div class="bg-white dark:bg-gray-700 rounded-lg shadow p-6">
+        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Traffic Overview</h3>
+        <canvas id="trafficChart" height="300"></canvas>
+    </div>
+
+    <!-- User Activity Chart -->
+    <div class="bg-white dark:bg-gray-700 rounded-lg shadow p-6">
+        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">User Activity</h3>
+        <canvas id="userActivityChart" height="300"></canvas>
+    </div>
+</div>
+
+<!-- Recent Activity and Alerts -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+    <!-- Recent Activity -->
+    <div class="bg-white dark:bg-gray-700 rounded-lg shadow">
+        <div class="p-6 border-b dark:border-gray-600">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Recent Activity</h3>
+        </div>
+        <div class="p-6">
+            {% if recent_activity %}
+            <div class="space-y-6">
+                {% for activity in recent_activity %}
+                <div class="flex items-start">
+                    <span class="flex-shrink-0 w-8 h-8 rounded-full bg-{{ activity.category.color }}-100 dark:bg-{{ activity.category.color }}-800 flex items-center justify-center">
+                        <i class="fas fa-{{ activity.icon }} text-{{ activity.category.color }}-500"></i>
+                    </span>
+                    <div class="ml-4 flex-1">
+                        <p class="text-sm font-medium text-gray-900 dark:text-white">{{ activity.title }}</p>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">{{ activity.description }}</p>
+                        <span class="text-xs text-gray-400 dark:text-gray-500">{{ activity.timestamp|timeago }}</span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-gray-500 dark:text-gray-400">No recent activity</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Active Alerts -->
+    <div class="bg-white dark:bg-gray-700 rounded-lg shadow">
+        <div class="p-6 border-b dark:border-gray-600">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Active Alerts</h3>
+        </div>
+        <div class="p-6">
+            {% if active_alerts %}
+            <div class="space-y-4">
+                {% for alert in active_alerts %}
+                <div class="flex items-start p-4 rounded-lg {% if alert.severity == 'critical' %}bg-red-50 dark:bg-red-900{% elif alert.severity == 'warning' %}bg-yellow-50 dark:bg-yellow-900{% else %}bg-blue-50 dark:bg-blue-900{% endif %}">
+                    <span class="flex-shrink-0">
+                        <i class="fas fa-{{ alert.icon }} text-{{ alert.severity_color }}-500"></i>
+                    </span>
+                    <div class="ml-3 flex-1">
+                        <h4 class="text-sm font-medium {% if alert.severity == 'critical' %}text-red-800 dark:text-red-100{% elif alert.severity == 'warning' %}text-yellow-800 dark:text-yellow-100{% else %}text-blue-800 dark:text-blue-100{% endif %}">
+                            {{ alert.title }}
+                        </h4>
+                        <p class="mt-1 text-sm {% if alert.severity == 'critical' %}text-red-700 dark:text-red-200{% elif alert.severity == 'warning' %}text-yellow-700 dark:text-yellow-200{% else %}text-blue-700 dark:text-blue-200{% endif %}">
+                            {{ alert.message }}
+                        </p>
+                        <div class="mt-2">
+                            <button onclick="acknowledgeAlert('{{ alert.id }}')" 
+                                    class="text-sm font-medium {% if alert.severity == 'critical' %}text-red-800 dark:text-red-100{% elif alert.severity == 'warning' %}text-yellow-800 dark:text-yellow-100{% else %}text-blue-800 dark:text-blue-100{% endif %} hover:underline">
+                                Acknowledge
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-gray-500 dark:text-gray-400">No active alerts</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Traffic Chart
+const trafficCtx = document.getElementById('trafficChart').getContext('2d');
+new Chart(trafficCtx, {
+    type: 'line',
+    data: {
+        labels: {{ traffic_data.labels|tojson }},
+        datasets: [{
+            label: 'Upload',
+            data: {{ traffic_data.upload|tojson }},
+            borderColor: '#3B82F6',
+            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+            fill: true
+        }, {
+            label: 'Download',
+            data: {{ traffic_data.download|tojson }},
+            borderColor: '#10B981',
+            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+            fill: true
+        }]
+    },
+    options: {
+        responsive: true,
+        interaction: {
+            mode: 'index',
+            intersect: false,
+        },
+        scales: {
+            y: {
+                beginAtZero: true,
+                ticks: {
+                    callback: function(value) {
+                        return formatBytes(value);
+                    }
+                }
+            }
+        },
+        plugins: {
+            legend: {
+                position: 'top',
+            }
+        }
+    }
+});
+
+// User Activity Chart
+const userActivityCtx = document.getElementById('userActivityChart').getContext('2d');
+new Chart(userActivityCtx, {
+    type: 'bar',
+    data: {
+        labels: {{ user_activity_data.labels|tojson }},
+        datasets: [{
+            label: 'Active Users',
+            data: {{ user_activity_data.values|tojson }},
+            backgroundColor: '#6366F1',
+        }]
+    },
+    options: {
+        responsive: true,
+        scales: {
+            y: {
+                beginAtZero: true
+            }
+        },
+        plugins: {
+            legend: {
+                position: 'top',
+            }
+        }
+    }
+});
+
+// Utility Functions
+function formatBytes(bytes) {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+function acknowledgeAlert(alertId) {
+    showLoading();
+    fetch(`/api/alerts/${alertId}/acknowledge`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            document.querySelector(`[data-alert-id="${alertId}"]`).remove();
+            showNotification('success', 'Alert acknowledged successfully');
+        } else {
+            showNotification('error', 'Failed to acknowledge alert');
+        }
+    })
+    .catch(error => {
+        showNotification('error', 'An error occurred while acknowledging the alert');
+    })
+    .finally(() => {
+        hideLoading();
+    });
+}
+
+// Refresh dashboard data
+function refreshData() {
+    fetch('/api/dashboard/data')
+        .then(response => response.json())
+        .then(data => {
+            // Update statistics
+            updateStats(data.stats);
+            // Update charts
+            updateCharts(data.traffic_data, data.user_activity_data);
+            // Update activity and alerts
+            updateActivity(data.recent_activity);
+            updateAlerts(data.active_alerts);
+        })
+        .catch(error => {
+            console.error('Error refreshing dashboard data:', error);
+        });
+}
+
+function updateStats(stats) {
+    // Update each statistic card
+    Object.keys(stats).forEach(key => {
+        const element = document.querySelector(`[data-stat="${key}"]`);
+        if (element) {
+            element.textContent = formatStatValue(key, stats[key]);
+        }
+    });
+}
+
+function updateCharts(trafficData, userActivityData) {
+    // Update traffic chart
+    trafficChart.data.labels = trafficData.labels;
+    trafficChart.data.datasets[0].data = trafficData.upload;
+    trafficChart.data.datasets[1].data = trafficData.download;
+    trafficChart.update();
+
+    // Update user activity chart
+    userActivityChart.data.labels = userActivityData.labels;
+    userActivityChart.data.datasets[0].data = userActivityData.values;
+    userActivityChart.update();
+}
+
+function formatStatValue(key, value) {
+    switch (key) {
+        case 'total_traffic':
+            return formatBytes(value);
+        case 'server_load':
+        case 'security_score':
+            return value + '%';
+        default:
+            return value;
+    }
+}
+</script>
+{% endblock %} 

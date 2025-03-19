@@ -1,0 +1,89 @@
+{
+  "common": {
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "back": "Back",
+    "next": "Next",
+    "previous": "Previous",
+    "search": "Search",
+    "noResults": "No results found",
+    "confirm": "Confirm",
+    "confirmDelete": "Are you sure you want to delete this item?"
+  },
+  "auth": {
+    "login": "Login",
+    "register": "Register",
+    "logout": "Logout",
+    "username": "Username",
+    "password": "Password",
+    "email": "Email",
+    "forgotPassword": "Forgot password?",
+    "rememberMe": "Remember me",
+    "loginError": "Login error",
+    "registerError": "Registration error",
+    "invalidCredentials": "Invalid username or password"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "totalAccounts": "Total Accounts",
+    "activeAccounts": "Active Accounts",
+    "expiredAccounts": "Expired Accounts",
+    "totalTraffic": "Total Traffic",
+    "usedTraffic": "Used Traffic",
+    "recentActivity": "Recent Activity",
+    "systemStatus": "System Status"
+  },
+  "accounts": {
+    "title": "Accounts",
+    "createAccount": "Create New Account",
+    "accountDetails": "Account Details",
+    "name": "Name",
+    "server": "Server",
+    "protocol": "Protocol",
+    "status": "Status",
+    "expiryDate": "Expiry Date",
+    "trafficLimit": "Traffic Limit",
+    "trafficUsed": "Traffic Used",
+    "config": "Configuration",
+    "copyConfig": "Copy Configuration",
+    "renewAccount": "Renew Account",
+    "deleteAccount": "Delete Account",
+    "noAccounts": "No accounts found"
+  },
+  "settings": {
+    "title": "Settings",
+    "language": "Language",
+    "theme": "Theme",
+    "notifications": "Notifications",
+    "autoRenew": "Auto Renew",
+    "showTraffic": "Show Traffic",
+    "showExpiry": "Show Expiry",
+    "saveSuccess": "Settings saved successfully",
+    "saveError": "Error saving settings"
+  },
+  "help": {
+    "title": "Help",
+    "faq": "FAQ",
+    "contact": "Contact Support",
+    "documentation": "Documentation",
+    "submitTicket": "Submit Support Ticket",
+    "ticketSubject": "Ticket Subject",
+    "ticketMessage": "Message",
+    "submitSuccess": "Ticket submitted successfully",
+    "submitError": "Error submitting ticket"
+  },
+  "errors": {
+    "networkError": "Network error",
+    "serverError": "Server error",
+    "unauthorized": "Unauthorized",
+    "forbidden": "Forbidden",
+    "notFound": "Page not found",
+    "validationError": "Validation error",
+    "unknownError": "Unknown error"
+  }
+} 

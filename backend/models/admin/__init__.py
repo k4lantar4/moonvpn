@@ -1,0 +1,4 @@
+"""
+admin models module.
+"""
+

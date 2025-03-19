@@ -1,0 +1,18 @@
+{% load role_tags %}
+
+{% if user_roles %}
+<div class="user-roles">
+    {% for user_role in user_roles %}
+    <div class="user-role">
+        <span class="role-name">{{ user_role.role.name|role_badge }}</span>
+        {% if user_role.expires_at %}
+        <small class="text-muted">Expires: {{ user_role.expires_at|date:"Y-m-d" }}</small>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="user-roles">
+    <span class="badge bg-secondary">No roles assigned</span>
+</div>
+{% endif %} 

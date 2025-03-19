@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title|default('MoonVPN Dashboard') }}</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="{{ favicon_path }}">
+    
+    <!-- CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="/static/css/dashboard.css" rel="stylesheet">
+    
+    <!-- JavaScript -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.0/dist/chart.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/moment@2.29.1/moment.min.js"></script>
+    <script src="/static/js/dashboard.js"></script>
+    
+    {% block extra_head %}{% endblock %}
+</head>
+<body class="bg-gray-100 dark:bg-gray-900">
+    <!-- Sidebar -->
+    <aside class="fixed inset-y-0 left-0 w-64 bg-white dark:bg-gray-800 shadow-lg">
+        <div class="flex items-center justify-center h-16 border-b dark:border-gray-700">
+            <img src="{{ logo_path }}" alt="MoonVPN Logo" class="h-8">
+        </div>
+        
+        <nav class="mt-6">
+            {% for item in navigation %}
+            {% if item.roles|length == 0 or user.role in item.roles %}
+            <a href="{{ item.path }}" 
+               class="flex items-center px-6 py-3 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 
+                      {% if request.path == item.path %}bg-gray-100 dark:bg-gray-700{% endif %}">
+                <i class="fas fa-{{ item.icon }} w-5"></i>
+                <span class="mx-3">{{ item.name }}</span>
+            </a>
+            {% endif %}
+            {% endfor %}
+        </nav>
+    </aside>
+    
+    <!-- Main Content -->
+    <main class="ml-64 p-8">
+        <!-- Header -->
+        <header class="flex justify-between items-center mb-8">
+            <div>
+                <h1 class="text-2xl font-bold text-gray-800 dark:text-white">
+                    {% block page_title %}{% endblock %}
+                </h1>
+                <p class="text-sm text-gray-600 dark:text-gray-400">
+                    {% block page_subtitle %}{% endblock %}
+                </p>
+            </div>
+            
+            <!-- User Menu -->
+            <div class="relative">
+                <button class="flex items-center text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-white"
+                        onclick="toggleUserMenu()">
+                    <span class="mr-2">{{ user.username }}</span>
+                    <i class="fas fa-user-circle text-xl"></i>
+                </button>
+                
+                <div id="userMenu" class="hidden absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg">
+                    <a href="/profile" class="block px-4 py-2 text-gray-800 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
+                        <i class="fas fa-user-cog mr-2"></i>Profile
+                    </a>
+                    <a href="/logout" class="block px-4 py-2 text-red-600 hover:bg-gray-100 dark:hover:bg-gray-700">
+                        <i class="fas fa-sign-out-alt mr-2"></i>Logout
+                    </a>
+                </div>
+            </div>
+        </header>
+        
+        <!-- Alerts -->
+        {% if alerts %}
+        <div class="mb-8">
+            {% for alert in alerts %}
+            <div class="p-4 rounded-lg mb-4 
+                        {% if alert.type == 'success' %}bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100
+                        {% elif alert.type == 'error' %}bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100
+                        {% elif alert.type == 'warning' %}bg-yellow-100 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-100
+                        {% else %}bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-100{% endif %}">
+                <div class="flex items-center">
+                    <i class="fas fa-{{ alert.icon }} mr-3"></i>
+                    <div>
+                        {% if alert.title %}<h3 class="font-bold">{{ alert.title }}</h3>{% endif %}
+                        <p>{{ alert.message }}</p>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        
+        <!-- Main Content -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+    
+    <!-- Notifications -->
+    <div id="notifications" class="fixed bottom-4 right-4 w-96">
+        {% for notification in notifications %}
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 mb-4 transform transition-all duration-300 
+                    {% if notification.unread %}translate-x-0{% else %}translate-x-full{% endif %}">
+            <div class="flex items-center">
+                <i class="fas fa-{{ notification.icon }} mr-3 text-{{ notification.category.color }}-500"></i>
+                <div class="flex-1">
+                    <h4 class="font-bold text-gray-800 dark:text-white">{{ notification.title }}</h4>
+                    <p class="text-sm text-gray-600 dark:text-gray-400">{{ notification.message }}</p>
+                    <span class="text-xs text-gray-500">{{ notification.timestamp|timeago }}</span>
+                </div>
+                <button onclick="dismissNotification('{{ notification.id }}')"
+                        class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center">
+        <div class="bg-white dark:bg-gray-800 rounded-lg p-8">
+            <div class="flex items-center">
+                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mr-3"></div>
+                <span class="text-gray-800 dark:text-white">Loading...</span>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal -->
+    <div id="modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg max-w-lg w-full mx-4">
+            <div class="p-6">
+                <h3 id="modalTitle" class="text-lg font-bold text-gray-800 dark:text-white mb-4"></h3>
+                <div id="modalContent"></div>
+            </div>
+            <div class="px-6 py-4 bg-gray-100 dark:bg-gray-700 rounded-b-lg flex justify-end space-x-4">
+                <button onclick="closeModal()" 
+                        class="px-4 py-2 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-white">
+                    Cancel
+                </button>
+                <button id="modalConfirm"
+                        class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+                    Confirm
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    {% block extra_js %}{% endblock %}
+    
+    <script>
+        // Theme Toggle
+        function toggleTheme() {
+            document.documentElement.classList.toggle('dark');
+            localStorage.theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+        }
+        
+        // User Menu Toggle
+        function toggleUserMenu() {
+            document.getElementById('userMenu').classList.toggle('hidden');
+        }
+        
+        // Notification Dismissal
+        function dismissNotification(id) {
+            fetch(`/api/notifications/${id}/dismiss`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            }).then(() => {
+                document.querySelector(`[data-notification-id="${id}"]`).remove();
+            });
+        }
+        
+        // Modal Functions
+        function showModal(title, content, confirmCallback) {
+            document.getElementById('modalTitle').textContent = title;
+            document.getElementById('modalContent').innerHTML = content;
+            document.getElementById('modalConfirm').onclick = confirmCallback;
+            document.getElementById('modal').classList.remove('hidden');
+        }
+        
+        function closeModal() {
+            document.getElementById('modal').classList.add('hidden');
+        }
+        
+        // Loading Overlay
+        function showLoading() {
+            document.getElementById('loadingOverlay').classList.remove('hidden');
+        }
+        
+        function hideLoading() {
+            document.getElementById('loadingOverlay').classList.add('hidden');
+        }
+        
+        // Initialize theme
+        if (localStorage.theme === 'dark' || 
+            (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+        }
+        
+        // Close dropdowns when clicking outside
+        document.addEventListener('click', function(event) {
+            if (!event.target.closest('#userMenu') && !event.target.closest('button')) {
+                document.getElementById('userMenu').classList.add('hidden');
+            }
+        });
+        
+        // Refresh data periodically
+        const refreshInterval = {{ refresh_interval|default(30) }} * 1000;
+        setInterval(() => {
+            if (typeof refreshData === 'function') {
+                refreshData();
+            }
+        }, refreshInterval);
+    </script>
+</body>
+</html> 

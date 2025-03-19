@@ -1,0 +1,20 @@
+{% extends "admin/index.html" %}
+{% load i18n %}
+
+{% block sidebar %}
+<div id="content-related">
+    <div class="module" id="monitoring-shortcuts">
+        <h2>{% trans 'Monitoring Tools' %}</h2>
+        <ul>
+            <li>
+                <a href="{{ monitoring_url }}">
+                    <strong>{% trans 'System Monitoring Dashboard' %}</strong>
+                </a>
+                <br>
+                <span class="mini">{% trans 'View real-time metrics for the entire system' %}</span>
+            </li>
+        </ul>
+    </div>
+    {{ block.super }}
+</div>
+{% endblock %} 

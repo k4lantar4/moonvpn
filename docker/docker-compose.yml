@@ -1,0 +1,200 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: moonvpn_postgres
+    restart: always
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=${DB_NAME:-moonvpn}
+      - POSTGRES_USER=${DB_USER:-moonvpn}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-moonvpn}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-moonvpn}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # pgAdmin - PostgreSQL Admin interface
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: moonvpn_pgadmin
+    restart: always
+    depends_on:
+      - postgres
+    ports:
+      - "${PGADMIN_PORT:-5050}:80"
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=${PGADMIN_DEFAULT_EMAIL:-admin@moonvpn.example.com}
+      - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_DEFAULT_PASSWORD:-moonvpn}
+      - PGADMIN_CONFIG_SERVER_MODE=False
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Redis for caching and Celery
+  redis:
+    image: redis:7-alpine
+    container_name: moonvpn_redis
+    restart: always
+    ports:
+      - "${REDIS_PORT:-6380}:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes ${REDIS_PASSWORD:+--requirepass ${REDIS_PASSWORD}}
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Django Backend API
+  backend:
+    build:
+      context: ..
+      dockerfile: backend/Dockerfile
+    container_name: moonvpn_backend
+    restart: always
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - ../backend:/app
+      - ../requirements.txt:/app/requirements.txt
+      - backend_media:/app/media
+      - staticfiles_data:/app/staticfiles
+    environment:
+      - DEBUG=${DEBUG:-False}
+      - SECRET_KEY=${SECRET_KEY}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS:-localhost,127.0.0.1}
+      - CSRF_TRUSTED_ORIGINS=${CSRF_TRUSTED_ORIGINS}
+      - DB_ENGINE=${DB_ENGINE:-django.db.backends.postgresql}
+      - DB_NAME=${DB_NAME:-moonvpn}
+      - DB_USER=${DB_USER:-moonvpn}
+      - DB_PASSWORD=${DB_PASSWORD:-moonvpn}
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - REDIS_URL=redis://redis:6379/${REDIS_DB:-0}
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - CREATE_SUPERUSER=${CREATE_SUPERUSER:-true}
+      - DJANGO_SUPERUSER_USERNAME=${DJANGO_ADMIN_USER:-admin}
+      - DJANGO_SUPERUSER_EMAIL=${DJANGO_ADMIN_EMAIL:-admin@example.com}
+      - DJANGO_SUPERUSER_PASSWORD=${DJANGO_ADMIN_PASSWORD:-admin}
+      - ENABLE_METRICS=${ENABLE_METRICS:-false}
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    command: >
+      gunicorn config.wsgi:application --workers 4 --bind 0.0.0.0:8000
+
+  # Telegram Bot
+  bot:
+    build:
+      context: ..
+      dockerfile: bot/Dockerfile
+    container_name: moonvpn_bot
+    restart: always
+    depends_on:
+      - backend
+      - postgres
+      - redis
+    volumes:
+      - ../bot:/app
+      - ../requirements.txt:/app/requirements.txt
+    environment:
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - ADMIN_IDS=${ADMIN_IDS}
+      - MANAGER_IDS=${MANAGER_IDS}
+      - SUPPORT_IDS=${SUPPORT_IDS}
+      - API_BASE_URL=http://backend:8000/api/v1
+      - API_AUTH_TOKEN=${API_AUTH_TOKEN}
+      - REDIS_URL=redis://redis:6379/${REDIS_DB:-0}
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - X_UI_PANEL_URL=${X_UI_PANEL_URL}
+      - X_UI_PANEL_USERNAME=${X_UI_PANEL_USERNAME}
+      - X_UI_PANEL_PASSWORD=${X_UI_PANEL_PASSWORD}
+      - PAYMENT_METHODS=${PAYMENT_METHODS:-card}
+      - CARD_NUMBER=${CARD_NUMBER}
+      - CARD_HOLDER=${CARD_HOLDER}
+      - WEBHOOK_MODE=${WEBHOOK_MODE:-false}
+      - WEBHOOK_URL=${TELEGRAM_WEBHOOK_URL}
+      - WEBHOOK_PATH=${WEBHOOK_PATH}
+      - WEBHOOK_PORT=${WEBHOOK_PORT:-8443}
+      - DEFAULT_LANGUAGE=${DEFAULT_LANGUAGE:-fa}
+      - AVAILABLE_LANGUAGES=${AVAILABLE_LANGUAGES:-fa,en}
+      - FEATURES=${FEATURES}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - SENTRY_DSN=${SENTRY_DSN}
+    command: python docker_main.py
+
+  # React Frontend
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    container_name: moonvpn_frontend
+    restart: always
+    depends_on:
+      - backend
+    ports:
+      - "${FRONTEND_PORT:-8080}:80"
+    volumes:
+      - ../frontend:/app
+      - node_modules:/app/node_modules
+      - backend_static:/usr/share/nginx/html/static
+      - backend_media:/usr/share/nginx/html/media
+    environment:
+      - REACT_APP_API_URL=http://localhost:${BACKEND_PORT:-8000}/api/v1
+      - NODE_ENV=production
+
+  # Nginx for production
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: moonvpn_nginx
+    restart: always
+    depends_on:
+      - backend
+      - frontend
+    ports:
+      - "${NGINX_PORT:-80}:80"
+      - "${NGINX_SSL_PORT:-443}:443"
+    volumes:
+      - ../nginx/conf.d:/etc/nginx/conf.d
+      - ../nginx/ssl:/etc/nginx/ssl
+      - backend_static:/var/www/static
+      - backend_media:/var/www/media
+      - certbot_data:/etc/letsencrypt
+      - certbot_www:/var/www/certbot
+    environment:
+      - NGINX_HOST=${NGINX_HOST:-localhost}
+
+  # Certbot for SSL certificates
+  certbot:
+    image: certbot/certbot:latest
+    container_name: moonvpn_certbot
+    volumes:
+      - certbot_data:/etc/letsencrypt
+      - certbot_www:/var/www/certbot
+    depends_on:
+      - nginx
+    command: renew
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+
+volumes:
+  postgres_data:
+  redis_data:
+  backend_static:
+  backend_media:
+  node_modules:
+  certbot_data:
+  certbot_www:
+  staticfiles_data:
+  pgadmin_data: 
