@@ -23,11 +23,11 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Set up Django using our custom setup function
-from bot.django_setup import setup_django
+from core.bot.django_setup import setup_django
 setup_django()
 
 # Import necessary models
-from backend.models import (
+from core.database.models import (
     User, AdminGroup, Wallet, Transaction, Order, Voucher,
     Server, Location, VPNAccount, SubscriptionPlan, AccountService
 )

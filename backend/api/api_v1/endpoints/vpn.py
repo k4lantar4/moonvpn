@@ -10,16 +10,15 @@ from typing import Any, List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.core.security import get_current_user, get_current_active_superuser
-from app.db.session import get_db
-from app.models.user.user import User
-from app.models.vpn.location import Location
-from app.models.vpn.server import Server
-from app.models.vpn.vpn_account import VPNAccount
-from app.schemas.vpn.location import LocationCreate, LocationResponse, LocationUpdate
-from app.schemas.vpn.server import ServerCreate, ServerResponse, ServerUpdate
-from app.schemas.vpn.vpn_account import VPNAccountCreate, VPNAccountResponse, VPNAccountUpdate
-from app.services.panel.api import PanelClient
+from core.security import get_current_user, get_current_active_superuser
+from core.database import get_db
+from core.database.models import User, Location, Server, VPNAccount
+from core.schemas.vpn import (
+    LocationCreate, LocationResponse, LocationUpdate,
+    ServerCreate, ServerResponse, ServerUpdate,
+    VPNAccountCreate, VPNAccountResponse, VPNAccountUpdate
+)
+from core.services.panel.api import PanelClient
 
 router = APIRouter()
 

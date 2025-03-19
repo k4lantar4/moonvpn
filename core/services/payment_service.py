@@ -12,7 +12,7 @@ from decimal import Decimal
 import aiohttp
 import asyncio
 
-from models import User, Transaction, SubscriptionPlan
+from core.database.models import User, Transaction, SubscriptionPlan
 from core.config import settings
 from core.utils.helpers import format_number
 from core.database import get_db

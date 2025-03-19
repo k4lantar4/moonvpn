@@ -13,9 +13,9 @@ from datetime import datetime, timedelta
 from io import BytesIO
 import time
 
-from models import User, VPNAccount, Server, SubscriptionPlan, Transaction
+from core.database.models import User, VPNAccount, Server, SubscriptionPlan, Transaction
 from core.services.panel.api import XUIClient
-from .threexui_api import create_v2ray_account, delete_v2ray_account, update_v2ray_account, get_v2ray_account_traffic
+from core.bot.services.threexui_api import create_v2ray_account, delete_v2ray_account, update_v2ray_account, get_v2ray_account_traffic
 import qrcode
 
 logger = logging.getLogger(__name__)

@@ -13,7 +13,7 @@ from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.error import TelegramError
 from telegram.constants import ParseMode
 
-from models.groups import BotManagementGroup
+from core.database.models.groups import BotManagementGroup
 from core.utils.helpers import get_formatted_datetime
 
 logger = logging.getLogger(__name__)

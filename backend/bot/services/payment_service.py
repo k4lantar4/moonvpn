@@ -12,10 +12,12 @@ from decimal import Decimal
 import aiohttp
 import asyncio
 
-from models import User, Transaction, SubscriptionPlan
 from core.config import settings
 from core.utils.helpers import format_number
 from core.database import get_db
+from core.models.user import User
+from core.models.transaction import Transaction
+from core.models.subscription_plan import SubscriptionPlan
 
 logger = logging.getLogger(__name__)
 

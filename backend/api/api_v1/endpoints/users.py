@@ -7,11 +7,11 @@ from typing import Any, List
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
-from app.core.security import get_current_active_user, get_current_admin_user
-from app.db.session import get_db
-from app.models.user import User
-from app.schemas.user import UserCreate, UserResponse, UserUpdate
-from app.services.user import create_user, delete_user, get_user_by_id, get_users, update_user
+from core.security import get_current_active_user, get_current_admin_user
+from core.database import get_db
+from core.database.models import User
+from core.schemas.user import UserCreate, UserResponse, UserUpdate
+from core.services.user import create_user, delete_user, get_user_by_id, get_users, update_user
 
 router = APIRouter()
 

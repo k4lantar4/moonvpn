@@ -7,9 +7,9 @@ from telegram.ext import CallbackContext, CommandHandler, CallbackQueryHandler
 from django.utils import timezone
 import requests
 
-from main.models import PanelConfig
-from bot.decorators import admin_required
-from bot.utils import build_menu
+from core.database.models import PanelConfig
+from core.bot.decorators import admin_required
+from core.bot.utils import build_menu
 
 @admin_required
 async def list_panels(update: Update, context: CallbackContext):

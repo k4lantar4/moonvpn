@@ -10,12 +10,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.core.security import get_current_active_superuser
-from app.db.session import get_db
-from app.models.payment.transaction import Transaction
-from app.models.user.user import User
-from app.models.vpn.server import Server
-from app.models.vpn.vpn_account import VPNAccount
+from core.security import get_current_active_superuser
+from core.database import get_db
+from core.database.models import User, VPNAccount, Server, Transaction
 
 router = APIRouter()
 

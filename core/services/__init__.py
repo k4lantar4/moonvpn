@@ -1,27 +1,25 @@
 """
-Core Services Module
+Services package for MoonVPN Bot.
 
-This module provides essential services for the MoonVPN application.
+This package contains service modules that implement business logic.
 """
 
-from core.services.analytics import AnalyticsService
-from core.services.backup import BackupService
-from core.services.notification import NotificationService
-from core.services.security import SecurityService
-from core.services.traffic import TrafficService
-
-# Shortcut imports from submodules
-from core.services.panel import PanelAPI, PanelClient
-from core.services.server import ServerManager
+from .account_service import AccountService
+from .payment_service import PaymentService
+from .notification_service import notification_service
+from .vpn_service import VPNService
+from .user_service import UserService
+from .broadcast_service import BroadcastService
 
 __all__ = [
-    'AnalyticsService',
-    'BackupService',
-    'NotificationService',
-    'PanelAPI',
-    'PanelClient',
-    'SecurityService',
-    'ServerManager',
-    'TrafficService',
+    'VPNService',
+    'PaymentService',
+    'UserService',
+    'BroadcastService'
 ]
 
+# Initialize service instances
+vpn_service = VPNService()
+payment_service = PaymentService()
+user_service = UserService()
+broadcast_service = BroadcastService() 

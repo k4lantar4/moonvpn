@@ -9,7 +9,6 @@ __version__ = '0.1.0'
 
 # Import key services for easier access
 from core.services import (
-    AnalyticsService,
     BackupService,
     NotificationService,
     PanelAPI,

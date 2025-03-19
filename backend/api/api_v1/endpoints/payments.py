@@ -10,15 +10,10 @@ from typing import Any, List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.core.security import get_current_user, get_current_active_superuser
-from app.db.session import get_db
-from app.models.payment.transaction import Transaction
-from app.models.user.user import User
-from app.schemas.payment.transaction import (
-    TransactionCreate,
-    TransactionResponse,
-    TransactionUpdate,
-)
+from core.security import get_current_user, get_current_active_superuser
+from core.database import get_db
+from core.database.models import Transaction, User
+from core.schemas.payment import TransactionCreate, TransactionResponse, TransactionUpdate
 
 router = APIRouter()
 

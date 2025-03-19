@@ -12,7 +12,7 @@ from pathlib import Path
 project_root = str(Path(__file__).parent.parent.parent.parent)
 sys.path.insert(0, project_root)
 
-from backend.bot.scripts.migrate_settings import migrate_settings
+from migrate_settings import migrate_settings
 
 def main():
     """Run the migration process."""
