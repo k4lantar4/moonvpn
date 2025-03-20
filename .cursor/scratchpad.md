@@ -16,339 +16,202 @@
 Cross-reference with @memories.md and @lessons-learned.md for context and best practices.`
 
 # Mode: PLAN 🎯
-Current Task: Comprehensive Django to FastAPI Migration Plan
-Understanding: Need to migrate all Django modules to FastAPI while maintaining functionality and improving performance
-Confidence: 95%
-
-Current Phase: MIGRATION-2
+Current Phase: PHASE-1
 Mode Context: Implementation
 Status: Active
-Last Updated: v1.0.9
+Confidence: 95%
+Last Updated: v1.0.11
 
-## Migration Strategy
-
-### Phase 1: Core Infrastructure
-[ID-027] Database Layer Migration
-Status: [-] Priority: High
+Tasks:
+[ID-001] Authentication System Implementation
+Status: [X] Priority: High
 Dependencies: None
 Progress Notes:
-- [v1.0.9] Need to migrate database layer:
-  1. Convert Django models to SQLAlchemy:
-     - Create base model class
-     - Migrate User model
-     - Migrate VPN models
-     - Migrate Payment models
-     - Migrate Points models
-     - Migrate Chat models
-  2. Setup Alembic migrations:
-     - Initialize Alembic
-     - Create initial migration
-     - Setup migration environment
-  3. Update database configuration:
-     - Update connection settings
-     - Configure connection pooling
-     - Setup async database operations
+- [v1.0.8] Implemented authentication schemas
+- [v1.0.8] Created authentication service
+- [v1.0.8] Implemented authentication endpoints
+- [v1.0.8] Added JWT token handling
+- [v1.0.8] Implemented password hashing and verification
 
-### Phase 2: Core Services
-[ID-028] Service Layer Migration
-Status: [-] Priority: High
-Dependencies: [ID-027]
+[ID-002] User Management Implementation
+Status: [X] Priority: High
+Dependencies: [ID-001]
 Progress Notes:
-- [v1.0.9] Need to migrate core services:
-  1. VPN Service:
-     - Convert to async operations
-     - Update panel integration
-     - Migrate account management
-  2. Payment Service:
-     - Update payment processing
-     - Migrate transaction handling
-     - Update payment gateways
-  3. Points Service:
-     - Migrate points calculation
-     - Update rewards system
-  4. Chat Service:
-     - Convert to WebSocket support
-     - Update message handling
+- [v1.0.9] Created user schemas
+- [v1.0.9] Implemented user service
+- [v1.0.9] Added user endpoints
+- [v1.0.9] Implemented profile management
+- [v1.0.9] Added activity tracking
 
-### Phase 3: API Layer
-[ID-029] API Endpoints Migration
-Status: [-] Priority: High
-Dependencies: [ID-027, ID-028]
+[ID-003] VPN System Implementation
+Status: [X] Priority: High
+Dependencies: [ID-001], [ID-002]
 Progress Notes:
-- [v1.0.9] Need to migrate API endpoints:
-  1. Authentication:
-     - Convert to JWT
-     - Update user management
-     - Migrate permissions
-  2. VPN Endpoints:
-     - Account management
-     - Server management
-     - Traffic monitoring
-  3. Payment Endpoints:
-     - Transaction processing
-     - Payment verification
-     - Invoice generation
-  4. Points Endpoints:
-     - Points management
-     - Rewards distribution
-  5. Chat Endpoints:
-     - Message handling
-     - User presence
+- [v1.0.10] Created VPN schemas
+- [v1.0.10] Implemented VPN service
+- [v1.0.10] Added VPN endpoints
+- [v1.0.10] Implemented server management
+- [v1.0.10] Added account management
+- [v1.0.10] Added traffic monitoring
+- [v1.0.10] Implemented connection status tracking
 
-### Phase 4: Telegram Bot Integration
-[ID-030] Bot Integration Migration
-Status: [-] Priority: High
-Dependencies: [ID-027, ID-028, ID-029]
+[ID-004] Payment System Implementation
+Status: [X] Priority: High
+Dependencies: [ID-001], [ID-002], [ID-003]
 Progress Notes:
-- [v1.0.9] Need to migrate bot integration:
-  1. Bot Core:
-     - Update bot initialization
-     - Migrate command handlers
-     - Update conversation flows
-  2. Handlers:
-     - Convert to async handlers
-     - Update message processing
-     - Migrate callback handlers
-  3. Services:
-     - Update account service
-     - Migrate payment service
-     - Update points service
+- [v1.0.11] Created payment schemas
+- [v1.0.11] Implemented payment service
+- [v1.0.11] Added payment endpoints
+- [v1.0.11] Implemented subscription management
+- [v1.0.11] Added plan management
+- [v1.0.11] Added payment statistics
+- [v1.0.11] Integrated with main application
 
-### Phase 5: Testing & Documentation
-[ID-031] Testing Framework Migration
-Status: [-] Priority: Medium
-Dependencies: [ID-027, ID-028, ID-029, ID-030]
+[ID-005] Testing Framework Implementation
+Status: [ ] Priority: High
+Dependencies: [ID-001], [ID-002], [ID-003], [ID-004]
 Progress Notes:
-- [v1.0.9] Need to migrate testing:
-  1. Unit Tests:
-     - Convert to pytest
-     - Update test fixtures
-     - Migrate test cases
-  2. Integration Tests:
-     - Update API tests
-     - Migrate service tests
-     - Update bot tests
-  3. Documentation:
-     - Update API docs
-     - Migrate service docs
-     - Update bot docs
+- [v1.0.11] Planning testing framework implementation
 
-## Migration Order
+Next Steps:
+1. Implement testing framework:
+   - Set up pytest configuration
+   - Create test fixtures
+   - Implement unit tests for services
+   - Add integration tests for endpoints
+   - Create API tests
+   - Add performance tests
 
-1. Start with Database Layer:
-   - Create SQLAlchemy models
-   - Setup Alembic
-   - Migrate data
+2. Implement monitoring system:
+   - Add request logging
+   - Implement error tracking
+   - Add performance monitoring
+   - Set up alerting system
 
-2. Core Services:
-   - VPN Service
-   - Payment Service
-   - Points Service
-   - Chat Service
+3. Update documentation:
+   - API documentation
+   - System architecture docs
+   - Deployment guide
+   - User manual
+   - Developer guide
 
-3. API Layer:
-   - Authentication
-   - VPN Endpoints
-   - Payment Endpoints
-   - Points Endpoints
-   - Chat Endpoints
+Current Focus:
+- Testing framework implementation
+- Monitoring system setup
+- Documentation updates
 
-4. Telegram Bot:
-   - Core Bot
-   - Handlers
-   - Services
-
-5. Testing & Documentation
-
-## Next Steps
-1. Begin with database layer migration
-2. Create initial SQLAlchemy models
-3. Setup Alembic configuration
-4. Create first migration
+Notes:
+- All core systems (auth, user, VPN, payment) are now implemented
+- Need to focus on testing and monitoring
+- Documentation needs to be updated
+- Consider adding more features to existing systems
 
 # Mode: IMPLEMENTATION ⚡
-Current Task: FastAPI Migration Implementation
-Understanding: Need to complete the FastAPI migration by implementing remaining components and ensuring functionality is preserved from Django version
-Confidence: 95%
+Current Task: Testing Framework Implementation
+Understanding: Need to implement a comprehensive testing framework for all components
+Confidence: 85%
 
-Current Phase: MIGRATION-1
+Current Phase: TESTING-1
 Mode Context: Implementation
 Status: Active
-Last Updated: v1.0.8
+Last Updated: v1.0.11
 
-## FastAPI Migration Implementation Plan
+## Testing Framework Implementation Plan
 
-### Database Models
-[ID-019] Complete Database Models
-Status: [X] Priority: High
+### 1. Test Environment Setup
+[ID-042] Test Configuration
+Status: [ ] Priority: High
 Dependencies: None
 Progress Notes:
-- [v1.0.6] Need to implement remaining database models:
-  1. Server model with:
-     - Integration with 3x-UI panel
-     - Session cookie storage
-     - Status tracking
-  2. VPN Account model with:
-     - Client configuration
-     - Traffic usage tracking
-     - Subscription status
-  3. Transaction model with:
-     - Payment processing
-     - Status tracking
-     - Relation to user and account
-  4. Location model with:
-     - Geographic information
-     - Server assignment
-  5. Subscription Plan model with:
-     - Pricing tiers
-     - Traffic limits
-     - Duration settings
-- [v1.0.7] Analyzed the existing codebase and found that most of the database models have already been implemented:
-  - Server model includes panel integration with cookies, status tracking, and metrics
-  - Location model with geographic information
-  - VPN Account model with traffic tracking, subscription details, and relationships
-  - Transaction and Payment models exist but may need some enhancements
-  - The models follow SQLAlchemy best practices with proper relationships
+- [v1.0.11] Need to set up test environment:
+  1. Configure pytest
+  2. Set up test database
+  3. Create test fixtures
+  4. Add test utilities
 
-### Services
-[ID-026] Complete Core Services
-Status: [X] Priority: High
-Dependencies: [ID-019]
+### 2. Service Tests
+[ID-043] Service Layer Testing
+Status: [ ] Priority: High
+Dependencies: [ID-042]
 Progress Notes:
-- [v1.0.7] Analyzed existing services and found robust implementations:
-  - PanelClient service for 3x-UI panel integration with:
-    - Cookie-based authentication
-    - Session management
-    - API operations for account and traffic management
-  - VPNService for managing VPN accounts with:
-    - Account creation/updating/deletion
-    - Server selection based on load
-    - Traffic synchronization
-  - Services follow FastAPI dependency injection pattern
-  - Implementation is well-documented with comprehensive error handling
+- [v1.0.11] Need to implement service tests:
+  1. Authentication service tests
+  2. User service tests
+  3. VPN service tests
+  4. Payment service tests
 
-### API Endpoints
-[ID-020] Implement API Endpoints
-Status: [-] Priority: High
-Dependencies: [ID-019, ID-026]
+### 3. API Tests
+[ID-044] API Endpoint Testing
+Status: [ ] Priority: High
+Dependencies: [ID-042, ID-043]
 Progress Notes:
-- [v1.0.6] Need to create FastAPI endpoints in app/api/v1/endpoints/:
-  1. Authentication endpoints:
-     - Login/logout
-     - Token generation/validation 
-     - Password reset
-  2. User management endpoints:
-     - Registration
-     - Profile update
-     - Admin user controls
-  3. Server management endpoints:
-     - Server listing
-     - Status checking
-     - Configuration
-  4. VPN account endpoints:
-     - Account creation
-     - Status checking
-     - Traffic usage
-  5. Payment endpoints:
-     - Transaction processing
-     - Payment verification
-     - Invoice generation
-- [v1.0.7] Next implementation step - API endpoints need to be created to expose service functionality through REST API
-- [v1.0.8] Implemented server management API endpoints with:
-  - GET /servers - List all servers with filtering
-  - POST /servers - Create new server
-  - GET/PUT/DELETE /servers/{id} - Get, update, delete server
-  - GET /servers/{id}/status - Check server status
-  - POST /servers/{id}/toggle - Toggle server active status
-  - GET/POST /servers/locations - Location management
-  - Updated schemas and main router to include server endpoints
+- [v1.0.11] Need to implement API tests:
+  1. Authentication endpoint tests
+  2. User endpoint tests
+  3. VPN endpoint tests
+  4. Payment endpoint tests
 
-### Database Migrations
-[ID-021] Setup Alembic Migrations
-Status: [-] Priority: High
-Dependencies: [ID-019]
+### 4. Integration Tests
+[ID-045] Integration Testing
+Status: [ ] Priority: High
+Dependencies: [ID-042, ID-043, ID-044]
 Progress Notes:
-- [v1.0.6] Need to configure Alembic for database migrations:
-  1. Initialize Alembic environment
-  2. Create migration scripts for models
-  3. Setup versioning and history tracking
-  4. Implement upgrade/downgrade paths
-  5. Configure migration environment variables
-- [v1.0.7] Alembic is initialized (alembic.ini exists) but migration scripts need to be created
+- [v1.0.11] Need to implement integration tests:
+  1. User authentication flow
+  2. VPN account creation flow
+  3. Payment processing flow
+  4. Subscription management flow
 
-### Telegram Bot Integration
-[ID-022] Integrate Telegram Bot
-Status: [-] Priority: High
-Dependencies: [ID-019, ID-020]
+### 5. Performance Tests
+[ID-046] Performance Testing
+Status: [ ] Priority: Medium
+Dependencies: [ID-042, ID-043, ID-044, ID-045]
 Progress Notes:
-- [v1.0.6] Need to implement Telegram bot functionality with FastAPI:
-  1. Setup bot initialization with FastAPI lifecycle
-  2. Create command handlers:
-     - /start - Welcome message
-     - /buy - Purchase flow
-     - /status - Account status
-     - /help - Support information
-  3. Implement conversation handlers for:
-     - Registration flow
-     - Purchase flow
-     - Support requests
-  4. Add admin command handlers:
-     - Server management
-     - User management
-     - Report generation
-- [v1.0.7] Basic bot directory structure exists but needs implementation
+- [v1.0.11] Need to implement performance tests:
+  1. Load testing
+  2. Stress testing
+  3. Endurance testing
+  4. Spike testing
 
-### OpenAPI Documentation
-[ID-023] Create API Documentation
-Status: [-] Priority: Medium
-Dependencies: [ID-020]
-Progress Notes:
-- [v1.0.6] Need to enhance API documentation:
-  1. Setup FastAPI OpenAPI documentation
-  2. Add detailed descriptions to all endpoints
-  3. Include request/response examples
-  4. Document authentication requirements
-  5. Create API usage guides
-- [v1.0.7] Will be implemented as part of API endpoints with FastAPI's automatic documentation
-- [v1.0.8] Added comprehensive docstrings for server management endpoints that will be reflected in the OpenAPI documentation
+## Implementation Order
 
-### Docker Configuration
-[ID-024] Update Docker Configuration
-Status: [X] Priority: Medium
-Dependencies: None
-Progress Notes:
-- [v1.0.6] Need to update Docker configuration for FastAPI:
-  1. Update Dockerfile with FastAPI dependencies
-  2. Configure Uvicorn server settings
-  3. Setup proper environment variables
-  4. Configure volume mounts
-  5. Update docker-compose.yml for service coordination
-- [v1.0.7] Docker configuration already set up with:
-  - Dockerfile with proper FastAPI dependencies
-  - docker-compose.yml with required services
-  - .env and .env.example for configuration
+1. Test Environment Setup:
+   - Configure pytest
+   - Set up test database
+   - Create fixtures
+   - Add utilities
 
-### Testing Framework
-[ID-025] Implement Testing
-Status: [-] Priority: Medium
-Dependencies: [ID-019, ID-020]
-Progress Notes:
-- [v1.0.6] Need to create testing framework:
-  1. Setup pytest configuration
-  2. Create fixtures for database testing
-  3. Implement API endpoint tests
-  4. Add service unit tests
-  5. Create integration tests
-- [v1.0.7] Tests directory exists but needs test implementations
+2. Service Tests:
+   - Authentication tests
+   - User tests
+   - VPN tests
+   - Payment tests
+
+3. API Tests:
+   - Endpoint tests
+   - Authentication tests
+   - Authorization tests
+   - Error handling tests
+
+4. Integration Tests:
+   - User flows
+   - VPN flows
+   - Payment flows
+   - Subscription flows
+
+5. Performance Tests:
+   - Load testing
+   - Stress testing
+   - Endurance testing
+   - Spike testing
 
 ## Next Steps
-1. Continue implementing API endpoints:
-   - User management endpoints
-   - VPN account endpoints
-   - Payment endpoints
-2. Create Alembic migration scripts (ID-021)
-3. Implement Telegram bot integration (ID-022)
-4. Add testing for new components (ID-025)
+1. Set up test environment
+2. Create base fixtures
+3. Begin service tests
+4. Add API tests
+5. Implement integration tests
+6. Add performance tests
 
 # Mode: PLAN 🎯
 Current Task: Project Structure Analysis and Optimization
@@ -637,150 +500,305 @@ Progress Notes:
 6. Create unit and integration tests
 
 # Mode: PLAN 🎯
-Current Task: Telegram Bot Integration Implementation
-Understanding: Need to implement the Telegram bot functionality with FastAPI integration, command handlers, and user flows
+Current Task: Telegram Bot Integration Enhancement
+Understanding: Need to enhance the Telegram bot implementation with comprehensive features and proper FastAPI integration
 Confidence: 95%
 
-Current Phase: BOT-1
+Current Phase: BOT-2
 Mode Context: Implementation
 Status: Active
-Last Updated: v1.0.11
+Last Updated: v1.0.18
 
-## Telegram Bot Implementation Plan
+## Telegram Bot Enhancement Plan
 
-### Core Bot Setup
-[ID-032] Bot Core Implementation
+### 1. Core Bot Structure
+[ID-047] Bot Core Enhancement
 Status: [-] Priority: High
 Dependencies: None
 Progress Notes:
-- [v1.0.11] Need to implement core bot functionality:
-  1. Bot initialization with FastAPI:
-     - Setup bot application
-     - Configure webhook
-     - Implement error handling
-  2. Command handlers:
+- [v1.0.18] Need to enhance core bot functionality:
+  1. FastAPI Integration:
+     - Create FastAPI router for bot webhook
+     - Implement proper error handling
+     - Add request validation
+  2. Bot Application:
+     - Enhance bot initialization
+     - Add proper logging
+     - Implement health checks
+  3. Configuration:
+     - Add environment variables
+     - Create config validation
+     - Add security settings
+
+### 2. Command Handlers
+[ID-048] Command Handler Implementation
+Status: [-] Priority: High
+Dependencies: [ID-047]
+Progress Notes:
+- [v1.0.18] Need to implement command handlers:
+  1. Basic Commands:
      - /start - Welcome message
      - /help - Command list
      - /status - Account status
      - /buy - Purchase flow
      - /settings - User settings
-  3. Conversation handlers:
-     - Registration flow
-     - Purchase flow
-     - Support requests
-  4. Callback handlers:
-     - Menu navigation
-     - Plan selection
-     - Payment confirmation
+  2. Admin Commands:
+     - /admin - Admin panel
+     - /stats - System statistics
+     - /broadcast - Message broadcast
+     - /backup - Backup management
+  3. Support Commands:
+     - /support - Support ticket
+     - /faq - Frequently asked questions
+     - /contact - Contact information
 
-### User Management
-[ID-033] User Management Integration
+### 3. Conversation Handlers
+[ID-049] Conversation Flow Implementation
 Status: [-] Priority: High
-Dependencies: [ID-032]
+Dependencies: [ID-047, ID-048]
 Progress Notes:
-- [v1.0.11] Need to implement user management:
-  1. User registration:
+- [v1.0.18] Need to implement conversation flows:
+  1. Registration Flow:
      - Phone number validation
      - User profile creation
      - Welcome message
-  2. User authentication:
-     - JWT token generation
-     - Session management
-     - Role assignment
-  3. User settings:
-     - Profile management
-     - Notification preferences
-     - Language selection
-
-### VPN Account Management
-[ID-034] VPN Account Integration
-Status: [-] Priority: High
-Dependencies: [ID-032, ID-033]
-Progress Notes:
-- [v1.0.11] Need to implement VPN account features:
-  1. Account creation:
+  2. Purchase Flow:
      - Plan selection
      - Server location
-     - Configuration generation
-  2. Account management:
-     - Status checking
-     - Traffic monitoring
-     - Renewal handling
-  3. Server selection:
-     - Location list
-     - Load balancing
-     - Auto-selection
-
-### Payment Integration
-[ID-035] Payment System Integration
-Status: [-] Priority: High
-Dependencies: [ID-032, ID-033]
-Progress Notes:
-- [v1.0.11] Need to implement payment features:
-  1. Payment flow:
-     - Plan selection
      - Payment method
-     - Transaction processing
-  2. Payment verification:
-     - Status checking
-     - Receipt generation
-     - Error handling
-  3. Subscription management:
-     - Renewal notifications
-     - Auto-renewal
-     - Cancellation
+     - Order confirmation
+  3. Support Flow:
+     - Ticket creation
+     - Message handling
+     - Ticket resolution
 
-### Admin Commands
-[ID-036] Admin Command Implementation
+### 4. Callback Handlers
+[ID-050] Callback Handler Implementation
 Status: [-] Priority: High
-Dependencies: [ID-032]
+Dependencies: [ID-047, ID-048, ID-049]
 Progress Notes:
-- [v1.0.11] Need to implement admin features:
-  1. System management:
-     - Server status
+- [v1.0.18] Need to implement callback handlers:
+  1. Menu Navigation:
+     - Main menu
+     - Sub-menus
+     - Back buttons
+  2. Action Handlers:
+     - Plan selection
+     - Server selection
+     - Payment confirmation
+     - Status updates
+  3. Admin Actions:
      - User management
-     - Transaction logs
-  2. Monitoring:
-     - Health checks
-     - Performance metrics
-     - Error logs
-  3. Reporting:
-     - Usage statistics
-     - Financial reports
-     - User analytics
+     - System control
+     - Report generation
+
+### 5. Service Integration
+[ID-051] Service Layer Integration
+Status: [-] Priority: High
+Dependencies: [ID-047, ID-048, ID-049, ID-050]
+Progress Notes:
+- [v1.0.18] Need to integrate with services:
+  1. VPN Service:
+     - Account creation
+     - Status checking
+     - Server management
+  2. Payment Service:
+     - Payment processing
+     - Transaction tracking
+     - Subscription management
+  3. Notification Service:
+     - User notifications
+     - Admin alerts
+     - System updates
 
 ## Implementation Order
 
-1. Core Bot Setup:
-   - Initialize bot application
-   - Implement basic commands
-   - Setup conversation handlers
+1. Core Bot Structure:
+   - FastAPI integration
+   - Bot application setup
+   - Configuration management
 
-2. User Management:
+2. Command Handlers:
+   - Basic commands
+   - Admin commands
+   - Support commands
+
+3. Conversation Handlers:
    - Registration flow
-   - Authentication system
-   - User settings
+   - Purchase flow
+   - Support flow
 
-3. VPN Account Management:
-   - Account creation
-   - Status checking
-   - Server selection
+4. Callback Handlers:
+   - Menu navigation
+   - Action handlers
+   - Admin actions
 
-4. Payment Integration:
-   - Payment flow
-   - Transaction processing
-   - Subscription management
-
-5. Admin Commands:
-   - System management
-   - Monitoring features
-   - Reporting tools
+5. Service Integration:
+   - VPN service
+   - Payment service
+   - Notification service
 
 ## Next Steps
-1. Create bot application structure
-2. Implement basic command handlers
-3. Setup conversation flows
-4. Integrate with existing services
+1. Create FastAPI router for bot webhook
+2. Implement core bot structure
+3. Add basic command handlers
+4. Set up conversation flows
+5. Integrate with services
+
+# Mode: PLAN 🎯
+Current Task: Database Model Consolidation
+Understanding: Need to consolidate and standardize database models across the project
+Confidence: 95%
+
+Current Phase: MIGRATION-2
+Mode Context: Implementation
+Status: Active
+Last Updated: v1.0.9
+
+## Database Model Consolidation Plan
+
+### 1. Base Model Standardization
+[ID-037] Base Model Consolidation
+Status: [-] Priority: High
+Dependencies: None
+Progress Notes:
+- [v1.0.9] Need to consolidate base models:
+  1. Create single base model in core/database/models/base.py:
+     - Combine functionality from both base.py files
+     - Use SQLAlchemy 2.0 style with Mapped types
+     - Add comprehensive docstrings
+     - Include common utility methods
+  2. Update all models to use new base:
+     - Remove Django ORM models
+     - Convert to SQLAlchemy style
+     - Update imports
+     - Add proper type hints
+
+### 2. Model Organization
+[ID-038] Model File Organization
+Status: [-] Priority: High
+Dependencies: [ID-037]
+Progress Notes:
+- [v1.0.9] Need to organize models by domain:
+  1. Core Models:
+     - User (core/database/models/user.py)
+     - Role (core/database/models/role.py)
+     - Permission (core/database/models/permission.py)
+  2. VPN Models:
+     - Server (core/database/models/vpn/server.py)
+     - VPNAccount (core/database/models/vpn/account.py)
+     - Location (core/database/models/vpn/location.py)
+  3. Payment Models:
+     - Payment (core/database/models/payment/payment.py)
+     - Transaction (core/database/models/payment/transaction.py)
+     - Card (core/database/models/payment/card.py)
+  4. Points Models:
+     - UserPoints (core/database/models/points/user_points.py)
+     - PointsTransaction (core/database/models/points/transaction.py)
+  5. Chat Models:
+     - ChatSession (core/database/models/chat/session.py)
+     - ChatMessage (core/database/models/chat/message.py)
+  6. Enhancement Models:
+     - SystemHealth (core/database/models/enhancements/health.py)
+     - SystemBackup (core/database/models/enhancements/backup.py)
+     - Report (core/database/models/enhancements/report.py)
+     - SystemLog (core/database/models/enhancements/log.py)
+     - SystemMetric (core/database/models/enhancements/metric.py)
+
+### 3. Model Relationships
+[ID-039] Relationship Standardization
+Status: [-] Priority: High
+Dependencies: [ID-037, ID-038]
+Progress Notes:
+- [v1.0.9] Need to standardize relationships:
+  1. Define clear relationship patterns:
+     - Use back_populates consistently
+     - Add proper cascade behaviors
+     - Include lazy loading options
+  2. Update foreign keys:
+     - Use proper types (UUID, Integer)
+     - Add proper constraints
+     - Include cascade rules
+  3. Add relationship documentation:
+     - Document relationship purpose
+     - Include cascade behavior
+     - Note performance considerations
+
+### 4. Model Validation
+[ID-040] Validation Implementation
+Status: [-] Priority: High
+Dependencies: [ID-037, ID-038, ID-039]
+Progress Notes:
+- [v1.0.9] Need to implement validation:
+  1. Add field validators:
+     - Phone number format
+     - Email format
+     - Password requirements
+     - Status transitions
+  2. Add model validators:
+     - Business rule validation
+     - State transition validation
+     - Relationship validation
+  3. Add custom validators:
+     - Unique constraints
+     - Date range validation
+     - Numeric range validation
+
+### 5. Documentation
+[ID-041] Model Documentation
+Status: [-] Priority: Medium
+Dependencies: [ID-037, ID-038, ID-039, ID-040]
+Progress Notes:
+- [v1.0.9] Need to add documentation:
+  1. Model documentation:
+     - Purpose and usage
+     - Field descriptions
+     - Relationship descriptions
+     - Validation rules
+  2. Field documentation:
+     - Data type and constraints
+     - Default values
+     - Validation rules
+     - Usage examples
+  3. Method documentation:
+     - Purpose and parameters
+     - Return values
+     - Usage examples
+     - Performance notes
+
+## Implementation Order
+
+1. Base Model Consolidation:
+   - Create unified base model
+   - Update all models to use new base
+   - Remove Django ORM models
+
+2. Model Organization:
+   - Create new directory structure
+   - Move models to appropriate locations
+   - Update imports
+
+3. Relationship Standardization:
+   - Update relationship definitions
+   - Add proper cascade behaviors
+   - Document relationships
+
+4. Validation Implementation:
+   - Add field validators
+   - Add model validators
+   - Add custom validators
+
+5. Documentation:
+   - Add model documentation
+   - Add field documentation
+   - Add method documentation
+
+## Next Steps
+1. Create new base model
+2. Update directory structure
+3. Begin model migration
+4. Add validation
+5. Add documentation
 
 # MoonVPN Project Scratchpad
 

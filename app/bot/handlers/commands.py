@@ -1,125 +1,145 @@
 """
-Command handlers for MoonVPN Telegram Bot.
+Command handlers for the MoonVPN Telegram bot.
 
-This module contains all command handlers for the bot,
-including start, help, status, buy, and settings commands.
+This module implements the command handlers for various bot commands
+including start, help, status, settings, and admin commands.
 """
 
+from typing import Optional
 from telegram import Update
 from telegram.ext import ContextTypes
-from app.bot.utils.logger import setup_logger
 
-# Initialize logger
+from app.core.config import settings
+from app.bot.utils.logger import setup_logger
+from app.bot.keyboards import (
+    get_main_menu_keyboard,
+    get_help_keyboard,
+    get_settings_keyboard,
+    get_status_keyboard,
+)
+from app.bot.services.vpn_service import VPNService
+
 logger = setup_logger(__name__)
+vpn_service = VPNService()
 
 async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle the /start command."""
     try:
         user = update.effective_user
         welcome_message = (
-            f"👋 Welcome to MoonVPN, {user.first_name}!\n\n"
-            "I'm your personal VPN assistant. Here's what I can help you with:\n"
-            "• Purchase VPN accounts\n"
-            "• Check account status\n"
-            "• Change server location\n"
-            "• Manage subscriptions\n"
-            "• Get support\n\n"
-            "Use /help to see all available commands."
+            f"👋 به MoonVPN خوش آمدید، {user.first_name}!\n\n"
+            "🔒 سرویس VPN امن شما فقط چند کلیک فاصله دارد.\n"
+            "از منوی زیر برای شروع استفاده کنید:"
         )
         
-        await update.message.reply_text(welcome_message)
+        await update.message.reply_text(
+            welcome_message,
+            reply_markup=get_main_menu_keyboard()
+        )
         logger.info(f"User {user.id} started the bot")
         
     except Exception as e:
         logger.error(f"Error in start_handler: {str(e)}")
         await update.message.reply_text(
-            "Sorry, something went wrong. Please try again later."
+            "❌ متأسفانه خطایی رخ داد. لطفاً دوباره تلاش کنید."
         )
 
 async def help_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle the /help command."""
     try:
         help_message = (
-            "📚 Available Commands:\n\n"
-            "/start - Start the bot\n"
-            "/help - Show this help message\n"
-            "/buy - Purchase a VPN account\n"
-            "/status - Check your account status\n"
-            "/settings - Manage your settings\n\n"
-            "Need more help? Contact our support team!"
+            "📚 *راهنمای MoonVPN*\n\n"
+            "*دستورات موجود:*\n"
+            "/start - شروع کار با ربات\n"
+            "/help - نمایش این راهنما\n"
+            "/status - بررسی وضعیت حساب VPN\n"
+            "/buy - خرید اشتراک جدید\n"
+            "/settings - تنظیمات حساب\n\n"
+            "*نیاز به راهنمایی بیشتر؟*\n"
+            "برای دریافت کمک با پشتیبانی ما تماس بگیرید."
         )
         
-        await update.message.reply_text(help_message)
+        await update.message.reply_text(
+            help_message,
+            parse_mode='Markdown',
+            reply_markup=get_help_keyboard()
+        )
         logger.info(f"User {update.effective_user.id} requested help")
         
     except Exception as e:
         logger.error(f"Error in help_handler: {str(e)}")
         await update.message.reply_text(
-            "Sorry, something went wrong. Please try again later."
+            "❌ متأسفانه خطایی رخ داد. لطفاً دوباره تلاش کنید."
         )
 
 async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle the /status command."""
     try:
         user = update.effective_user
-        # TODO: Implement status checking logic
-        status_message = (
-            "🔍 Account Status:\n\n"
-            "No active VPN account found.\n"
-            "Use /buy to purchase a new account."
+        
+        # Get account status
+        status_info = await vpn_service.get_account_status(user.id)
+        
+        # Send status message with appropriate keyboard
+        await update.message.reply_text(
+            status_info["message"],
+            parse_mode='Markdown',
+            reply_markup=get_status_keyboard(status_info)
         )
         
-        await update.message.reply_text(status_message)
-        logger.info(f"User {user.id} checked account status")
+        logger.info(f"User {user.id} checked VPN status: {status_info['status']}")
         
     except Exception as e:
         logger.error(f"Error in status_handler: {str(e)}")
         await update.message.reply_text(
-            "Sorry, something went wrong. Please try again later."
-        )
-
-async def buy_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle the /buy command."""
-    try:
-        user = update.effective_user
-        # TODO: Implement purchase flow
-        buy_message = (
-            "🛍️ VPN Plans:\n\n"
-            "1. Monthly Plan - $9.99\n"
-            "2. 3-Month Plan - $24.99\n"
-            "3. 6-Month Plan - $44.99\n"
-            "4. Yearly Plan - $79.99\n\n"
-            "Select a plan to continue:"
-        )
-        
-        await update.message.reply_text(buy_message)
-        logger.info(f"User {user.id} started purchase flow")
-        
-    except Exception as e:
-        logger.error(f"Error in buy_handler: {str(e)}")
-        await update.message.reply_text(
-            "Sorry, something went wrong. Please try again later."
+            "❌ متأسفانه خطایی رخ داد. لطفاً دوباره تلاش کنید."
         )
 
 async def settings_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle the /settings command."""
     try:
         user = update.effective_user
-        # TODO: Implement settings management
         settings_message = (
-            "⚙️ Settings:\n\n"
-            "1. Language\n"
-            "2. Notifications\n"
-            "3. Auto-renewal\n"
-            "4. Privacy\n\n"
-            "Select an option to configure:"
+            "⚙️ *تنظیمات حساب*\n\n"
+            "مدیریت تنظیمات و ترجیحات حساب شما:"
         )
         
-        await update.message.reply_text(settings_message)
+        await update.message.reply_text(
+            settings_message,
+            parse_mode='Markdown',
+            reply_markup=get_settings_keyboard()
+        )
         logger.info(f"User {user.id} accessed settings")
         
     except Exception as e:
         logger.error(f"Error in settings_handler: {str(e)}")
         await update.message.reply_text(
-            "Sorry, something went wrong. Please try again later."
+            "❌ متأسفانه خطایی رخ داد. لطفاً دوباره تلاش کنید."
+        )
+
+# Admin Commands
+async def admin_stats_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle the /admin_stats command (admin only)."""
+    try:
+        user = update.effective_user
+        if user.id not in settings.ADMIN_IDS:
+            await update.message.reply_text("⛔️ این دستور فقط برای مدیران سیستم است.")
+            return
+            
+        # TODO: Implement admin statistics
+        stats_message = (
+            "📊 *آمار سیستم*\n\n"
+            "در حال بارگذاری آمار سیستم..."
+        )
+        
+        await update.message.reply_text(
+            stats_message,
+            parse_mode='Markdown'
+        )
+        logger.info(f"Admin {user.id} requested statistics")
+        
+    except Exception as e:
+        logger.error(f"Error in admin_stats_handler: {str(e)}")
+        await update.message.reply_text(
+            "❌ متأسفانه خطایی رخ داد. لطفاً دوباره تلاش کنید."
         ) 
