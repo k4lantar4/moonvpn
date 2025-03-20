@@ -34,6 +34,31 @@ ENV/
 
 # Environment variables
 .env
+.env.local
+.env.*.local
+
+# Project specific
+core/**/__pycache__/
+api/**/__pycache__/
+web/**/__pycache__/
+tests/**/__pycache__/
+
+# Docker
+.docker/
+docker-compose.override.yml
+
+# Node (for web frontend)
+web/node_modules/
+web/.next/
+web/.nuxt/
+web/dist/
+web/.cache/
+web/.output/
+
+# Temporary files
+*.tmp
+*.bak
+.DS_Store
 
 # Database
 *.db
@@ -85,10 +110,6 @@ yarn-error.log*
 !.vscode/tasks.json
 !.vscode/launch.json
 !.vscode/extensions.json
-
-# Docker
-.docker/
-docker-compose.override.yml
 
 # Logs
 *.log
