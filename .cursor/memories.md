@@ -671,4 +671,4 @@ Next steps will focus on implementing the Backup Management System [ID-056] and 
      - Enhanced error messages
      - Added confirmation dialogs
 
-Next steps will focus on implementing the Docker support system and non-Docker installation options. 
+Next steps will focus on implementing the Docker support system and non-Docker installation options.
