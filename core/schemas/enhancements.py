@@ -11,6 +11,9 @@ from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field, validator
 from enum import Enum
 
+from core.database.models.enhancements.backup import BackupType, BackupStatus
+from core.database.models.enhancements.backup_schedule import ScheduleType
+
 # Enum types
 class ReportType(str, Enum):
     DAILY = 'daily'
@@ -31,11 +34,6 @@ class SystemHealthStatus(str, Enum):
     WARNING = 'warning'
     CRITICAL = 'critical'
     MAINTENANCE = 'maintenance'
-
-class BackupType(str, Enum):
-    FULL = 'full'
-    INCREMENTAL = 'incremental'
-    DIFFERENTIAL = 'differential'
 
 class NotificationChannel(str, Enum):
     EMAIL = 'email'
@@ -84,34 +82,42 @@ class SystemHealth(SystemHealthBase):
 
 class SystemBackupBase(BaseModel):
     """Base schema for system backup."""
-    type: BackupType
-    size: Optional[int] = None
-    path: Optional[str] = Field(None, max_length=255)
-    retention_days: int = Field(default=30, ge=1)
-    is_encrypted: bool = True
-    encryption_key: Optional[str] = Field(None, max_length=255)
-    error_message: Optional[str] = None
-    metadata: Optional[Dict[str, Any]] = None
+    name: str = Field(..., description="Name of the backup")
+    description: Optional[str] = Field(None, description="Description of the backup")
+    backup_type: BackupType = Field(..., description="Type of backup")
+    storage_path: str = Field(..., description="Path where backup is stored")
+    metadata: Optional[Dict[str, Any]] = Field(default_factory=dict, description="Additional metadata")
 
 class SystemBackupCreate(SystemBackupBase):
-    """Schema for creating a system backup."""
+    """Schema for creating a new backup."""
     pass
 
-class SystemBackupUpdate(SystemBackupBase):
-    """Schema for updating a system backup."""
-    type: Optional[BackupType] = None
-    retention_days: Optional[int] = Field(None, ge=1)
+class SystemBackupUpdate(BaseModel):
+    """Schema for updating an existing backup."""
+    name: Optional[str] = None
+    description: Optional[str] = None
+    backup_type: Optional[BackupType] = None
+    storage_path: Optional[str] = None
+    metadata: Optional[Dict[str, Any]] = None
+    status: Optional[BackupStatus] = None
+    error_message: Optional[str] = None
 
-class SystemBackup(SystemBackupBase):
-    """Schema for system backup record."""
+class SystemBackupInDB(SystemBackupBase):
+    """Schema for backup as stored in database."""
     id: int
-    status: ReportStatus
-    started_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
+    status: BackupStatus
+    size_bytes: Optional[int] = None
+    checksum: Optional[str] = None
+    schedule_id: Optional[int] = None
+    created_by: int
+    updated_by: int
     created_at: datetime
     updated_at: datetime
-    created_by: Optional[int] = None
-    updated_by: Optional[int] = None
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    verified_at: Optional[datetime] = None
+    expires_at: Optional[datetime] = None
+    error_message: Optional[str] = None
 
     class Config:
         orm_mode = True
@@ -291,4 +297,56 @@ class SystemMetric(SystemMetricBase):
     updated_by: Optional[int] = None
 
     class Config:
-        orm_mode = True 
+        orm_mode = True
+
+class BackupScheduleBase(BaseModel):
+    """Base schema for backup schedule."""
+    name: str = Field(..., description="Name of the schedule")
+    description: Optional[str] = Field(None, description="Description of the schedule")
+    schedule_type: ScheduleType = Field(..., description="Type of schedule")
+    cron_expression: str = Field(..., description="Cron expression for scheduling")
+    is_active: bool = Field(True, description="Whether the schedule is active")
+    retention_days: int = Field(..., description="Number of days to retain backups")
+    max_backups: int = Field(..., description="Maximum number of backups to keep")
+    backup_type: BackupType = Field(..., description="Type of backup to create")
+    storage_path: str = Field(..., description="Path where backups will be stored")
+    metadata: Optional[Dict[str, Any]] = Field(default_factory=dict, description="Additional metadata")
+
+class BackupScheduleCreate(BackupScheduleBase):
+    """Schema for creating a new backup schedule."""
+    pass
+
+class BackupScheduleUpdate(BaseModel):
+    """Schema for updating an existing backup schedule."""
+    name: Optional[str] = None
+    description: Optional[str] = None
+    schedule_type: Optional[ScheduleType] = None
+    cron_expression: Optional[str] = None
+    is_active: Optional[bool] = None
+    retention_days: Optional[int] = None
+    max_backups: Optional[int] = None
+    backup_type: Optional[BackupType] = None
+    storage_path: Optional[str] = None
+    metadata: Optional[Dict[str, Any]] = None
+
+class BackupScheduleInDB(BackupScheduleBase):
+    """Schema for backup schedule as stored in database."""
+    id: int
+    created_by: int
+    updated_by: int
+    created_at: datetime
+    updated_at: datetime
+    last_run_at: Optional[datetime] = None
+    next_run_at: Optional[datetime] = None
+
+    class Config:
+        orm_mode = True
+
+class BackupStatistics(BaseModel):
+    """Schema for backup statistics."""
+    total_backups: int
+    completed_backups: int
+    failed_backups: int
+    success_rate: float
+    total_size_bytes: int
+    total_size_gb: float 

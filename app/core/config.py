@@ -5,10 +5,11 @@ This module contains all configuration settings for the application,
 including bot settings, database configuration, and API endpoints.
 """
 
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from pydantic_settings import BaseSettings
 from pydantic import Field, SecretStr, validator
 import logging
+import secrets
 
 # Setup logging
 logger = logging.getLogger(__name__)
@@ -80,6 +81,36 @@ class Settings(BaseSettings):
     # Payment
     ZARINPAL_MERCHANT: Optional[SecretStr] = None
     ZARINPAL_SANDBOX: bool = True
+    ZARINPAL_CALLBACK_URL: str
+    ZARINPAL_DESCRIPTION: str = "MoonVPN Subscription"
+    
+    # Payment Gateway URLs
+    PAYMENT_FORM_URL: str = "https://payment.moonvpn.com"
+    PAYMENT_SUCCESS_URL: str = "https://moonvpn.com/payment/success"
+    PAYMENT_FAIL_URL: str = "https://moonvpn.com/payment/fail"
+    
+    # Bank Transfer Settings
+    BANK_NAME: str
+    BANK_ACCOUNT: str
+    BANK_HOLDER: str
+    BANK_IBAN: Optional[str] = None
+    
+    # Wallet Settings
+    MAX_WALLET_BALANCE: float = 1000.0
+    MIN_WALLET_BALANCE: float = 0.0
+    DEFAULT_CURRENCY: str = "USD"
+    
+    # Payment Retry Settings
+    MAX_RETRY_ATTEMPTS: int = 3
+    RETRY_DELAY_SECONDS: int = 5
+    
+    # Payment Webhook Settings
+    WEBHOOK_SECRET: str = secrets.token_urlsafe(32)
+    WEBHOOK_TIMEOUT: int = 30
+    
+    # Payment Logging
+    PAYMENT_LOG_LEVEL: str = "INFO"
+    PAYMENT_LOG_FILE: str = "payment.log"
     
     # CORS
     BACKEND_CORS_ORIGINS: List[str] = ["*"]

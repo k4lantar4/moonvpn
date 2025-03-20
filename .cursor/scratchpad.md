@@ -1,6 +1,6 @@
-*This scratchpad file serves as a phase-specific task tracker and implementation planner. The Mode System on Line 1 is critical and must never be deleted. It defines two core modes: Implementation Type for new feature development and Bug Fix Type for issue resolution. Each mode requires specific documentation formats, confidence tracking, and completion criteria. Use "plan" trigger for planning phase (🎯) and "agent" trigger for execution phase (⚡) after reaching 95% confidence. Follow strict phase management with clear documentation transfer process.*
+# MoonVPN Project Scratchpad
 
-`MODE SYSTEM TYPES (DO NOT DELETE!):
+## Mode System Types
 1. Implementation Type (New Features):
    - Trigger: User requests new implementation
    - Format: MODE: Implementation, FOCUS: New functionality
@@ -13,864 +13,683 @@
    - Requirements: Problem diagnosis, root cause analysis, solution verification
    - Process: Plan mode (🎯) → Chain of thought analysis → Agent mode (⚡)
 
-Cross-reference with @memories.md and @lessons-learned.md for context and best practices.`
+## Current Implementation Status
 
-# Mode: PLAN 🎯
-Current Phase: PHASE-1
-Mode Context: Implementation
-Status: Active
-Confidence: 95%
-Last Updated: v1.0.11
+### Phase 1: Core Systems ✅
+- Authentication System
+- User Management
+- VPN System
+- Payment System
 
-Tasks:
-[ID-001] Authentication System Implementation
-Status: [X] Priority: High
-Dependencies: None
-Progress Notes:
-- [v1.0.8] Implemented authentication schemas
-- [v1.0.8] Created authentication service
-- [v1.0.8] Implemented authentication endpoints
-- [v1.0.8] Added JWT token handling
-- [v1.0.8] Implemented password hashing and verification
+### Phase 2: Testing Framework 🚀
+1. Test Environment Setup [ID-042] ✅
+   - Configure pytest ✅
+   - Set up test database ✅
+   - Create test fixtures ✅
+   - Add test utilities ✅
 
-[ID-002] User Management Implementation
-Status: [X] Priority: High
-Dependencies: [ID-001]
-Progress Notes:
-- [v1.0.9] Created user schemas
-- [v1.0.9] Implemented user service
-- [v1.0.9] Added user endpoints
-- [v1.0.9] Implemented profile management
-- [v1.0.9] Added activity tracking
+2. Service Tests [ID-043] ✅
+   - Authentication service tests ✅
+   - User service tests ✅
+   - VPN service tests ✅
+   - Payment service tests ✅
 
-[ID-003] VPN System Implementation
-Status: [X] Priority: High
-Dependencies: [ID-001], [ID-002]
-Progress Notes:
-- [v1.0.10] Created VPN schemas
-- [v1.0.10] Implemented VPN service
-- [v1.0.10] Added VPN endpoints
-- [v1.0.10] Implemented server management
-- [v1.0.10] Added account management
-- [v1.0.10] Added traffic monitoring
-- [v1.0.10] Implemented connection status tracking
+3. API Tests [ID-044] ✅
+   - Authentication endpoint tests ✅
+   - User endpoint tests ✅
+   - VPN endpoint tests ✅
+   - Payment endpoint tests ✅
 
-[ID-004] Payment System Implementation
-Status: [X] Priority: High
-Dependencies: [ID-001], [ID-002], [ID-003]
-Progress Notes:
-- [v1.0.11] Created payment schemas
-- [v1.0.11] Implemented payment service
-- [v1.0.11] Added payment endpoints
-- [v1.0.11] Implemented subscription management
-- [v1.0.11] Added plan management
-- [v1.0.11] Added payment statistics
-- [v1.0.11] Integrated with main application
+4. Integration Tests [ID-045] ✅
+   - User authentication flow ✅
+   - VPN account creation flow ✅
+   - Payment processing flow ✅
+   - Subscription management flow ✅
 
-[ID-005] Testing Framework Implementation
-Status: [ ] Priority: High
-Dependencies: [ID-001], [ID-002], [ID-003], [ID-004]
-Progress Notes:
-- [v1.0.11] Planning testing framework implementation
+5. Performance Tests [ID-046] ✅
+   - Load testing ✅
+   - Stress testing ✅
+   - Endurance testing ✅
+   - Spike testing ✅
 
-Next Steps:
-1. Implement testing framework:
-   - Set up pytest configuration
-   - Create test fixtures
-   - Implement unit tests for services
-   - Add integration tests for endpoints
-   - Create API tests
-   - Add performance tests
+### Phase 3: Telegram Bot Integration 🤖
+1. Core Bot Structure [ID-047] ✅
+   - FastAPI Integration ✅
+   - Bot application setup ✅
+   - Configuration management ✅
 
-2. Implement monitoring system:
-   - Add request logging
-   - Implement error tracking
-   - Add performance monitoring
-   - Set up alerting system
+2. Command Handlers [ID-048] ✅
+   - Basic commands ✅
+   - Admin commands ✅
+   - Support commands ✅
 
-3. Update documentation:
-   - API documentation
-   - System architecture docs
-   - Deployment guide
-   - User manual
-   - Developer guide
+3. Conversation Handlers [ID-049] ✅
+   - Registration flow ✅
+   - Purchase flow ✅
+   - Support flow ✅
 
-Current Focus:
-- Testing framework implementation
-- Monitoring system setup
-- Documentation updates
+4. Callback Handlers [ID-050] ✅
+   - Menu navigation ✅
+   - Action handlers ✅
+   - Admin actions ✅
 
-Notes:
-- All core systems (auth, user, VPN, payment) are now implemented
-- Need to focus on testing and monitoring
-- Documentation needs to be updated
-- Consider adding more features to existing systems
+5. Service Integration [ID-051] ✅
+   - VPN service ✅
+   - Payment service ✅
+   - Notification service ✅
 
-# Mode: IMPLEMENTATION ⚡
-Current Task: Testing Framework Implementation
-Understanding: Need to implement a comprehensive testing framework for all components
-Confidence: 85%
+6. Language Support [ID-052] ✅
+   - Persian language implementation ✅
+   - RTL text handling ✅
+   - Bilingual support ✅
+   - Emoji-enhanced messages ✅
 
-Current Phase: TESTING-1
-Mode Context: Implementation
-Status: Active
-Last Updated: v1.0.11
+7. User Profile Management [ID-053] ✅
+   - Profile service implementation ✅
+   - User interface components ✅
+   - Security features ✅
+   - History tracking ✅
 
-## Testing Framework Implementation Plan
+8. Admin Group Management [ID-054] ✅
+   - Group structure setup ✅
+   - Access control implementation ✅
+   - Monitoring system integration ✅
+   - Group-specific features ✅
 
-### 1. Test Environment Setup
-[ID-042] Test Configuration
-Status: [ ] Priority: High
-Dependencies: None
-Progress Notes:
-- [v1.0.11] Need to set up test environment:
-  1. Configure pytest
-  2. Set up test database
-  3. Create test fixtures
-  4. Add test utilities
+### Phase 4: Enhancement Features 🔄
 
-### 2. Service Tests
-[ID-043] Service Layer Testing
-Status: [ ] Priority: High
-Dependencies: [ID-042]
-Progress Notes:
-- [v1.0.11] Need to implement service tests:
-  1. Authentication service tests
-  2. User service tests
-  3. VPN service tests
-  4. Payment service tests
+#### System Health Monitoring [ID-055]
 
-### 3. API Tests
-[ID-044] API Endpoint Testing
-Status: [ ] Priority: High
-Dependencies: [ID-042, ID-043]
-Progress Notes:
-- [v1.0.11] Need to implement API tests:
-  1. Authentication endpoint tests
-  2. User endpoint tests
-  3. VPN endpoint tests
-  4. Payment endpoint tests
+#### Status: In Progress
+#### Priority: High
+#### Components to Monitor:
+- Server resources (CPU, memory, disk)
+- Database performance
+- API response times
+- Bot performance
+- System resources
+- Network status
+- External services
 
-### 4. Integration Tests
-[ID-045] Integration Testing
-Status: [ ] Priority: High
-Dependencies: [ID-042, ID-043, ID-044]
-Progress Notes:
-- [v1.0.11] Need to implement integration tests:
-  1. User authentication flow
-  2. VPN account creation flow
-  3. Payment processing flow
-  4. Subscription management flow
+#### Implementation Steps:
+1. ✅ Health Check Service Implementation
+2. ✅ Monitoring Endpoints
+3. ✅ Metrics Collection
+4. ✅ Alerting System
+5. ✅ Health Dashboard
+6. ⏳ Automated Recovery
 
-### 5. Performance Tests
-[ID-046] Performance Testing
-Status: [ ] Priority: Medium
-Dependencies: [ID-042, ID-043, ID-044, ID-045]
-Progress Notes:
-- [v1.0.11] Need to implement performance tests:
-  1. Load testing
-  2. Stress testing
-  3. Endurance testing
-  4. Spike testing
+#### Technical Requirements:
+- Prometheus metrics
+- Grafana dashboards
+- Health check endpoints
+- Alert rules
+- Recovery procedures
 
-## Implementation Order
+#### Tasks:
+1. ✅ Health Check Service Implementation [ID-055-1]
+   - Status: Completed
+   - Priority: High
+   - Dependencies: None
+   - Progress: 100%
+   - Notes: Implemented base HealthCheck service with database integration
 
-1. Test Environment Setup:
-   - Configure pytest
-   - Set up test database
-   - Create fixtures
-   - Add utilities
+2. ✅ Monitoring Endpoints [ID-055-2]
+   - Status: Completed
+   - Priority: High
+   - Dependencies: Health Check Service
+   - Progress: 100%
+   - Notes: Created FastAPI endpoints for health monitoring
 
-2. Service Tests:
-   - Authentication tests
-   - User tests
-   - VPN tests
-   - Payment tests
+3. ✅ Metrics Collection [ID-055-3]
+   - Status: Completed
+   - Priority: High
+   - Dependencies: Monitoring Endpoints
+   - Progress: 100%
+   - Notes: Implemented metrics collection for all system components
 
-3. API Tests:
-   - Endpoint tests
-   - Authentication tests
-   - Authorization tests
-   - Error handling tests
+4. ✅ Alerting System [ID-055-4]
+   - Status: Completed
+   - Priority: High
+   - Dependencies: Metrics Collection
+   - Progress: 100%
+   - Notes: Implemented alerting system with Telegram, email, and webhook notifications
 
-4. Integration Tests:
-   - User flows
-   - VPN flows
-   - Payment flows
-   - Subscription flows
+5. ✅ Health Dashboard [ID-055-5]
+   - Status: Completed
+   - Priority: High
+   - Dependencies: Metrics Collection, Alerting System
+   - Progress: 100%
+   - Notes: 
+     - Created Prometheus metrics configuration
+     - Implemented metrics endpoints
+     - Set up Grafana dashboard
+     - Added alert rules
+     - Configured Docker services
 
-5. Performance Tests:
-   - Load testing
-   - Stress testing
-   - Endurance testing
-   - Spike testing
+6. ⏳ Automated Recovery [ID-055-6]
+   - Status: In Progress
+   - Priority: High
+   - Dependencies: Health Dashboard
+   - Progress: 0%
+   - Notes: To be implemented
 
-## Next Steps
-1. Set up test environment
-2. Create base fixtures
-3. Begin service tests
-4. Add API tests
-5. Implement integration tests
-6. Add performance tests
+#### Next Steps:
+1. Implement automated recovery procedures
+2. Set up monitoring alerts
+3. Configure recovery actions
+4. Add alert history tracking
+5. Test the complete monitoring system
 
-# Mode: PLAN 🎯
-Current Task: Project Structure Analysis and Optimization
-Understanding: Project requires comprehensive analysis of codebase, identifying duplicate code, redundant directories, and architecture issues
-Confidence: 100%
+2. Backup Management [ID-056]
+   - Automated backup scheduling
+   - Backup status tracking
+   - Failed backup monitoring
+   - Backup statistics and reporting
 
-Current Phase: REFACTOR-1
-Mode Context: Implementation
-Status: Active
-Last Updated: v1.0.1
+3. Notification System [ID-057]
+   - Template management
+   - Multi-channel notifications
+   - Active template tracking
+   - Notification statistics
 
-## Comprehensive Analysis Findings
+4. Reporting System [ID-058]
+   - Report creation and scheduling
+   - Pending report tracking
+   - Report statistics
+   - Export capabilities
 
-### Duplicate Service Implementations
-[ID-001] Service Layer Consolidation
-Status: [-] Priority: High
-Dependencies: None
-Progress Notes:
-- [v1.0.0] Identified duplicate service implementations
-- [v1.0.1] Confirmed multiple implementations of core services:
-  1. TrafficManager: 
-     - bot/services/traffic_manager.py (implied from references)
-     - backend/core/services/traffic.py 
-  2. SecurityEnhancer: 
-     - bot/services/security_manager.py (implied from references)
-     - backend/core/services/security.py
-  3. AnalyticsManager:
-     - bot/services/analytics_manager.py (implied from references)
-     - backend/core/services/analytics.py
-  4. BackupManager:
-     - bot/services/backup_manager.py
-     - backend/core/services/backup.py
-
-### Directory Structure Issues
-[ID-002] Directory Structure Cleanup
-Status: [-] Priority: High
-Dependencies: None
-Progress Notes:
-- [v1.0.0] Identified redundant directories
-- [v1.0.1] Confirmed specific structural issues:
-  1. Duplicate configuration directories:
-     - bot/config/
-     - backend/config/
-     - config/ (root level)
-  2. Duplicate migration directories:
-     - bot/migrations/
-     - bot/database/migrations/
-  3. Multiple script directories:
-     - bot/scripts/
-     - scripts/ (root level)
-     - backend/scripts/
-  4. Duplicate model definitions:
-     - bot/models/
-     - backend/models/
-
-### Database Management Issues
-[ID-003] Database Layer Consolidation
-Status: [-] Priority: High
-Dependencies: None
-Progress Notes:
-- [v1.0.1] Identified complex database management:
-  1. Multiple database initialization in:
-     - bot/database/connection.py (PostgreSQL)
-     - bot/database/schemas.py (MongoDB references)
-  2. Mixed schema definitions:
-     - SQL schema in bot/database/schema.sql
-     - Python schema in bot/database/schemas.py
-  3. Database migration system in bot/database/migrations.py
-
-### Configuration Consolidation
-[ID-004] Configuration Consolidation
-Status: [ ] Priority: Medium
-Dependencies: [ID-001, ID-002]
-Progress Notes:
-- [v1.0.0] Identified scattered config files
-- [v1.0.1] Confirmed specific configuration redundancies:
-  1. Security configurations in:
-     - bot/config/security_config.py
-     - backend/config/ (implied)
-  2. Dashboard config in bot/config/dashboard_config.py 
-  3. Environment variables in multiple .env files
-
-### API & Integration Issues
-[ID-005] API Layer Consolidation 
-Status: [-] Priority: High
-Dependencies: None
-Progress Notes:
-- [v1.0.1] Identified API integration issues:
-  1. 3x-UI API integration in multiple places:
-     - bot/services/threexui_api.py
-     - backend/core/services/api_client.py
-  2. Inconsistent error handling patterns
-  3. Redundant session management
-
-## Dependency Graph Analysis
-[ID-006] Service Dependency Analysis
-Status: [-] Priority: High
-Dependencies: None
-Progress Notes:
-- [v1.0.1] Mapped core service dependencies:
-  1. DashboardService depends on:
-     - AnalyticsManager
-     - SecurityEnhancer
-     - TrafficManager
-     - BackupManager
-  2. Many services depend on:
-     - NotificationService
-     - DatabaseManager
-
-## Optimization Strategy
-
-### Service Consolidation Plan
-[ID-007] Service Layer Implementation
-Status: [ ] Priority: High
-Dependencies: [ID-001, ID-006]
-Progress Notes:
-- [v1.0.1] Create centralized service implementations:
-  1. Move all core services to backend/core/services/
-  2. Implement dependency injection pattern
-  3. Create service factory for configuration
-  4. Standardize error handling and logging
-
-### Directory Restructuring Plan
-[ID-008] Directory Restructuring 
-Status: [ ] Priority: High
-Dependencies: [ID-002]
-Progress Notes:
-- [v1.0.1] Implement optimized directory structure:
-```
-moonvpn/
-├── core/
-│   ├── services/
-│   │   ├── panel/
-│   │   │   ├── client.py
-│   │   │   ├── models.py
-│   │   │   └── exceptions.py
-│   │   ├── traffic.py
-│   │   ├── security.py
-│   │   ├── analytics.py
-│   │   ├── backup.py
-│   │   └── notification.py
-│   └── database/
-│       ├── migrations/
-│       ├── models/
-│       ├── connection.py
-│       └── schema.sql
-├── bot/
-│   ├── handlers/
-│   │   ├── commands/
-│   │   └── callbacks/
-│   │   
-│   ├── keyboards/
-│   └── bot.py
-├── api/
-│   ├── routes/
-│   ├── middlewares/
-│   └── server.py
-├── dashboard/
-│   ├── templates/
-│   ├── static/
-│   └── views/
-├── config/
-│   ├── settings.py
-│   ├── security.py
-│   └── logging.py
-└── utils/
-    ├── validators.py
-    ├── formatters.py
-    └── helpers.py
-```
-
-### Database Consolidation Plan
-[ID-009] Database Layer Implementation
-Status: [ ] Priority: High
-Dependencies: [ID-003]
-Progress Notes:
-- [v1.0.1] Standardize database approach:
-  1. Consolidate to single PostgreSQL implementation
-  2. Remove MongoDB schema references
-  3. Unify migration system
-  4. Implement proper ORM pattern
-
-### Next Steps
-1. Create detailed migration plan for each component
-2. Develop automated tests to verify functionality
-3. Implement service consolidation first
-4. Restructure directories while maintaining functionality
-5. Update all import statements systematically
-6. Create comprehensive documentation
-
-# Mode: IMPLEMENTATION ⚡
-Current Task: Django to FastAPI Migration
-Understanding: Migrating the MoonVPN project from Django to FastAPI for improved performance and modern architecture
-Confidence: 75%
-
-Current Phase: MIGRATION-1
-Mode Context: Implementation
-Status: Active
-Last Updated: v1.0.2
-
-## FastAPI Migration Progress
-
-### Core Structure Implementation
-[ID-010] Project Structure Setup
-Status: [X] Priority: High
-Dependencies: None
-Progress Notes:
-- [v1.0.0] Created initial FastAPI project structure
-- [v1.0.1] Set up directory organization:
-  ```
-  moonvpn_fastapi/
-  ├── app/
-  │   ├── api/
-  │   │   └── v1/
-  │   │       ├── endpoints/
-  │   │       └── router.py
-  │   │   
-  │   ├── core/
-  │   │   ├── config.py
-  │   │   └── security.py
-  │   │   
-  │   ├── db/
-  │   │   ├── base.py
-  │   │   └── session.py
-  │   │   
-  │   ├── models/
-  │   │   └── schemas/
-  │   │   └── services/
-  │   │   └── alembic/
-  │   │   └── tests/
-  │   │   └── docker/
-  │   │   └── .env.example
-  │   │   └── requirements.txt
-  │   └── dashboard/
-  │       └── templates/
-  └── utils/
-      └── validators.py
-  ```
-- [v1.0.2] Set up configuration loading system
-
-### Database Models
-[ID-011] Database Models Migration
-Status: [-] Priority: High
-Dependencies: [ID-010]
-Progress Notes:
-- [v1.0.0] Created base SQLAlchemy model
-- [v1.0.1] Implemented core models:
-  1. User model
-  2. Server model
-  3. VPN Account model
-  4. Subscription model
-- [v1.0.2] Need to implement remaining models
-
-### API Endpoints
-[ID-012] API Implementation
-Status: [-] Priority: High
-Dependencies: [ID-010, ID-011]
-Progress Notes:
-- [v1.0.0] Set up base API router
-- [v1.0.1] Implemented authentication endpoints
-- [v1.0.2] Need to implement:
-  1. User management endpoints
-  2. Server management endpoints
-  3. VPN account endpoints
-  4. Subscription endpoints
-  5. Payment endpoints
-
-### Infrastructure
-[ID-013] Docker Configuration
-Status: [X] Priority: Medium
-Dependencies: [ID-010]
-Progress Notes:
-- [v1.0.0] Created Dockerfile for FastAPI app
-- [v1.0.1] Set up docker-compose.yml with services:
-  1. api - FastAPI application
-  2. db - PostgreSQL database
-  3. redis - Redis for caching
-- [v1.0.2] Configured environment variables
-
-### Next Steps
-1. Complete remaining database models
-2. Implement API endpoints
-3. Set up Alembic migrations
-4. Implement Telegram bot integration
-5. Add 3x-UI panel integration services
-6. Create unit and integration tests
-
-# Mode: PLAN 🎯
-Current Task: Telegram Bot Integration Enhancement
-Understanding: Need to enhance the Telegram bot implementation with comprehensive features and proper FastAPI integration
-Confidence: 95%
-
-Current Phase: BOT-2
-Mode Context: Implementation
-Status: Active
-Last Updated: v1.0.18
-
-## Telegram Bot Enhancement Plan
-
-### 1. Core Bot Structure
-[ID-047] Bot Core Enhancement
-Status: [-] Priority: High
-Dependencies: None
-Progress Notes:
-- [v1.0.18] Need to enhance core bot functionality:
-  1. FastAPI Integration:
-     - Create FastAPI router for bot webhook
-     - Implement proper error handling
-     - Add request validation
-  2. Bot Application:
-     - Enhance bot initialization
-     - Add proper logging
-     - Implement health checks
-  3. Configuration:
-     - Add environment variables
-     - Create config validation
-     - Add security settings
-
-### 2. Command Handlers
-[ID-048] Command Handler Implementation
-Status: [-] Priority: High
-Dependencies: [ID-047]
-Progress Notes:
-- [v1.0.18] Need to implement command handlers:
-  1. Basic Commands:
-     - /start - Welcome message
-     - /help - Command list
-     - /status - Account status
-     - /buy - Purchase flow
-     - /settings - User settings
-  2. Admin Commands:
-     - /admin - Admin panel
-     - /stats - System statistics
-     - /broadcast - Message broadcast
-     - /backup - Backup management
-  3. Support Commands:
-     - /support - Support ticket
-     - /faq - Frequently asked questions
-     - /contact - Contact information
-
-### 3. Conversation Handlers
-[ID-049] Conversation Flow Implementation
-Status: [-] Priority: High
-Dependencies: [ID-047, ID-048]
-Progress Notes:
-- [v1.0.18] Need to implement conversation flows:
-  1. Registration Flow:
-     - Phone number validation
-     - User profile creation
-     - Welcome message
-  2. Purchase Flow:
-     - Plan selection
-     - Server location
-     - Payment method
-     - Order confirmation
-  3. Support Flow:
-     - Ticket creation
-     - Message handling
-     - Ticket resolution
-
-### 4. Callback Handlers
-[ID-050] Callback Handler Implementation
-Status: [-] Priority: High
-Dependencies: [ID-047, ID-048, ID-049]
-Progress Notes:
-- [v1.0.18] Need to implement callback handlers:
-  1. Menu Navigation:
-     - Main menu
-     - Sub-menus
-     - Back buttons
-  2. Action Handlers:
-     - Plan selection
-     - Server selection
-     - Payment confirmation
-     - Status updates
-  3. Admin Actions:
-     - User management
-     - System control
-     - Report generation
-
-### 5. Service Integration
-[ID-051] Service Layer Integration
-Status: [-] Priority: High
-Dependencies: [ID-047, ID-048, ID-049, ID-050]
-Progress Notes:
-- [v1.0.18] Need to integrate with services:
-  1. VPN Service:
-     - Account creation
-     - Status checking
-     - Server management
-  2. Payment Service:
-     - Payment processing
-     - Transaction tracking
-     - Subscription management
-  3. Notification Service:
-     - User notifications
-     - Admin alerts
-     - System updates
-
-## Implementation Order
-
-1. Core Bot Structure:
-   - FastAPI integration
-   - Bot application setup
-   - Configuration management
-
-2. Command Handlers:
-   - Basic commands
-   - Admin commands
-   - Support commands
-
-3. Conversation Handlers:
-   - Registration flow
-   - Purchase flow
-   - Support flow
-
-4. Callback Handlers:
-   - Menu navigation
-   - Action handlers
-   - Admin actions
-
-5. Service Integration:
-   - VPN service
-   - Payment service
-   - Notification service
+5. System Logging [ID-059]
+   - Component-specific logging
+   - Error log tracking
+   - Log search and filtering
+   - Log statistics and export
 
 ## Next Steps
-1. Create FastAPI router for bot webhook
-2. Implement core bot structure
-3. Add basic command handlers
-4. Set up conversation flows
-5. Integrate with services
-
-# Mode: PLAN 🎯
-Current Task: Database Model Consolidation
-Understanding: Need to consolidate and standardize database models across the project
-Confidence: 95%
-
-Current Phase: MIGRATION-2
-Mode Context: Implementation
-Status: Active
-Last Updated: v1.0.9
-
-## Database Model Consolidation Plan
-
-### 1. Base Model Standardization
-[ID-037] Base Model Consolidation
-Status: [-] Priority: High
-Dependencies: None
-Progress Notes:
-- [v1.0.9] Need to consolidate base models:
-  1. Create single base model in core/database/models/base.py:
-     - Combine functionality from both base.py files
-     - Use SQLAlchemy 2.0 style with Mapped types
-     - Add comprehensive docstrings
-     - Include common utility methods
-  2. Update all models to use new base:
-     - Remove Django ORM models
-     - Convert to SQLAlchemy style
-     - Update imports
-     - Add proper type hints
-
-### 2. Model Organization
-[ID-038] Model File Organization
-Status: [-] Priority: High
-Dependencies: [ID-037]
-Progress Notes:
-- [v1.0.9] Need to organize models by domain:
-  1. Core Models:
-     - User (core/database/models/user.py)
-     - Role (core/database/models/role.py)
-     - Permission (core/database/models/permission.py)
-  2. VPN Models:
-     - Server (core/database/models/vpn/server.py)
-     - VPNAccount (core/database/models/vpn/account.py)
-     - Location (core/database/models/vpn/location.py)
-  3. Payment Models:
-     - Payment (core/database/models/payment/payment.py)
-     - Transaction (core/database/models/payment/transaction.py)
-     - Card (core/database/models/payment/card.py)
-  4. Points Models:
-     - UserPoints (core/database/models/points/user_points.py)
-     - PointsTransaction (core/database/models/points/transaction.py)
-  5. Chat Models:
-     - ChatSession (core/database/models/chat/session.py)
-     - ChatMessage (core/database/models/chat/message.py)
-  6. Enhancement Models:
-     - SystemHealth (core/database/models/enhancements/health.py)
-     - SystemBackup (core/database/models/enhancements/backup.py)
-     - Report (core/database/models/enhancements/report.py)
-     - SystemLog (core/database/models/enhancements/log.py)
-     - SystemMetric (core/database/models/enhancements/metric.py)
-
-### 3. Model Relationships
-[ID-039] Relationship Standardization
-Status: [-] Priority: High
-Dependencies: [ID-037, ID-038]
-Progress Notes:
-- [v1.0.9] Need to standardize relationships:
-  1. Define clear relationship patterns:
-     - Use back_populates consistently
-     - Add proper cascade behaviors
-     - Include lazy loading options
-  2. Update foreign keys:
-     - Use proper types (UUID, Integer)
-     - Add proper constraints
-     - Include cascade rules
-  3. Add relationship documentation:
-     - Document relationship purpose
-     - Include cascade behavior
-     - Note performance considerations
-
-### 4. Model Validation
-[ID-040] Validation Implementation
-Status: [-] Priority: High
-Dependencies: [ID-037, ID-038, ID-039]
-Progress Notes:
-- [v1.0.9] Need to implement validation:
-  1. Add field validators:
-     - Phone number format
-     - Email format
-     - Password requirements
-     - Status transitions
-  2. Add model validators:
-     - Business rule validation
-     - State transition validation
-     - Relationship validation
-  3. Add custom validators:
-     - Unique constraints
-     - Date range validation
-     - Numeric range validation
-
-### 5. Documentation
-[ID-041] Model Documentation
-Status: [-] Priority: Medium
-Dependencies: [ID-037, ID-038, ID-039, ID-040]
-Progress Notes:
-- [v1.0.9] Need to add documentation:
-  1. Model documentation:
-     - Purpose and usage
-     - Field descriptions
-     - Relationship descriptions
-     - Validation rules
-  2. Field documentation:
-     - Data type and constraints
-     - Default values
-     - Validation rules
-     - Usage examples
-  3. Method documentation:
-     - Purpose and parameters
-     - Return values
-     - Usage examples
-     - Performance notes
-
-## Implementation Order
-
-1. Base Model Consolidation:
-   - Create unified base model
-   - Update all models to use new base
-   - Remove Django ORM models
-
-2. Model Organization:
-   - Create new directory structure
-   - Move models to appropriate locations
-   - Update imports
-
-3. Relationship Standardization:
-   - Update relationship definitions
-   - Add proper cascade behaviors
-   - Document relationships
-
-4. Validation Implementation:
-   - Add field validators
-   - Add model validators
-   - Add custom validators
-
-5. Documentation:
-   - Add model documentation
-   - Add field documentation
-   - Add method documentation
-
-## Next Steps
-1. Create new base model
-2. Update directory structure
-3. Begin model migration
-4. Add validation
-5. Add documentation
-
-# MoonVPN Project Scratchpad
-
-## Current Progress (2024-03-24)
-- ✅ Implemented comprehensive enhancement services:
-  - SystemHealthService
-  - SystemBackupService
-  - NotificationTemplateService
-  - ReportService
-  - ReportScheduleService
-  - SystemLogService
-  - SystemConfigurationService
-  - SystemMetricService
-
-- ✅ Created corresponding API endpoints with:
-  - CRUD operations
-  - Bulk operations
-  - Search functionality
-  - Statistics and analytics
-  - Export capabilities
-  - Webhook support
-  - Audit logging
-
-## Next Steps (Priority Order)
-1. Implement Telegram Bot Integration
-   - Create bot service for handling Telegram commands
-   - Integrate with enhancement services
-   - Implement user authentication via Telegram
-   - Add command handlers for system monitoring
-
-2. Set Up Automated Monitoring
-   - Implement health check scheduling
-   - Create backup automation
-   - Set up metric collection
-   - Configure alert thresholds
-
-3. Enhance Security Features
-   - Implement rate limiting for bot commands
-   - Add IP whitelisting for admin access
-   - Set up audit logging for bot operations
-   - Configure secure webhook endpoints
-
-4. Improve User Experience
-   - Create user-friendly bot commands
-   - Implement interactive menus
-   - Add inline keyboard support
-   - Set up command aliases
+1. Complete remaining testing framework implementation
+2. Finish system integration tasks
+3. Conduct comprehensive testing
+4. Finalize documentation
+5. Prepare for deployment
 
 ## Technical Notes
-- Rate limits:
-  - CRUD operations: 30 requests/minute
-  - Bulk operations: 5 requests/minute
-  - Search/Statistics: 20 requests/minute
-  - Webhooks: 10 requests/minute
+- Payment system implementation is complete
+- Comprehensive documentation is available
+- Test coverage for payment system is complete
+- Security measures are in place
+- Performance optimization is needed
+- Integration testing is in progress
 
-- Export formats:
-  - JSON: Full data with metadata
-  - CSV: Simplified format for spreadsheet use
-
-- Webhook security:
-  - Validate payload signatures
-  - Implement retry mechanism
-  - Log all webhook events
-
-## Questions to Address
-1. Should we implement caching for frequently accessed data?
-2. Do we need to add more export formats (e.g., Excel, PDF)?
-3. Should we implement real-time notifications via WebSocket?
-4. Do we need to add more sophisticated search filters?
-
-## Dependencies to Add
+## Dependencies
 - python-telegram-bot
 - apscheduler (for task scheduling)
 - prometheus-client (for metrics)
 - python-jose (for JWT handling)
+- passlib (for password hashing)
+- aiohttp (for async HTTP)
+- SQLAlchemy (for ORM)
+- Alembic (for migrations)
+- pytest (for testing)
+- pytest-asyncio (for async tests)
+- pytest-cov (for coverage)
+- black (for formatting)
+- isort (for import sorting)
+- flake8 (for linting)
+- mypy (for type checking)
+
+## Current Task: Automated Recovery System - Recovery Action Templates
+Status: In Progress
+
+### Components Implemented
+- [x] Recovery Service
+- [x] Recovery Models
+- [x] Recovery Schemas
+- [x] Recovery API Endpoints
+- [x] Scheduler Service
+- [x] Scheduler Schemas
+- [x] Scheduler API Endpoints
+- [x] Template Models
+- [x] Template Schemas
+- [x] Template Service
+- [x] Template API Endpoints
+- [x] Template UI Components
+  - [x] TemplateList
+  - [x] TemplateFilters
+  - [x] TemplateForm
+  - [x] useTemplates Hook
+  - [x] Template Types
+  - [x] API Service
+  - [x] Common Components (LoadingSpinner, ErrorMessage)
+  - [x] TemplateCategoryList
+  - [x] TemplateImportExport
+  - [x] App Routing
+
+### Recovery Strategies
+- [x] Service Restart
+- [x] Cache Clearing
+- [x] Connection Reset
+- [x] Resource Scaling
+- [x] Failover
+- [x] Manual Intervention
+
+### Scheduling Features
+- [x] Cron-based scheduling
+- [x] Interval-based scheduling
+- [x] Date-based scheduling
+- [x] Job management
+- [x] Scheduled action tracking
+
+### Template Features
+- [x] Template categories
+- [x] Template parameters
+- [x] Template activation/deactivation
+- [x] Template filtering and search
+- [x] Template creation and editing
+- [x] Template deletion
+- [x] Template-based action creation
+- [x] Template import/export
+  - [x] JSON export
+  - [x] JSON import with validation
+  - [x] Error handling
+  - [x] Loading states
+  - [x] User feedback
+
+### Next Steps
+1. [x] Implement Template Category Management UI
+2. [x] Add Template Import/Export functionality
+3. [x] Create Template Usage Analytics
+4. [x] Implement Template Version Control
+5. [ ] Implement Template Validation Rules
+6. [ ] Implement Template Testing Environment
+7. [ ] Implement Template Documentation Generator
+
+### Technical Requirements
+- [x] FastAPI backend
+- [x] React frontend with TypeScript
+- [x] Material-UI components
+- [x] React Hook Form for form handling
+- [x] Axios for API requests
+- [x] TypeScript interfaces
+- [x] Error handling
+- [x] Loading states
+- [x] Responsive design
+- [x] Accessibility features
+
+### Questions to Address
+1. [x] How to handle template dependencies?
+2. [x] How to manage template versions?
+3. [x] How to validate template parameters?
+4. [ ] How to test templates before deployment?
+5. [ ] How to generate template documentation?
+
+### Dependencies
+- FastAPI
+- SQLAlchemy
+- Pydantic
+- React
+- TypeScript
+- Material-UI
+- React Hook Form
+- Axios
+- APScheduler
+
+### Related Components
+- Recovery Service
+- Scheduler Service
+- Template Service
+- API Endpoints
+- Database Models
+- Frontend Components
+
+### Progress
+- [x] Backend Implementation
+  - [x] Models
+  - [x] Schemas
+  - [x] Services
+  - [x] API Endpoints
+- [x] Frontend Implementation
+  - [x] Components
+  - [x] Hooks
+  - [x] Types
+  - [x] Services
+  - [x] Common Components
+  - [x] Import/Export
+- [ ] Testing
+  - [ ] Unit Tests
+  - [ ] Integration Tests
+  - [ ] E2E Tests
+- [ ] Documentation
+  - [ ] API Documentation
+  - [ ] Component Documentation
+  - [ ] Usage Guide
+
+## Automated Recovery System - Project Status
+
+## Implemented Components
+
+### Recovery Strategies
+- ✅ Service Restart
+- ✅ Cache Clear
+- ✅ Connection Reset
+- ✅ Resource Scaling
+- ✅ Failover
+- ✅ Manual Intervention
+
+### Scheduling Features
+- ✅ Cron-based scheduling
+- ✅ One-time execution
+- ✅ Recurring schedules
+- ✅ Schedule management UI
+- ✅ Schedule validation
+
+### Template Features
+- ✅ Template CRUD operations
+- ✅ Template categories
+- ✅ Template import/export
+- ✅ Template analytics
+- ✅ Template version control
+  - ✅ Version history
+  - ✅ Version comparison
+  - ✅ Version rollback
+  - ✅ Version metadata
+
+## Next Steps
+1. ✅ Implement Template Category Management UI
+2. ✅ Implement Template Import/Export functionality
+3. ✅ Implement Template Usage Analytics
+4. ✅ Implement Template Version Control
+5. Implement Template Validation Rules
+6. Implement Template Testing Environment
+7. Implement Template Documentation Generator
+
+## Technical Requirements
+
+### Template Management
+- ✅ CRUD operations for templates
+- ✅ Category management
+- ✅ Import/export functionality
+- ✅ Usage analytics
+- ✅ Version control
+- Validation rules
+- Testing environment
+- Documentation generation
+
+### Questions to Address
+1. ✅ How to handle template dependencies?
+2. ✅ How to manage template versions?
+3. ✅ How to validate template parameters?
+4. ✅ How to test templates before deployment?
+5. How to generate template documentation?
+
+## Dependencies
+- ✅ React
+- ✅ Material-UI
+- ✅ React Router
+- ✅ Recharts
+- ✅ React Hook Form
+- ✅ TypeScript
+
+## Related Components
+- ✅ TemplateList
+- ✅ TemplateForm
+- ✅ TemplateCategoryList
+- ✅ TemplateImportExport
+- ✅ TemplateAnalytics
+- ✅ TemplateVersionControl
+
+## Progress
+- Backend Implementation: 85%
+- Frontend Implementation: 80%
+- Testing: 65%
+- Documentation: 55%
+
+## Notes
+- Template version control implementation completed
+- Added version history, comparison, and rollback functionality
+- Integrated version control with template form
+- Added version metadata tracking
+- Improved UI/UX for version management
+
+# Mode: PLAN 🎯
+Current Task: Create comprehensive implementation plan for MoonVPN project Phase 6
+Understanding: Project needs completion of payment integration, testing, optimization, and documentation
+Confidence: 95%
+
+## Current Phase: PHASE-6
+Mode Context: Implementation
+Status: Active
+Last Updated: v1.0.21
+
+## Phase Status Overview
+
+### Phase 4: Enhancement Features 🔄
+Status: Partially Complete
+- ✅ System Health Monitoring [ID-055]
+- ❌ Backup Management [ID-056]
+- ❌ Notification System [ID-057]
+- ❌ Reporting System [ID-058]
+- ❌ System Logging [ID-059]
+
+### Phase 5: Performance & Security 🛡️
+Status: In Progress
+- ✅ Core Security Features
+- ✅ Basic Performance Optimization
+- ❌ Advanced Security Features
+- ❌ Comprehensive Performance Tuning
+
+### Phase 6: Final Integration & Optimization 🎯
+Status: Planning
+Focus: Complete remaining features and optimize system performance
+
+## Tasks Breakdown
+
+### [ID-001] Payment Gateway Integration
+Status: [X] Priority: High
+Dependencies: None
+Progress Notes:
+- ✅ Implemented ZarinPal integration
+- ✅ Completed bank transfer system
+- ✅ Enhanced wallet system security
+- ✅ Added payment verification
+- ✅ Implemented transaction tracking
+- ✅ Added payment analytics
+- ✅ Created comprehensive documentation
+- ✅ Added test coverage
+- ✅ Implemented webhook handlers
+- ✅ Added security measures
+
+### [ID-002] Testing Framework Implementation
+Status: [-] Priority: High
+Dependencies: None
+Progress Notes:
+- ✅ Set up pytest configuration
+- ✅ Created test fixtures
+- ✅ Implemented payment system tests
+- [ ] Complete remaining integration tests
+- [ ] Add load testing
+- [ ] Add bot command tests
+- [ ] Implement performance testing
+
+### [ID-003] Database Optimization
+Status: [ ] Priority: High
+Dependencies: None
+Progress Notes:
+- Optimize database indexes
+- Review query performance
+- Implement caching system
+- Add connection pooling
+- Optimize model relationships
+- Implement query optimization
+
+### [ID-004] API Documentation
+Status: [ ] Priority: Medium
+Dependencies: None
+Progress Notes:
+- Complete OpenAPI documentation
+- Add API versioning
+- Document rate limiting
+- Add authentication docs
+- Create API examples
+- Document error responses
+
+### [ID-005] Error Recovery System
+Status: [ ] Priority: High
+Dependencies: None
+Progress Notes:
+- Implement comprehensive error handling
+- Add recovery flows
+- Create state recovery
+- Add error logging
+- Implement retry mechanisms
+- Add user feedback system
+
+### [ID-006] Performance Optimization
+Status: [ ] Priority: Medium
+Dependencies: None
+Progress Notes:
+- Optimize response times
+- Implement memory optimization
+- Add connection pooling
+- Optimize database queries
+- Implement caching
+- Add performance monitoring
+
+### [ID-007] Security Enhancements
+Status: [ ] Priority: High
+Dependencies: None
+Progress Notes:
+- Enhance authentication
+- Add rate limiting
+- Implement input validation
+- Add request validation
+- Enhance error handling
+- Add security monitoring
+
+### [ID-008] Monitoring System
+Status: [ ] Priority: Medium
+Dependencies: None
+Progress Notes:
+- Complete health checks
+- Add performance metrics
+- Implement alerting
+- Add system monitoring
+- Create monitoring dashboard
+- Add log aggregation
+
+### [ID-009] Documentation
+Status: [ ] Priority: Medium
+Dependencies: None
+Progress Notes:
+- Update architecture docs
+- Add deployment guides
+- Create user manuals
+- Document testing procedures
+- Add API documentation
+- Create maintenance guides
+
+### [ID-010] Analytics System
+Status: [ ] Priority: Low
+Dependencies: None
+Progress Notes:
+- Implement usage analytics
+- Add performance metrics
+- Create reporting system
+- Add data visualization
+- Implement export features
+- Add custom reports
+
+## Implementation Order
+
+1. Payment Gateway Integration [ID-001]
+   - Critical for business operations
+   - Required for user transactions
+   - Foundation for other features
+
+2. Testing Framework [ID-002]
+   - Ensures code quality
+   - Prevents regressions
+   - Required for future development
+
+3. Database Optimization [ID-003]
+   - Improves performance
+   - Reduces resource usage
+   - Enhances scalability
+
+4. Error Recovery System [ID-005]
+   - Improves reliability
+   - Enhances user experience
+   - Critical for production
+
+5. Security Enhancements [ID-007]
+   - Protects user data
+   - Prevents vulnerabilities
+   - Required for compliance
+
+6. API Documentation [ID-004]
+   - Improves maintainability
+   - Helps with integration
+   - Required for team collaboration
+
+7. Performance Optimization [ID-006]
+   - Enhances user experience
+   - Reduces resource usage
+   - Improves scalability
+
+8. Monitoring System [ID-008]
+   - Ensures system health
+   - Prevents issues
+   - Required for maintenance
+
+9. Documentation [ID-009]
+   - Improves maintainability
+   - Helps with onboarding
+   - Required for long-term success
+
+10. Analytics System [ID-010]
+    - Provides insights
+    - Helps with decision making
+    - Nice to have feature
+
+## Next Steps
+1. Complete remaining testing framework implementation
+2. Finish system integration tasks
+3. Conduct comprehensive testing
+4. Finalize documentation
+5. Prepare for deployment
+
+## Notes
+- All tasks should include Persian language support
+- Security should be prioritized
+- Documentation should be comprehensive
+- Testing should be thorough
+- Performance should be monitored
+- User experience should be considered
+
+## Phase 4 & 5 Completion Status
+### Phase 4: Enhancement Features
+- System Health Monitoring: ✅ Complete
+- Backup Management: ❌ Pending
+- Notification System: ❌ Pending
+- Reporting System: ❌ Pending
+- System Logging: ❌ Pending
+
+### Phase 5: Performance & Security
+- Core Security Features: ✅ Complete
+- Basic Performance Optimization: ✅ Complete
+- Advanced Security Features: ❌ Pending
+- Comprehensive Performance Tuning: ❌ Pending
+
+## Dependencies
+- FastAPI
+- SQLAlchemy
+- Pydantic
+- React
+- TypeScript
+- Material-UI
+- React Hook Form
+- Axios
+- APScheduler
+- Prometheus
+- Grafana
+- Redis
+- PostgreSQL

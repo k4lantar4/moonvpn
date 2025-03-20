@@ -1,18 +1,17 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-import { jwtDecode } from 'jwt-decode';
 
 interface User {
-  id: number;
-  username: string;
+  id: string;
   email: string;
-  isAdmin: boolean;
+  name: string;
+  role: 'admin' | 'user' | 'reseller';
 }
 
 interface AuthState {
   user: User | null;
   token: string | null;
   isAuthenticated: boolean;
-  loading: boolean;
+  isLoading: boolean;
   error: string | null;
 }
 
@@ -20,7 +19,7 @@ const initialState: AuthState = {
   user: null,
   token: localStorage.getItem('token'),
   isAuthenticated: false,
-  loading: false,
+  isLoading: false,
   error: null,
 };
 
@@ -28,44 +27,31 @@ const authSlice = createSlice({
   name: 'auth',
   initialState,
   reducers: {
-    loginStart: (state) => {
-      state.loading = true;
-      state.error = null;
-    },
-    loginSuccess: (state, action: PayloadAction<{ token: string }>) => {
-      state.loading = false;
-      state.token = action.payload.token;
-      try {
-        const decoded = jwtDecode<User>(action.payload.token);
-        state.user = decoded;
-        state.isAuthenticated = true;
-      } catch (error) {
-        state.error = 'Invalid token';
-      }
-    },
-    loginFailure: (state, action: PayloadAction<string>) => {
-      state.loading = false;
-      state.error = action.payload;
+    setCredentials: (
+      state,
+      action: PayloadAction<{ user: User; token: string }>
+    ) => {
+      const { user, token } = action.payload;
+      state.user = user;
+      state.token = token;
+      state.isAuthenticated = true;
+      localStorage.setItem('token', token);
     },
     logout: (state) => {
       state.user = null;
       state.token = null;
       state.isAuthenticated = false;
-      state.error = null;
       localStorage.removeItem('token');
     },
-    updateUser: (state, action: PayloadAction<User>) => {
-      state.user = action.payload;
+    setLoading: (state, action: PayloadAction<boolean>) => {
+      state.isLoading = action.payload;
+    },
+    setError: (state, action: PayloadAction<string | null>) => {
+      state.error = action.payload;
     },
   },
 });
 
-export const {
-  loginStart,
-  loginSuccess,
-  loginFailure,
-  logout,
-  updateUser,
-} = authSlice.actions;
+export const { setCredentials, logout, setLoading, setError } = authSlice.actions;
 
 export default authSlice.reducer; 

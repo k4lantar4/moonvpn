@@ -2,7 +2,7 @@
 
 import asyncio
 import json
-from typing import Any, Dict, Optional, Union
+from typing import Any, Callable, Dict, Optional, Union
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.security import create_access_token
@@ -22,23 +22,25 @@ from .constants import (
     TEST_TELEGRAM_ID,
     TEST_TELEGRAM_USERNAME
 )
+from .config import test_settings
 
 async def create_test_user(
     db: AsyncSession,
-    email: str = TEST_USER_EMAIL,
-    password: str = TEST_USER_PASSWORD,
-    username: str = TEST_USER_USERNAME,
+    email: str = test_settings.TEST_USER_EMAIL,
+    password: str = test_settings.TEST_USER_PASSWORD,
+    full_name: str = test_settings.TEST_USER_FULL_NAME,
     is_active: bool = True,
     is_superuser: bool = False
 ) -> User:
     """Create a test user."""
-    user = User(
-        email=email,
-        username=username,
-        is_active=is_active,
-        is_superuser=is_superuser
-    )
-    user.set_password(password)
+    user_data = {
+        "email": email,
+        "password": password,
+        "full_name": full_name,
+        "is_active": is_active,
+        "is_superuser": is_superuser
+    }
+    user = User(**user_data)
     db.add(user)
     await db.commit()
     await db.refresh(user)
@@ -47,19 +49,22 @@ async def create_test_user(
 async def create_test_vpn_config(
     db: AsyncSession,
     user_id: int,
-    name: str = TEST_VPN_NAME,
-    server: str = TEST_VPN_SERVER,
-    port: int = TEST_VPN_PORT,
+    name: str = "test_vpn_config",
+    server: str = test_settings.TEST_VPN_SERVER,
+    port: int = test_settings.TEST_VPN_PORT,
+    protocol: str = test_settings.TEST_VPN_PROTOCOL,
     is_active: bool = True
 ) -> VPNConfig:
     """Create a test VPN configuration."""
-    vpn_config = VPNConfig(
-        name=name,
-        server=server,
-        port=port,
-        is_active=is_active,
-        user_id=user_id
-    )
+    vpn_data = {
+        "user_id": user_id,
+        "name": name,
+        "server": server,
+        "port": port,
+        "protocol": protocol,
+        "is_active": is_active
+    }
+    vpn_config = VPNConfig(**vpn_data)
     db.add(vpn_config)
     await db.commit()
     await db.refresh(vpn_config)
@@ -68,17 +73,18 @@ async def create_test_vpn_config(
 async def create_test_payment(
     db: AsyncSession,
     user_id: int,
-    amount: float = TEST_PAYMENT_AMOUNT,
-    currency: str = TEST_PAYMENT_CURRENCY,
-    status: str = "completed"
+    amount: float = test_settings.TEST_PAYMENT_AMOUNT,
+    currency: str = test_settings.TEST_PAYMENT_CURRENCY,
+    status: str = test_settings.TEST_PAYMENT_STATUS
 ) -> Payment:
     """Create a test payment."""
-    payment = Payment(
-        amount=amount,
-        currency=currency,
-        status=status,
-        user_id=user_id
-    )
+    payment_data = {
+        "user_id": user_id,
+        "amount": amount,
+        "currency": currency,
+        "status": status
+    }
+    payment = Payment(**payment_data)
     db.add(payment)
     await db.commit()
     await db.refresh(payment)
@@ -87,17 +93,18 @@ async def create_test_payment(
 async def create_test_telegram_user(
     db: AsyncSession,
     user_id: int,
-    telegram_id: int = TEST_TELEGRAM_ID,
-    username: str = TEST_TELEGRAM_USERNAME,
+    telegram_id: int = test_settings.TEST_TELEGRAM_USER_ID,
+    username: str = test_settings.TEST_TELEGRAM_USERNAME,
     is_active: bool = True
 ) -> TelegramUser:
     """Create a test Telegram user."""
-    telegram_user = TelegramUser(
-        telegram_id=telegram_id,
-        username=username,
-        is_active=is_active,
-        user_id=user_id
-    )
+    telegram_data = {
+        "user_id": user_id,
+        "telegram_id": telegram_id,
+        "username": username,
+        "is_active": is_active
+    }
+    telegram_user = TelegramUser(**telegram_data)
     db.add(telegram_user)
     await db.commit()
     await db.refresh(telegram_user)
@@ -108,14 +115,14 @@ def create_test_token(user_id: int, expires_delta: Optional[int] = None) -> str:
     return create_access_token(user_id, expires_delta)
 
 async def wait_for_condition(
-    condition_func,
+    condition_func: Callable[[], bool],
     timeout: float = 5.0,
     interval: float = 0.1
 ) -> bool:
     """Wait for a condition to be met."""
     start_time = asyncio.get_event_loop().time()
     while asyncio.get_event_loop().time() - start_time < timeout:
-        if await condition_func():
+        if condition_func():
             return True
         await asyncio.sleep(interval)
     return False
@@ -127,14 +134,20 @@ def assert_response_schema(
 ) -> None:
     """Assert that a response matches a schema."""
     for key, expected_type in schema.items():
-        full_path = f"{path}.{key}" if path else key
-        assert key in response, f"Missing key: {full_path}"
+        current_path = f"{path}.{key}" if path else key
+        assert key in response, f"Missing key: {current_path}"
+        
         if isinstance(expected_type, dict):
-            assert isinstance(response[key], dict), f"Expected dict for {full_path}"
-            assert_response_schema(response[key], expected_type, full_path)
+            assert isinstance(response[key], dict), f"Expected dict for {current_path}"
+            assert_response_schema(response[key], expected_type, current_path)
+        elif isinstance(expected_type, list):
+            assert isinstance(response[key], list), f"Expected list for {current_path}"
+            if expected_type:
+                for item in response[key]:
+                    assert_response_schema(item, expected_type[0], f"{current_path}[]")
         else:
             assert isinstance(response[key], expected_type), \
-                f"Expected {expected_type.__name__} for {full_path}, got {type(response[key]).__name__}"
+                f"Expected {expected_type.__name__} for {current_path}, got {type(response[key]).__name__}"
 
 def create_test_headers(token: Optional[str] = None) -> Dict[str, str]:
     """Create test headers with optional authorization token."""
@@ -152,7 +165,9 @@ def create_test_file(
     return filename, content, content_type
 
 async def clear_test_db(db: AsyncSession) -> None:
-    """Clear all tables in the test database."""
-    for table in reversed(db.get_bind().metadata.sorted_tables):
-        await db.execute(table.delete())
+    """Clear all test data from the database."""
+    await db.execute("DELETE FROM telegram_users")
+    await db.execute("DELETE FROM payments")
+    await db.execute("DELETE FROM vpn_configs")
+    await db.execute("DELETE FROM users")
     await db.commit() 

@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="{{ language }}">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ translate('template_documentation') }}: {{ template.name }}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 40px;
+            color: #333;
+        }
+        h1 {
+            color: #2c3e50;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #34495e;
+            margin-top: 30px;
+        }
+        h3 {
+            color: #7f8c8d;
+        }
+        .parameter {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .validation-rule {
+            border-left: 4px solid #3498db;
+            padding-left: 15px;
+            margin: 10px 0;
+        }
+        .metadata {
+            color: #7f8c8d;
+            font-size: 0.9em;
+        }
+        pre {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+        code {
+            font-family: 'Courier New', Courier, monospace;
+        }
+        .notes {
+            background: #fff3cd;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+        }
+        [dir="rtl"] {
+            text-align: right;
+        }
+        [dir="rtl"] .validation-rule {
+            border-left: none;
+            border-right: 4px solid #3498db;
+            padding-left: 0;
+            padding-right: 15px;
+        }
+    </style>
+</head>
+<body dir="{{ 'rtl' if language == 'fa' else 'ltr' }}">
+    {{ content|safe }}
+</body>
+</html> 

@@ -19,16 +19,18 @@ from .helpers import (
     create_test_headers,
     clear_test_db
 )
+from app.models.user import User
+from app.core.security import create_access_token
 
 class TestBase:
     """Base class for all tests."""
     
     @pytest.fixture(autouse=True)
-    async def setup(self, db_session: AsyncSession):
-        """Setup and teardown for each test."""
+    async def setup(self, db_session: AsyncSession) -> AsyncGenerator[None, None]:
+        """Setup test environment."""
         await clear_test_db(db_session)
         yield
-        await clear_test_db(db_session)
+        await db_session.rollback()
     
     @pytest.fixture
     async def db(self, db_session: AsyncSession) -> AsyncGenerator[AsyncSession, None]:
@@ -38,8 +40,8 @@ class TestBase:
     @pytest.fixture
     def client(self) -> Generator[TestClient, None, None]:
         """Get test client."""
-        with TestClient(app) as test_client:
-            yield test_client
+        with TestClient(app) as c:
+            yield c
     
     @pytest.fixture
     def test_settings(self):
@@ -68,24 +70,112 @@ class TestBase:
         """Create test headers with optional authorization token."""
         return create_test_headers(token)
     
-    async def create_test_user(
-        self,
-        db: AsyncSession,
-        email: str = test_settings.TEST_USER_EMAIL,
-        password: str = test_settings.TEST_USER_PASSWORD,
-        username: str = test_settings.TEST_USER_USERNAME,
-        is_active: bool = True,
-        is_superuser: bool = False
-    ):
-        """Create a test user."""
-        return await create_test_user(
-            db,
-            email,
-            password,
-            username,
-            is_active,
-            is_superuser
-        )
+    @pytest.fixture
+    async def test_user(self, db_session: AsyncSession) -> User:
+        """Create test user."""
+        user_data = {
+            "email": "test@example.com",
+            "password": "testpassword123",
+            "full_name": "Test User",
+            "is_active": True,
+            "is_superuser": False
+        }
+        user = User(**user_data)
+        db_session.add(user)
+        await db_session.commit()
+        await db_session.refresh(user)
+        return user
+    
+    @pytest.fixture
+    def test_user_token(self, test_user: User) -> str:
+        """Get test user token."""
+        return create_access_token(test_user.id)
+    
+    @pytest.fixture
+    async def test_superuser(self, db_session: AsyncSession) -> User:
+        """Create test superuser."""
+        user_data = {
+            "email": "admin@example.com",
+            "password": "adminpassword123",
+            "full_name": "Admin User",
+            "is_active": True,
+            "is_superuser": True
+        }
+        user = User(**user_data)
+        db_session.add(user)
+        await db_session.commit()
+        await db_session.refresh(user)
+        return user
+    
+    @pytest.fixture
+    def test_superuser_token(self, test_superuser: User) -> str:
+        """Get test superuser token."""
+        return create_access_token(test_superuser.id)
+    
+    @pytest.fixture
+    def test_user_data(self) -> dict:
+        """Get test user data."""
+        return {
+            "email": "test@example.com",
+            "password": "testpassword123",
+            "full_name": "Test User",
+            "is_active": True,
+            "is_superuser": False
+        }
+    
+    @pytest.fixture
+    def test_superuser_data(self) -> dict:
+        """Get test superuser data."""
+        return {
+            "email": "admin@example.com",
+            "password": "adminpassword123",
+            "full_name": "Admin User",
+            "is_active": True,
+            "is_superuser": True
+        }
+    
+    async def create_test_user(self, db_session: AsyncSession, **kwargs) -> User:
+        """Create a test user with custom data."""
+        user_data = {
+            "email": "test@example.com",
+            "password": "testpassword123",
+            "full_name": "Test User",
+            "is_active": True,
+            "is_superuser": False,
+            **kwargs
+        }
+        user = User(**user_data)
+        db_session.add(user)
+        await db_session.commit()
+        await db_session.refresh(user)
+        return user
+    
+    def get_auth_headers(self, token: str) -> dict:
+        """Get authentication headers."""
+        return {"Authorization": f"Bearer {token}"}
+    
+    def assert_response(self, response, status_code: int = 200):
+        """Assert response status code."""
+        assert response.status_code == status_code
+    
+    def assert_response_data(self, response, expected_data: dict):
+        """Assert response data matches expected data."""
+        data = response.json()
+        for key, value in expected_data.items():
+            assert data[key] == value
+    
+    def assert_response_list(self, response, expected_length: int = None):
+        """Assert response is a list with expected length."""
+        data = response.json()
+        assert isinstance(data, list)
+        if expected_length is not None:
+            assert len(data) == expected_length
+    
+    def assert_response_error(self, response, status_code: int, error_message: str):
+        """Assert response is an error with expected message."""
+        assert response.status_code == status_code
+        data = response.json()
+        assert error_message in data["detail"]
     
     async def create_test_vpn_config(
         self,

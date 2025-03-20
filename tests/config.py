@@ -1,40 +1,44 @@
 """Test configuration settings."""
 
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from pydantic_settings import BaseSettings
 from app.core.config import settings
 
 class TestSettings(BaseSettings):
-    """Test-specific settings."""
+    """Test settings."""
     
-    # Database
+    # Database settings
     TEST_DATABASE_URL: str = "sqlite+aiosqlite:///./test.db"
     
-    # Security
+    # JWT settings
     TEST_SECRET_KEY: str = "test_secret_key"
     TEST_ALGORITHM: str = "HS256"
     TEST_ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     
-    # VPN
+    # Test user settings
+    TEST_USER_EMAIL: str = "test@example.com"
+    TEST_USER_PASSWORD: str = "testpassword123"
+    TEST_USER_FULL_NAME: str = "Test User"
+    
+    # Test superuser settings
+    TEST_SUPERUSER_EMAIL: str = "admin@example.com"
+    TEST_SUPERUSER_PASSWORD: str = "adminpassword123"
+    TEST_SUPERUSER_FULL_NAME: str = "Admin User"
+    
+    # Test VPN settings
     TEST_VPN_SERVER: str = "test.vpn.server"
     TEST_VPN_PORT: int = 1194
     TEST_VPN_PROTOCOL: str = "udp"
-    TEST_VPN_CIPHER: str = "AES-256-CBC"
-    TEST_VPN_AUTH: str = "SHA256"
     
-    # Payment
-    TEST_STRIPE_SECRET_KEY: str = "test_stripe_secret_key"
-    TEST_STRIPE_WEBHOOK_SECRET: str = "test_stripe_webhook_secret"
+    # Test payment settings
+    TEST_PAYMENT_AMOUNT: float = 10.0
+    TEST_PAYMENT_CURRENCY: str = "USD"
+    TEST_PAYMENT_STATUS: str = "completed"
     
-    # Telegram
-    TEST_TELEGRAM_BOT_TOKEN: str = "test_telegram_bot_token"
-    TEST_TELEGRAM_API_ID: str = "test_telegram_api_id"
-    TEST_TELEGRAM_API_HASH: str = "test_telegram_api_hash"
-    
-    # Test Data
-    TEST_USER_EMAIL: str = "test@example.com"
-    TEST_USER_PASSWORD: str = "test_password123"
-    TEST_USER_USERNAME: str = "test_user"
+    # Test Telegram settings
+    TEST_TELEGRAM_BOT_TOKEN: str = "test_bot_token"
+    TEST_TELEGRAM_USER_ID: int = 123456789
+    TEST_TELEGRAM_USERNAME: str = "test_telegram_user"
     
     # Performance Test Settings
     PERFORMANCE_TEST_USERS: int = 100

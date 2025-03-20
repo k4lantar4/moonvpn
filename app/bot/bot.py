@@ -18,6 +18,7 @@ from telegram.ext import (
     ContextTypes,
 )
 from telegram.error import TelegramError
+from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.security import verify_telegram_request
@@ -25,6 +26,8 @@ from app.models.user import User
 from app.services.vpn import VPNService
 from app.services.payment import PaymentService
 from app.services.notification import NotificationService
+from app.bot.handlers.admin.group_handlers import AdminGroupHandlers
+from app.bot.handlers.admin.register_handlers import register_admin_handlers
 
 # Setup logging
 logger = logging.getLogger(__name__)
@@ -42,9 +45,12 @@ logger = logging.getLogger(__name__)
 class MoonVPNBot:
     """Main bot application class."""
     
-    def __init__(self):
+    def __init__(self, token: str, db: Session):
         """Initialize the bot application."""
-        self.application = Application.builder().token(settings.TELEGRAM_BOT_TOKEN.get_secret_value()).build()
+        self.token = token
+        self.db = db
+        self.application = Application.builder().token(token).build()
+        self.application.bot_data["db"] = db
         self.vpn_service = VPNService()
         self.payment_service = PaymentService()
         self.notification_service = NotificationService()
@@ -57,6 +63,14 @@ class MoonVPNBot:
     
     def _setup_handlers(self) -> None:
         """Setup all command and conversation handlers."""
+        # Register admin group handlers
+        admin_group_handlers = AdminGroupHandlers(self.db)
+        for handler in admin_group_handlers.get_handlers():
+            self.application.add_handler(handler)
+
+        # Register other admin handlers
+        register_admin_handlers(self.application)
+        
         # Command handlers
         self.application.add_handler(CommandHandler("start", self._start_command))
         self.application.add_handler(CommandHandler("help", self._help_command))
@@ -64,11 +78,6 @@ class MoonVPNBot:
         self.application.add_handler(CommandHandler("register", self._register_command))
         self.application.add_handler(CommandHandler("purchase", self._purchase_command))
         self.application.add_handler(CommandHandler("support", self._support_command))
-        
-        # Admin command handlers
-        self.application.add_handler(CommandHandler("admin", self._admin_command))
-        self.application.add_handler(CommandHandler("broadcast", self._broadcast_command))
-        self.application.add_handler(CommandHandler("users", self._users_command))
         
         # Conversation handlers
         self.application.add_handler(
@@ -112,6 +121,53 @@ class MoonVPNBot:
         
         # Callback query handlers
         self.application.add_handler(CallbackQueryHandler(self._handle_callback_query))
+    
+    def _update_bot_commands(self) -> None:
+        """Update the bot's command list."""
+        commands = [
+            # Basic user commands
+            ("start", "Start the bot"),
+            ("help", "Show help information"),
+            ("settings", "Configure your settings"),
+            
+            # Admin group management commands
+            ("create_group", "Create a new admin group"),
+            ("list_groups", "List all admin groups"),
+            ("group_info", "Get information about a specific group"),
+            ("add_member", "Add a member to an admin group"),
+            ("remove_member", "Remove a member from an admin group"),
+            ("list_members", "List all members of a group"),
+            ("update_group", "Update an admin group's information"),
+            ("delete_group", "Delete an admin group"),
+            
+            # Other admin commands
+            ("admin", "Access admin panel"),
+            ("broadcast", "Send a broadcast message"),
+            ("users", "Manage users"),
+            ("server_status", "Check server status"),
+            ("system_health", "Check system health"),
+            ("admin_stats", "View admin statistics"),
+            ("daily_report", "Get daily report"),
+            ("performance_report", "Get performance report"),
+            ("usage_report", "Get usage report"),
+            ("error_logs", "View error logs"),
+            ("user_logs", "View user logs"),
+            ("system_logs", "View system logs"),
+            ("transaction_stats", "View transaction statistics"),
+            ("payment_report", "Get payment report"),
+            ("refund_requests", "View refund requests"),
+            ("outage_status", "Check outage status"),
+            ("maintenance_schedule", "View maintenance schedule"),
+            ("incident_report", "Get incident report"),
+            ("seller_stats", "View seller statistics"),
+            ("commission_report", "Get commission report"),
+            ("partner_status", "Check partner status"),
+            ("backup_status", "Check backup status"),
+            ("backup_schedule", "View backup schedule"),
+            ("restore_points", "View restore points")
+        ]
+        
+        self.application.bot.set_my_commands(commands)
     
     async def _start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Handle the /start command."""
@@ -276,73 +332,6 @@ class MoonVPNBot:
             )
             return ConversationHandler.END
     
-    async def _admin_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        """Handle the /admin command."""
-        user = update.effective_user
-        if user.id not in settings.TELEGRAM_BOT_ADMIN_IDS:
-            await update.message.reply_text("Sorry, you don't have access to this command.")
-            return
-        
-        keyboard = [
-            [
-                InlineKeyboardButton("Broadcast Message", callback_data="admin_broadcast"),
-                InlineKeyboardButton("User Management", callback_data="admin_users")
-            ],
-            [
-                InlineKeyboardButton("System Status", callback_data="admin_status"),
-                InlineKeyboardButton("Statistics", callback_data="admin_stats")
-            ]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        
-        await update.message.reply_text(
-            "Admin Panel:",
-            reply_markup=reply_markup
-        )
-    
-    async def _broadcast_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-        """Handle the /broadcast command."""
-        user = update.effective_user
-        if user.id not in settings.TELEGRAM_BOT_ADMIN_IDS:
-            await update.message.reply_text("Sorry, you don't have access to this command.")
-            return ConversationHandler.END
-        
-        await update.message.reply_text(
-            "Please enter the message you want to broadcast:"
-        )
-        return ADMIN_BROADCAST
-    
-    async def _users_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        """Handle the /users command."""
-        user = update.effective_user
-        if user.id not in settings.TELEGRAM_BOT_ADMIN_IDS:
-            await update.message.reply_text("Sorry, you don't have access to this command.")
-            return
-        
-        try:
-            users = await self.vpn_service.get_all_users()
-            message = "User List:\n\n"
-            for user in users:
-                message += f"ID: {user.id}\n"
-                message += f"Username: @{user.username}\n"
-                message += f"Status: {user.status}\n"
-                message += f"Expires: {user.expires}\n\n"
-            
-            await update.message.reply_text(message)
-        except Exception as e:
-            logger.error(f"Error getting users list: {e}")
-            await update.message.reply_text(
-                "Sorry, there was an error getting the users list. "
-                "Please try again later."
-            )
-    
-    async def _cancel_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-        """Handle the /cancel command."""
-        await update.message.reply_text(
-            "Operation cancelled. You can start a new command anytime."
-        )
-        return ConversationHandler.END
-    
     async def _handle_callback_query(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Handle callback queries."""
         query = update.callback_query
@@ -397,19 +386,8 @@ class MoonVPNBot:
     
     async def start(self) -> None:
         """Start the bot."""
-        # Set bot commands
-        commands = [
-            BotCommand("start", "Start the bot"),
-            BotCommand("help", "Show help message"),
-            BotCommand("status", "Check VPN status"),
-            BotCommand("register", "Register new account"),
-            BotCommand("purchase", "Purchase subscription"),
-            BotCommand("support", "Get support"),
-            BotCommand("cancel", "Cancel current operation"),
-        ]
-        await self.application.bot.set_my_commands(commands)
-        
-        # Start the bot
+        self._setup_handlers()
+        await self._update_bot_commands()
         await self.application.initialize()
         await self.application.start()
         await self.application.run_polling()
@@ -417,4 +395,28 @@ class MoonVPNBot:
     async def stop(self) -> None:
         """Stop the bot."""
         await self.application.stop()
-        await self.application.shutdown() 
+        await self.application.shutdown()
+
+    async def _users_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Handle the /users command."""
+        user = update.effective_user
+        if user.id not in settings.TELEGRAM_BOT_ADMIN_IDS:
+            await update.message.reply_text("Sorry, you don't have access to this command.")
+            return
+        
+        try:
+            users = await self.vpn_service.get_all_users()
+            message = "User List:\n\n"
+            for user in users:
+                message += f"ID: {user.id}\n"
+                message += f"Username: @{user.username}\n"
+                message += f"Status: {user.status}\n"
+                message += f"Expires: {user.expires}\n\n"
+            
+            await update.message.reply_text(message)
+        except Exception as e:
+            logger.error(f"Error getting users list: {e}")
+            await update.message.reply_text(
+                "Sorry, there was an error getting the users list. "
+                "Please try again later."
+            ) 

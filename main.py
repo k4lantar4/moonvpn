@@ -1,11 +1,13 @@
 """
-Main application module.
+Main application module for MoonVPN.
 """
-
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from fastapi.middleware.gzip import GZipMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.types import ASGIApp
 
 from core.config import settings
 from core.database.session import engine
@@ -22,11 +24,22 @@ setup_logging()
 # Create database tables
 models.Base.metadata.create_all(bind=engine)
 
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        return response
+
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
     description=settings.DESCRIPTION,
-    openapi_url=f"{settings.API_V1_STR}/openapi.json"
+    openapi_url=f"{settings.API_V1_STR}/openapi.json",
+    docs_url=f"{settings.API_V1_STR}/docs",
+    redoc_url=f"{settings.API_V1_STR}/redoc"
 )
 
 # Configure CORS
@@ -38,7 +51,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Add middleware
+# Add compression
+app.add_middleware(GZipMiddleware, minimum_size=1000)
+
+# Add security headers
+app.add_middleware(SecurityHeadersMiddleware)
+
+# Add monitoring and logging
 app.add_middleware(LoggingMiddleware)
 app.add_middleware(MonitoringMiddleware)
 
@@ -51,16 +70,31 @@ app.include_router(monitoring.router, prefix=f"{settings.API_V1_STR}/monitoring"
 
 # Handle validation errors
 @app.exception_handler(RequestValidationError)
-async def validation_exception_handler(request, exc):
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
     return JSONResponse(
         status_code=422,
-        content={"detail": exc.errors()}
+        content={
+            "detail": exc.errors(),
+            "message": "Validation error occurred"
+        }
     )
 
-@app.get("/")
-async def root():
-    """Root endpoint."""
-    return {"message": "Welcome to MoonVPN API"}
+# Handle general exceptions
+@app.exception_handler(Exception)
+async def general_exception_handler(request: Request, exc: Exception):
+    log_info(f"Unhandled exception: {exc}")
+    return JSONResponse(
+        status_code=500,
+        content={
+            "detail": "Internal server error",
+            "message": "An unexpected error occurred"
+        }
+    )
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint."""
+    return {"status": "healthy"}
 
 @app.on_event("startup")
 async def startup_event():

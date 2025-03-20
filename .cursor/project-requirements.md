@@ -125,12 +125,25 @@ moonvpn/
 │   ├── tests/              # Test files
 │   ├── config/             # Configuration files
 │   └── middlewares/        # Middleware components
-├── backend/                # Backend application
-│   ├── api/               # API endpoints
-│   ├── bot/               # Telegram bot
-│   ├── models/            # Backend-specific models
-│   └── routes/            # Route definitions
+├── api/                    # API endpoints
+│   ├── v1/                # API version 1
+│   │   ├── endpoints/     # API endpoints
+│   │   ├── schemas/       # Pydantic schemas
+│   │   └── dependencies/  # API dependencies
+│   └── docs/              # API documentation
 ├── frontend/              # Frontend application
+│   ├── src/
+│   │   ├── components/    # React components
+│   │   ├── hooks/        # Custom hooks
+│   │   ├── services/     # API services
+│   │   ├── store/        # State management
+│   │   ├── types/        # TypeScript types
+│   │   └── utils/        # Utility functions
+│   └── public/           # Static files
+├── bot/                   # Telegram bot
+│   ├── handlers/         # Command handlers
+│   ├── keyboards/        # Inline keyboards
+│   └── utils/           # Bot utilities
 ├── docs/                  # Documentation
 ├── docker/                # Docker configuration
 ├── logs/                  # Application logs

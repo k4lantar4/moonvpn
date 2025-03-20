@@ -74,4 +74,10 @@ mypy>=1.8.0
 # Documentation
 drf-yasg>=1.21.7
 Sphinx>=5.0.2
-sphinx-rtd-theme>=1.0.0 
+sphinx-rtd-theme>=1.0.0
+
+# Payment Dependencies
+requests==2.31.0
+pydantic-settings==2.1.0
+python-dotenv==1.0.0
+aiohttp==3.9.1 

@@ -1,56 +1,84 @@
 """
-SystemBackup model for managing system backups and restores.
+System backup model for MoonVPN.
+
+This module contains the SQLAlchemy model for managing system backups,
+including backup scheduling, status tracking, and storage management.
 """
 
-from typing import Optional, List
-from sqlalchemy import String, Integer, Float, Boolean, ForeignKey, JSON
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from typing import Optional, Dict, Any
+from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, ForeignKey, Enum, JSON, Numeric
+from sqlalchemy.orm import relationship
+from sqlalchemy.dialects.postgresql import JSONB
 from datetime import datetime
-import enum
 
-from ..base import BaseModel
+from core.database.base import Base
+from core.database.models.user import User
 
-class BackupStatus(str, enum.Enum):
-    """Backup status enumeration."""
-    PENDING = "pending"
-    IN_PROGRESS = "in_progress"
-    COMPLETED = "completed"
-    FAILED = "failed"
-    RESTORED = "restored"
+class BackupType(str, Enum):
+    """Types of system backups."""
+    FULL = 'full'
+    INCREMENTAL = 'incremental'
+    DIFFERENTIAL = 'differential'
 
-class BackupType(str, enum.Enum):
-    """Backup type enumeration."""
-    FULL = "full"
-    INCREMENTAL = "incremental"
-    DIFFERENTIAL = "differential"
+class BackupStatus(str, Enum):
+    """Status of backup operations."""
+    PENDING = 'pending'
+    IN_PROGRESS = 'in_progress'
+    COMPLETED = 'completed'
+    FAILED = 'failed'
+    VERIFIED = 'verified'
+    EXPIRED = 'expired'
 
-class SystemBackup(BaseModel):
-    """
-    SystemBackup model for managing system backups.
+class SystemBackup(Base):
+    """Model for system backups."""
     
-    Attributes:
-        type: Backup type
-        status: Backup status
-        size: Backup size in bytes
-        path: Backup file path
-        started_at: Backup start timestamp
-        completed_at: Backup completion timestamp
-        error_message: Error message if failed
-        metadata: Additional backup data
-    """
+    __tablename__ = "system_backups"
     
-    # Backup identification
-    type: Mapped[BackupType] = mapped_column(Enum(BackupType), default=BackupType.FULL, nullable=False)
-    status: Mapped[BackupStatus] = mapped_column(Enum(BackupStatus), default=BackupStatus.PENDING, nullable=False)
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(255), nullable=False)
+    description = Column(Text)
+    backup_type = Column(Enum(BackupType), nullable=False)
+    status = Column(Enum(BackupStatus), default=BackupStatus.PENDING)
+    storage_path = Column(String(512), nullable=False)
+    size_bytes = Column(Numeric)
+    checksum = Column(String(64))
+    metadata = Column(JSONB)
+    schedule_id = Column(Integer, ForeignKey("backup_schedules.id"))
+    created_by = Column(Integer, ForeignKey("users.id"))
+    updated_by = Column(Integer, ForeignKey("users.id"))
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    started_at = Column(DateTime)
+    completed_at = Column(DateTime)
+    verified_at = Column(DateTime)
+    expires_at = Column(DateTime)
+    error_message = Column(Text)
     
-    # Backup details
-    size: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    path: Mapped[str] = mapped_column(String(255), nullable=False)
-    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
-    error_message: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
-    metadata: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True)
+    # Relationships
+    schedule = relationship("BackupSchedule", back_populates="backups")
+    creator = relationship("User", foreign_keys=[created_by])
+    updater = relationship("User", foreign_keys=[updated_by])
     
-    def __repr__(self) -> str:
-        """String representation of the system backup."""
-        return f"<SystemBackup(type={self.type}, status={self.status})>" 
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert model to dictionary."""
+        return {
+            "id": self.id,
+            "name": self.name,
+            "description": self.description,
+            "backup_type": self.backup_type,
+            "status": self.status,
+            "storage_path": self.storage_path,
+            "size_bytes": float(self.size_bytes) if self.size_bytes else None,
+            "checksum": self.checksum,
+            "metadata": self.metadata,
+            "schedule_id": self.schedule_id,
+            "created_by": self.created_by,
+            "updated_by": self.updated_by,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+            "started_at": self.started_at.isoformat() if self.started_at else None,
+            "completed_at": self.completed_at.isoformat() if self.completed_at else None,
+            "verified_at": self.verified_at.isoformat() if self.verified_at else None,
+            "expires_at": self.expires_at.isoformat() if self.expires_at else None,
+            "error_message": self.error_message
+        } 

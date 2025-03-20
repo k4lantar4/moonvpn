@@ -1,5 +1,6 @@
 """Common test fixtures."""
 
+import asyncio
 import pytest
 from typing import AsyncGenerator, Generator
 from fastapi.testclient import TestClient
@@ -15,47 +16,55 @@ from .helpers import (
     create_test_telegram_user,
     create_test_token
 )
+from .config import test_settings
+
+# Create async engine for test database
+test_engine = create_async_engine(
+    test_settings.TEST_DATABASE_URL,
+    echo=False,
+    future=True
+)
+
+# Create async session factory for test database
+test_async_session = sessionmaker(
+    test_engine,
+    class_=AsyncSession,
+    expire_on_commit=False
+)
 
 @pytest.fixture(scope="session")
 def event_loop():
     """Create an instance of the default event loop for each test case."""
-    import asyncio
     loop = asyncio.get_event_loop_policy().new_event_loop()
     yield loop
     loop.close()
 
 @pytest.fixture(scope="session")
 async def db_engine():
-    """Create a test database engine."""
-    engine = create_async_engine(
-        settings.TEST_DATABASE_URL,
-        echo=False
-    )
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
+    """Create test database engine."""
+    async with test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    yield engine
-    async with engine.begin() as conn:
+    yield test_engine
+    async with test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
-    await engine.dispose()
 
 @pytest.fixture
 async def db_session(db_engine) -> AsyncGenerator[AsyncSession, None]:
-    """Create a test database session."""
-    async_session = sessionmaker(
-        db_engine,
-        class_=AsyncSession,
-        expire_on_commit=False
-    )
-    async with async_session() as session:
+    """Create test database session."""
+    async with test_async_session() as session:
         yield session
         await session.rollback()
 
 @pytest.fixture
 def client() -> Generator[TestClient, None, None]:
-    """Create a test client."""
-    with TestClient(app) as test_client:
-        yield test_client
+    """Create test client."""
+    with TestClient(app) as c:
+        yield c
+
+@pytest.fixture
+def test_app():
+    """Create test application."""
+    return app
 
 @pytest.fixture
 async def test_user(db_session) -> AsyncGenerator[User, None]:

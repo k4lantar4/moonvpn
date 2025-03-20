@@ -4,11 +4,12 @@ Base test configuration and fixtures.
 
 import os
 import pytest
-from typing import Generator, Dict, Any
+from typing import Generator, Dict, Any, AsyncGenerator
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.pool import StaticPool
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.database.session import get_db
 from core.database.base import Base
@@ -19,6 +20,8 @@ from models.user import User
 from models.vpn_config import VPNConfig
 from models.payment import Payment
 from models.telegram_user import TelegramUser
+from .fixtures import test_engine, test_async_session
+from .config import test_settings
 
 # Test database URL
 TEST_DATABASE_URL = os.getenv(
@@ -235,4 +238,31 @@ def test_plan_data() -> Dict[str, Any]:
         "duration_days": 30,
         "traffic_limit": 1000,
         "is_active": True,
-    } 
+    }
+
+@pytest.fixture(autouse=True)
+async def setup_test_db(db_session: AsyncSession):
+    """Setup test database."""
+    yield
+    await clear_test_db(db_session)
+
+@pytest.fixture(scope="session")
+def test_settings():
+    """Get test settings."""
+    return test_settings
+
+# Configure pytest
+def pytest_configure(config):
+    """Configure pytest."""
+    config.addinivalue_line(
+        "markers",
+        "slow: marks tests as slow (deselect with '-m \"not slow\"')"
+    )
+    config.addinivalue_line(
+        "markers",
+        "integration: marks tests as integration tests"
+    )
+    config.addinivalue_line(
+        "markers",
+        "unit: marks tests as unit tests"
+    ) 
