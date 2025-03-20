@@ -8,6 +8,12 @@ groups based on notification types.
 import logging
 from typing import Optional, Dict, Any, Union, List
 from datetime import datetime
+import json
+import aiosmtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+import aiohttp
+import asyncio
 
 from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.error import TelegramError
@@ -15,6 +21,8 @@ from telegram.constants import ParseMode
 
 from core.database.models.groups import BotManagementGroup
 from core.utils.helpers import get_formatted_datetime
+from core.config import settings
+from core.exceptions import SecurityError
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +32,10 @@ class NotificationService:
     def __init__(self):
         """Initialize the notification service."""
         self._bot: Optional[Bot] = None
+        self.email_config = settings.EMAIL_CONFIG
+        self.webhook_config = settings.WEBHOOK_CONFIG
+        self.sms_config = settings.SMS_CONFIG
+        self.telegram_config = settings.TELEGRAM_CONFIG
         
     async def set_bot(self, bot: Bot) -> None:
         """Set the bot instance for sending messages.
@@ -501,6 +513,217 @@ class NotificationService:
         except TelegramError as e:
             logger.error(f"Error sending message to chat {chat_id}: {e}")
             return False
+
+    async def send_alert(
+        self,
+        severity: str,
+        message: str,
+        details: Dict[str, Any],
+        channels: Optional[List[str]] = None
+    ):
+        """
+        Send security alert through specified channels.
+        
+        Args:
+            severity: Alert severity level
+            message: Alert message
+            details: Additional alert details
+            channels: List of channels to send to (email, webhook, sms, telegram)
+        """
+        try:
+            if not channels:
+                channels = ["email", "webhook"]  # Default channels
+
+            # Prepare notification data
+            notification_data = {
+                "severity": severity,
+                "message": message,
+                "details": details,
+                "timestamp": datetime.utcnow().isoformat()
+            }
+
+            # Send through each channel
+            tasks = []
+            if "email" in channels:
+                tasks.append(self._send_email(notification_data))
+            if "webhook" in channels:
+                tasks.append(self._send_webhook(notification_data))
+            if "sms" in channels:
+                tasks.append(self._send_sms(notification_data))
+            if "telegram" in channels:
+                tasks.append(self._send_telegram(notification_data))
+
+            # Wait for all notifications to be sent
+            await asyncio.gather(*tasks, return_exceptions=True)
+
+        except Exception as e:
+            raise SecurityError(f"Failed to send alert notification: {str(e)}")
+
+    async def _send_email(self, data: Dict[str, Any]):
+        """Send alert via email."""
+        try:
+            if not self.email_config:
+                logger.warning("Email configuration not found")
+                return
+
+            # Create email message
+            msg = MIMEMultipart()
+            msg["From"] = self.email_config["from_email"]
+            msg["To"] = self.email_config["to_email"]
+            msg["Subject"] = f"Security Alert [{data['severity'].upper()}]: {data['message']}"
+
+            # Create email body
+            body = f"""
+            Security Alert Details:
+            ----------------------
+            Severity: {data['severity']}
+            Message: {data['message']}
+            Time: {data['timestamp']}
+            
+            Additional Details:
+            -----------------
+            {json.dumps(data['details'], indent=2)}
+            """
+
+            msg.attach(MIMEText(body, "plain"))
+
+            # Send email
+            async with aiosmtplib.SMTP(
+                hostname=self.email_config["smtp_host"],
+                port=self.email_config["smtp_port"],
+                use_tls=True
+            ) as smtp:
+                await smtp.login(
+                    self.email_config["smtp_user"],
+                    self.email_config["smtp_password"]
+                )
+                await smtp.send_message(msg)
+
+            logger.info(f"Email alert sent to {self.email_config['to_email']}")
+
+        except Exception as e:
+            logger.error(f"Failed to send email alert: {str(e)}")
+            raise
+
+    async def _send_webhook(self, data: Dict[str, Any]):
+        """Send alert via webhook."""
+        try:
+            if not self.webhook_config:
+                logger.warning("Webhook configuration not found")
+                return
+
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    self.webhook_config["url"],
+                    json=data,
+                    headers=self.webhook_config.get("headers", {})
+                ) as response:
+                    if response.status != 200:
+                        raise Exception(f"Webhook request failed with status {response.status}")
+
+            logger.info("Webhook alert sent successfully")
+
+        except Exception as e:
+            logger.error(f"Failed to send webhook alert: {str(e)}")
+            raise
+
+    async def _send_sms(self, data: Dict[str, Any]):
+        """Send alert via SMS."""
+        try:
+            if not self.sms_config:
+                logger.warning("SMS configuration not found")
+                return
+
+            # TODO: Implement SMS sending logic based on chosen provider
+            # This is a placeholder for SMS implementation
+            logger.info("SMS alert sending not implemented")
+
+        except Exception as e:
+            logger.error(f"Failed to send SMS alert: {str(e)}")
+            raise
+
+    async def _send_telegram(self, data: Dict[str, Any]):
+        """Send alert via Telegram."""
+        try:
+            if not self.telegram_config:
+                logger.warning("Telegram configuration not found")
+                return
+
+            # Format message for Telegram
+            message = (
+                f"🚨 Security Alert\n\n"
+                f"Severity: {data['severity']}\n"
+                f"Message: {data['message']}\n"
+                f"Time: {data['timestamp']}\n\n"
+                f"Details:\n{json.dumps(data['details'], indent=2)}"
+            )
+
+            # Send to Telegram
+            url = f"https://api.telegram.org/bot{self.telegram_config['bot_token']}/sendMessage"
+            payload = {
+                "chat_id": self.telegram_config["chat_id"],
+                "text": message,
+                "parse_mode": "HTML"
+            }
+
+            async with aiohttp.ClientSession() as session:
+                async with session.post(url, json=payload) as response:
+                    if response.status != 200:
+                        raise Exception(f"Telegram request failed with status {response.status}")
+
+            logger.info("Telegram alert sent successfully")
+
+        except Exception as e:
+            logger.error(f"Failed to send Telegram alert: {str(e)}")
+            raise
+
+    async def send_to_admin_group(
+        self,
+        group_id: str,
+        message: str,
+        channels: Optional[List[str]] = None
+    ):
+        """
+        Send message to admin group through specified channels.
+        
+        Args:
+            group_id: Admin group ID
+            message: Message to send
+            channels: List of channels to send to
+        """
+        try:
+            if not channels:
+                channels = ["email", "webhook"]  # Default channels
+
+            # Get admin group details from settings
+            admin_group = settings.ADMIN_GROUPS.get(group_id)
+            if not admin_group:
+                raise SecurityError(f"Admin group {group_id} not found")
+
+            # Prepare notification data
+            notification_data = {
+                "group_id": group_id,
+                "group_name": admin_group["name"],
+                "message": message,
+                "timestamp": datetime.utcnow().isoformat()
+            }
+
+            # Send through each channel
+            tasks = []
+            if "email" in channels:
+                tasks.append(self._send_email(notification_data))
+            if "webhook" in channels:
+                tasks.append(self._send_webhook(notification_data))
+            if "sms" in channels:
+                tasks.append(self._send_sms(notification_data))
+            if "telegram" in channels:
+                tasks.append(self._send_telegram(notification_data))
+
+            # Wait for all notifications to be sent
+            await asyncio.gather(*tasks, return_exceptions=True)
+
+        except Exception as e:
+            raise SecurityError(f"Failed to send admin group notification: {str(e)}")
 
 # Create a singleton instance
 notification_service = NotificationService() 

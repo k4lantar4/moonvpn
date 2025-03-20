@@ -1,9 +1,8 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
-import { useApiRequest } from './useApiRequest';
+import { useCallback, useState, useEffect, useRef } from 'react';
 
 interface CacheOptions {
   ttl?: number; // Time to live in milliseconds
-  maxSize?: number; // Maximum number of items to cache
+  maxSize?: number; // Maximum number of items in cache
 }
 
 interface CacheItem<T> {
@@ -13,50 +12,58 @@ interface CacheItem<T> {
 
 interface FetchOptions {
   useCache?: boolean;
-  forceRefresh?: boolean;
-  onSuccess?: (data: any) => void;
+  onSuccess?: (data: T) => void;
   onError?: (error: Error) => void;
+  onLoading?: (isLoading: boolean) => void;
+}
+
+interface FetchingState<T> {
+  data: T | null;
+  isLoading: boolean;
+  error: Error | null;
 }
 
 export const useDataFetching = <T>(
   fetchFn: () => Promise<T>,
-  cacheKey: string,
-  options: CacheOptions & FetchOptions = {}
+  options: FetchOptions & CacheOptions = {}
 ) => {
   const {
-    ttl = 5 * 60 * 1000, // 5 minutes default
-    maxSize = 100,
     useCache = true,
-    forceRefresh = false,
+    ttl = 5 * 60 * 1000, // 5 minutes
+    maxSize = 100,
     onSuccess,
     onError,
+    onLoading,
   } = options;
 
-  const [data, setData] = useState<T | null>(null);
-  const [error, setError] = useState<Error | null>(null);
+  const [state, setState] = useState<FetchingState<T>>({
+    data: null,
+    isLoading: false,
+    error: null,
+  });
+
   const cacheRef = useRef<Map<string, CacheItem<T>>>(new Map());
-  const { isLoading, execute } = useApiRequest<T>();
 
   const getFromCache = useCallback(
     (key: string): T | null => {
-      const cached = cacheRef.current.get(key);
-      if (!cached) return null;
+      const cachedItem = cacheRef.current.get(key);
+      if (!cachedItem) return null;
 
-      const isExpired = Date.now() - cached.timestamp > ttl;
+      const isExpired = Date.now() - cachedItem.timestamp > ttl;
       if (isExpired) {
         cacheRef.current.delete(key);
         return null;
       }
 
-      return cached.data;
+      return cachedItem.data;
     },
     [ttl]
   );
 
   const setToCache = useCallback(
     (key: string, data: T) => {
-      // Remove oldest item if cache is full
       if (cacheRef.current.size >= maxSize) {
+        // Remove oldest item
         const oldestKey = Array.from(cacheRef.current.entries()).sort(
           ([, a], [, b]) => a.timestamp - b.timestamp
         )[0][0];
@@ -76,65 +83,78 @@ export const useDataFetching = <T>(
   }, []);
 
   const fetchData = useCallback(
-    async (options: FetchOptions = {}) => {
-      const { forceRefresh = false, onSuccess, onError } = options;
+    async (key: string) => {
+      if (useCache) {
+        const cachedData = getFromCache(key);
+        if (cachedData) {
+          setState((prev) => ({
+            ...prev,
+            data: cachedData,
+            isLoading: false,
+            error: null,
+          }));
+          onSuccess?.(cachedData);
+          return;
+        }
+      }
+
+      setState((prev) => ({
+        ...prev,
+        isLoading: true,
+        error: null,
+      }));
+      onLoading?.(true);
 
       try {
-        // Check cache first if not forcing refresh
-        if (!forceRefresh && useCache) {
-          const cachedData = getFromCache(cacheKey);
-          if (cachedData) {
-            setData(cachedData);
-            onSuccess?.(cachedData);
-            return;
-          }
+        const data = await fetchFn();
+        setState((prev) => ({
+          ...prev,
+          data,
+          isLoading: false,
+        }));
+
+        if (useCache) {
+          setToCache(key, data);
         }
 
-        const result = await execute(fetchFn, {
-          onSuccess: (data) => {
-            setData(data);
-            if (useCache) {
-              setToCache(cacheKey, data);
-            }
-            onSuccess?.(data);
-          },
-          onError: (error) => {
-            setError(error);
-            onError?.(error);
-          },
-        });
-
-        return result;
+        onSuccess?.(data);
       } catch (error) {
-        const err = error as Error;
-        setError(err);
-        onError?.(err);
-        return null;
+        const errorObj = error instanceof Error ? error : new Error('Fetch failed');
+        setState((prev) => ({
+          ...prev,
+          error: errorObj,
+          isLoading: false,
+        }));
+        onError?.(errorObj);
+      } finally {
+        onLoading?.(false);
       }
     },
-    [cacheKey, execute, fetchFn, getFromCache, setToCache, useCache]
+    [fetchFn, useCache, getFromCache, setToCache, onSuccess, onError, onLoading]
   );
 
-  // Initial fetch
-  useEffect(() => {
-    fetchData({ onSuccess, onError });
-  }, [cacheKey, fetchData, onSuccess, onError]);
-
-  const refresh = useCallback(() => {
-    return fetchData({ forceRefresh: true, onSuccess, onError });
-  }, [fetchData, onSuccess, onError]);
+  const refreshData = useCallback(
+    (key: string) => {
+      if (useCache) {
+        cacheRef.current.delete(key);
+      }
+      return fetchData(key);
+    },
+    [fetchData, useCache]
+  );
 
   const clearData = useCallback(() => {
-    setData(null);
-    setError(null);
+    setState({
+      data: null,
+      isLoading: false,
+      error: null,
+    });
   }, []);
 
   return {
-    data,
-    error,
-    isLoading,
+    ...state,
     fetchData,
-    refresh,
+    refreshData,
     clearData,
     clearCache,
   };

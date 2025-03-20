@@ -1,130 +1,172 @@
-import { useState, useCallback, useMemo } from 'react';
-
-interface PaginationState {
-  page: number;
-  pageSize: number;
-  totalItems: number;
-  totalPages: number;
-}
+import { useCallback, useState, useMemo } from 'react';
 
 interface PaginationOptions {
   initialPage?: number;
-  initialPageSize?: number;
+  pageSize?: number;
   totalItems?: number;
+  maxVisiblePages?: number;
+}
+
+interface PaginationState {
+  currentPage: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+  visiblePages: number[];
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
 }
 
 export const usePagination = (options: PaginationOptions = {}) => {
   const {
     initialPage = 1,
-    initialPageSize = 10,
+    pageSize = 10,
     totalItems = 0,
+    maxVisiblePages = 5,
   } = options;
 
   const [state, setState] = useState<PaginationState>({
-    page: initialPage,
-    pageSize: initialPageSize,
+    currentPage: initialPage,
+    pageSize,
     totalItems,
-    totalPages: Math.ceil(totalItems / initialPageSize),
+    totalPages: Math.ceil(totalItems / pageSize),
+    visiblePages: [],
+    hasNextPage: initialPage < Math.ceil(totalItems / pageSize),
+    hasPreviousPage: initialPage > 1,
   });
 
-  const setPage = useCallback((page: number) => {
-    setState((prev) => ({
-      ...prev,
-      page: Math.max(1, Math.min(page, prev.totalPages)),
-    }));
-  }, []);
+  const calculateVisiblePages = useCallback(
+    (currentPage: number, totalPages: number, maxVisible: number) => {
+      const pages: number[] = [];
+      const halfMax = Math.floor(maxVisible / 2);
 
-  const setPageSize = useCallback((pageSize: number) => {
-    setState((prev) => ({
-      ...prev,
-      pageSize,
-      totalPages: Math.ceil(prev.totalItems / pageSize),
-      page: 1, // Reset to first page when changing page size
-    }));
-  }, []);
+      let startPage = Math.max(currentPage - halfMax, 1);
+      let endPage = Math.min(startPage + maxVisible - 1, totalPages);
 
-  const setTotalItems = useCallback((totalItems: number) => {
-    setState((prev) => ({
-      ...prev,
-      totalItems,
-      totalPages: Math.ceil(totalItems / prev.pageSize),
-    }));
-  }, []);
+      if (endPage - startPage + 1 < maxVisible) {
+        startPage = Math.max(endPage - maxVisible + 1, 1);
+      }
+
+      for (let i = startPage; i <= endPage; i++) {
+        pages.push(i);
+      }
+
+      return pages;
+    },
+    []
+  );
+
+  const updatePagination = useCallback(
+    (newTotalItems: number) => {
+      const newTotalPages = Math.ceil(newTotalItems / state.pageSize);
+      const newVisiblePages = calculateVisiblePages(
+        state.currentPage,
+        newTotalPages,
+        maxVisiblePages
+      );
+
+      setState((prev) => ({
+        ...prev,
+        totalItems: newTotalItems,
+        totalPages: newTotalPages,
+        visiblePages: newVisiblePages,
+        hasNextPage: state.currentPage < newTotalPages,
+        hasPreviousPage: state.currentPage > 1,
+      }));
+    },
+    [state.currentPage, state.pageSize, maxVisiblePages, calculateVisiblePages]
+  );
+
+  const goToPage = useCallback(
+    (page: number) => {
+      if (page < 1 || page > state.totalPages) return;
+
+      const newVisiblePages = calculateVisiblePages(
+        page,
+        state.totalPages,
+        maxVisiblePages
+      );
+
+      setState((prev) => ({
+        ...prev,
+        currentPage: page,
+        visiblePages: newVisiblePages,
+        hasNextPage: page < state.totalPages,
+        hasPreviousPage: page > 1,
+      }));
+    },
+    [state.totalPages, maxVisiblePages, calculateVisiblePages]
+  );
 
   const nextPage = useCallback(() => {
-    setState((prev) => ({
-      ...prev,
-      page: Math.min(prev.page + 1, prev.totalPages),
-    }));
-  }, []);
+    if (state.hasNextPage) {
+      goToPage(state.currentPage + 1);
+    }
+  }, [state.currentPage, state.hasNextPage, goToPage]);
 
   const previousPage = useCallback(() => {
-    setState((prev) => ({
-      ...prev,
-      page: Math.max(prev.page - 1, 1),
-    }));
-  }, []);
-
-  const goToFirstPage = useCallback(() => {
-    setState((prev) => ({
-      ...prev,
-      page: 1,
-    }));
-  }, []);
-
-  const goToLastPage = useCallback(() => {
-    setState((prev) => ({
-      ...prev,
-      page: prev.totalPages,
-    }));
-  }, []);
-
-  const pageRange = useMemo(() => {
-    const { page, totalPages } = state;
-    const delta = 2; // Number of pages to show before and after current page
-    const range: number[] = [];
-    const rangeWithDots: (number | string)[] = [];
-
-    for (let i = 0; i < totalPages; i++) {
-      if (
-        i === 0 || // First page
-        i === totalPages - 1 || // Last page
-        (i >= page - delta && i <= page + delta) // Pages around current page
-      ) {
-        range.push(i + 1);
-      }
+    if (state.hasPreviousPage) {
+      goToPage(state.currentPage - 1);
     }
+  }, [state.currentPage, state.hasPreviousPage, goToPage]);
 
-    let l: number;
-    for (let i = 0; i < range.length; i++) {
-      if (l) {
-        if (range[i] - l === 2) {
-          rangeWithDots.push(l + 1);
-        } else if (range[i] - l !== 1) {
-          rangeWithDots.push('...');
-        }
-      }
-      rangeWithDots.push(range[i]);
-      l = range[i];
-    }
+  const setPageSize = useCallback(
+    (newPageSize: number) => {
+      const newTotalPages = Math.ceil(state.totalItems / newPageSize);
+      const newVisiblePages = calculateVisiblePages(
+        state.currentPage,
+        newTotalPages,
+        maxVisiblePages
+      );
 
-    return rangeWithDots;
-  }, [state.page, state.totalPages]);
+      setState((prev) => ({
+        ...prev,
+        pageSize: newPageSize,
+        totalPages: newTotalPages,
+        visiblePages: newVisiblePages,
+        hasNextPage: state.currentPage < newTotalPages,
+        hasPreviousPage: state.currentPage > 1,
+      }));
+    },
+    [state.currentPage, state.totalItems, maxVisiblePages, calculateVisiblePages]
+  );
 
-  const canGoToNextPage = useMemo(() => state.page < state.totalPages, [state.page, state.totalPages]);
-  const canGoToPreviousPage = useMemo(() => state.page > 1, [state.page]);
+  const resetPagination = useCallback(() => {
+    const newVisiblePages = calculateVisiblePages(
+      initialPage,
+      state.totalPages,
+      maxVisiblePages
+    );
+
+    setState((prev) => ({
+      ...prev,
+      currentPage: initialPage,
+      visiblePages: newVisiblePages,
+      hasNextPage: initialPage < state.totalPages,
+      hasPreviousPage: false,
+    }));
+  }, [initialPage, state.totalPages, maxVisiblePages, calculateVisiblePages]);
+
+  const paginationInfo = useMemo(
+    () => ({
+      startIndex: (state.currentPage - 1) * state.pageSize,
+      endIndex: Math.min(state.currentPage * state.pageSize, state.totalItems),
+      currentPage: state.currentPage,
+      pageSize: state.pageSize,
+      totalItems: state.totalItems,
+      totalPages: state.totalPages,
+    }),
+    [state.currentPage, state.pageSize, state.totalItems]
+  );
 
   return {
     ...state,
-    setPage,
-    setPageSize,
-    setTotalItems,
+    ...paginationInfo,
+    goToPage,
     nextPage,
     previousPage,
-    goToFirstPage,
-    goToLastPage,
-    pageRange,
-    canGoToNextPage,
-    canGoToPreviousPage,
+    setPageSize,
+    resetPagination,
+    updatePagination,
   };
 }; 

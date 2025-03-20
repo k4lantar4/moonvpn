@@ -1,110 +1,188 @@
-import { useState, useCallback } from 'react';
+import { useCallback, useState } from 'react';
 
-interface ValidationRule<T> {
-  field: keyof T;
-  validate: (value: any) => boolean;
-  message: string;
+type ValidationRule<T> = (value: T) => string | undefined;
+type ValidationRules<T> = Record<keyof T, ValidationRule<T[keyof T]>[]>;
+
+interface ValidationState<T> {
+  values: T;
+  errors: Partial<Record<keyof T, string>>;
+  touched: Partial<Record<keyof T, boolean>>;
+  isValid: boolean;
 }
 
-interface ValidationResult<T> {
-  isValid: boolean;
-  errors: Partial<Record<keyof T, string>>;
+interface ValidationOptions {
+  validateOnChange?: boolean;
+  validateOnBlur?: boolean;
+  validateOnSubmit?: boolean;
 }
 
 export const useFormValidation = <T extends Record<string, any>>(
   initialValues: T,
-  validationRules: ValidationRule<T>[]
+  validationRules: ValidationRules<T>,
+  options: ValidationOptions = {}
 ) => {
-  const [values, setValues] = useState<T>(initialValues);
-  const [errors, setErrors] = useState<Partial<Record<keyof T, string>>>({});
-  const [touched, setTouched] = useState<Partial<Record<keyof T, boolean>>>({});
+  const {
+    validateOnChange = true,
+    validateOnBlur = true,
+    validateOnSubmit = true,
+  } = options;
+
+  const [state, setState] = useState<ValidationState<T>>({
+    values: initialValues,
+    errors: {},
+    touched: {},
+    isValid: false,
+  });
 
   const validateField = useCallback(
-    (field: keyof T, value: any): string | null => {
-      const fieldRules = validationRules.filter((rule) => rule.field === field);
-      for (const rule of fieldRules) {
-        if (!rule.validate(value)) {
-          return rule.message;
-        }
+    (field: keyof T, value: T[keyof T]) => {
+      const rules = validationRules[field];
+      if (!rules) return undefined;
+
+      for (const rule of rules) {
+        const error = rule(value);
+        if (error) return error;
       }
-      return null;
+
+      return undefined;
     },
     [validationRules]
   );
 
-  const validateForm = useCallback((): ValidationResult<T> => {
-    const newErrors: Partial<Record<keyof T, string>> = {};
+  const validateForm = useCallback(() => {
+    const errors: Partial<Record<keyof T, string>> = {};
     let isValid = true;
 
-    validationRules.forEach((rule) => {
-      const error = validateField(rule.field, values[rule.field]);
+    Object.keys(validationRules).forEach((field) => {
+      const fieldKey = field as keyof T;
+      const value = state.values[fieldKey];
+      const error = validateField(fieldKey, value);
+
       if (error) {
-        newErrors[rule.field] = error;
+        errors[fieldKey] = error;
         isValid = false;
       }
     });
 
-    setErrors(newErrors);
-    return { isValid, errors: newErrors };
-  }, [values, validationRules, validateField]);
+    setState((prev) => ({
+      ...prev,
+      errors,
+      isValid,
+    }));
+
+    return isValid;
+  }, [state.values, validationRules, validateField]);
 
   const handleChange = useCallback(
-    (field: keyof T, value: any) => {
-      setValues((prev) => ({ ...prev, [field]: value }));
-      
-      // Clear error when user starts typing
-      if (errors[field]) {
+    (field: keyof T, value: T[keyof T]) => {
+      setState((prev) => ({
+        ...prev,
+        values: {
+          ...prev.values,
+          [field]: value,
+        },
+        touched: {
+          ...prev.touched,
+          [field]: true,
+        },
+      }));
+
+      if (validateOnChange) {
         const error = validateField(field, value);
-        setErrors((prev) => ({
+        setState((prev) => ({
           ...prev,
-          [field]: error || undefined,
+          errors: {
+            ...prev.errors,
+            [field]: error,
+          },
         }));
       }
     },
-    [errors, validateField]
+    [validateField, validateOnChange]
   );
 
   const handleBlur = useCallback(
     (field: keyof T) => {
-      setTouched((prev) => ({ ...prev, [field]: true }));
-      const error = validateField(field, values[field]);
-      setErrors((prev) => ({
+      setState((prev) => ({
         ...prev,
-        [field]: error || undefined,
+        touched: {
+          ...prev.touched,
+          [field]: true,
+        },
       }));
+
+      if (validateOnBlur) {
+        const error = validateField(field, state.values[field]);
+        setState((prev) => ({
+          ...prev,
+          errors: {
+            ...prev.errors,
+            [field]: error,
+          },
+        }));
+      }
     },
-    [values, validateField]
+    [state.values, validateField, validateOnBlur]
+  );
+
+  const handleSubmit = useCallback(
+    (onSubmit: (values: T) => void) => {
+      if (validateOnSubmit) {
+        const isValid = validateForm();
+        if (!isValid) return;
+      }
+
+      onSubmit(state.values);
+    },
+    [state.values, validateForm, validateOnSubmit]
   );
 
   const resetForm = useCallback(() => {
-    setValues(initialValues);
-    setErrors({});
-    setTouched({});
+    setState({
+      values: initialValues,
+      errors: {},
+      touched: {},
+      isValid: false,
+    });
   }, [initialValues]);
 
-  const isFieldValid = useCallback(
-    (field: keyof T): boolean => {
-      return !errors[field] && touched[field];
+  const setFieldValue = useCallback(
+    (field: keyof T, value: T[keyof T]) => {
+      setState((prev) => ({
+        ...prev,
+        values: {
+          ...prev.values,
+          [field]: value,
+        },
+      }));
     },
-    [errors, touched]
+    []
   );
 
-  const isFieldInvalid = useCallback(
-    (field: keyof T): boolean => {
-      return !!errors[field] && touched[field];
+  const setFieldError = useCallback(
+    (field: keyof T, error: string | undefined) => {
+      setState((prev) => ({
+        ...prev,
+        errors: {
+          ...prev.errors,
+          [field]: error,
+        },
+      }));
     },
-    [errors, touched]
+    []
   );
 
   return {
-    values,
-    errors,
-    touched,
+    values: state.values,
+    errors: state.errors,
+    touched: state.touched,
+    isValid: state.isValid,
     handleChange,
     handleBlur,
+    handleSubmit,
     validateForm,
     resetForm,
-    isFieldValid,
-    isFieldInvalid,
+    setFieldValue,
+    setFieldError,
   };
 }; 

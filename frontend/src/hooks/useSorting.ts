@@ -1,111 +1,166 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useCallback, useState, useMemo } from 'react';
 
-type SortDirection = 'asc' | 'desc';
+type SortDirection = 'asc' | 'desc' | null;
+type SortFunction<T> = (a: T, b: T) => number;
 
-interface SortState<T> {
-  field: keyof T | null;
+interface SortConfig<T> {
+  key: keyof T;
   direction: SortDirection;
 }
 
-interface SortOptions<T> {
-  initialField?: keyof T;
-  initialDirection?: SortDirection;
+interface SortingOptions<T> {
+  initialSort?: SortConfig<T>;
+  multiSort?: boolean;
+  caseSensitive?: boolean;
+}
+
+interface SortingState<T> {
+  sortConfig: SortConfig<T>[];
+  sortedData: T[];
 }
 
 export const useSorting = <T extends Record<string, any>>(
-  options: SortOptions<T> = {}
+  data: T[],
+  options: SortingOptions<T> = {}
 ) => {
   const {
-    initialField,
-    initialDirection = 'asc',
+    initialSort,
+    multiSort = false,
+    caseSensitive = false,
   } = options;
 
-  const [state, setState] = useState<SortState<T>>({
-    field: initialField || null,
-    direction: initialDirection,
+  const [state, setState] = useState<SortingState<T>>({
+    sortConfig: initialSort ? [initialSort] : [],
+    sortedData: data,
   });
 
-  const toggleSort = useCallback((field: keyof T) => {
-    setState((prev) => {
-      if (prev.field === field) {
-        return {
-          field,
-          direction: prev.direction === 'asc' ? 'desc' : 'asc',
-        };
-      }
-      return {
-        field,
-        direction: 'asc',
-      };
-    });
-  }, []);
+  const getSortFunction = useCallback(
+    (key: keyof T, direction: SortDirection): SortFunction<T> => {
+      return (a: T, b: T) => {
+        let aValue = a[key];
+        let bValue = b[key];
 
-  const setSort = useCallback((field: keyof T, direction: SortDirection) => {
-    setState({
-      field,
-      direction,
-    });
-  }, []);
-
-  const clearSort = useCallback(() => {
-    setState({
-      field: null,
-      direction: 'asc',
-    });
-  }, []);
-
-  const sortData = useCallback(
-    <R extends T>(data: R[]): R[] => {
-      if (!state.field) {
-        return data;
-      }
-
-      return [...data].sort((a, b) => {
-        const aValue = a[state.field!];
-        const bValue = b[state.field!];
+        if (!caseSensitive && typeof aValue === 'string') {
+          aValue = aValue.toLowerCase();
+          bValue = bValue.toLowerCase();
+        }
 
         if (aValue === bValue) return 0;
         if (aValue === null || aValue === undefined) return 1;
         if (bValue === null || bValue === undefined) return -1;
 
         const comparison = aValue < bValue ? -1 : 1;
-        return state.direction === 'asc' ? comparison : -comparison;
-      });
+        return direction === 'asc' ? comparison : -comparison;
+      };
     },
-    [state.field, state.direction]
+    [caseSensitive]
   );
 
-  const getSortIcon = useCallback(
-    (field: keyof T): 'asc' | 'desc' | null => {
-      if (state.field !== field) return null;
-      return state.direction;
+  const sortData = useCallback(
+    (sortConfig: SortConfig<T>[]) => {
+      if (sortConfig.length === 0) {
+        return data;
+      }
+
+      return [...data].sort((a, b) => {
+        for (const { key, direction } of sortConfig) {
+          if (!direction) continue;
+
+          const comparison = getSortFunction(key, direction)(a, b);
+          if (comparison !== 0) return comparison;
+        }
+        return 0;
+      });
     },
-    [state.field, state.direction]
+    [data, getSortFunction]
+  );
+
+  const handleSort = useCallback(
+    (key: keyof T) => {
+      setState((prev) => {
+        const newSortConfig = [...prev.sortConfig];
+        const existingSortIndex = newSortConfig.findIndex(
+          (config) => config.key === key
+        );
+
+        if (existingSortIndex >= 0) {
+          const existingSort = newSortConfig[existingSortIndex];
+          if (existingSort.direction === 'asc') {
+            existingSort.direction = 'desc';
+          } else if (existingSort.direction === 'desc') {
+            if (multiSort) {
+              newSortConfig.splice(existingSortIndex, 1);
+            } else {
+              existingSort.direction = null;
+            }
+          } else {
+            existingSort.direction = 'asc';
+          }
+        } else {
+          if (!multiSort) {
+            newSortConfig.length = 0;
+          }
+          newSortConfig.push({ key, direction: 'asc' });
+        }
+
+        const sortedData = sortData(newSortConfig);
+
+        return {
+          sortConfig: newSortConfig,
+          sortedData,
+        };
+      });
+    },
+    [multiSort, sortData]
+  );
+
+  const clearSort = useCallback(() => {
+    setState({
+      sortConfig: [],
+      sortedData: data,
+    });
+  }, [data]);
+
+  const getSortDirection = useCallback(
+    (key: keyof T): SortDirection => {
+      const sortConfig = state.sortConfig.find((config) => config.key === key);
+      return sortConfig?.direction || null;
+    },
+    [state.sortConfig]
   );
 
   const isSorted = useCallback(
-    (field: keyof T): boolean => {
-      return state.field === field;
+    (key: keyof T): boolean => {
+      return state.sortConfig.some((config) => config.key === key);
     },
-    [state.field]
+    [state.sortConfig]
   );
 
-  const getSortLabel = useCallback(
-    (field: keyof T): string => {
-      if (!isSorted(field)) return 'Sort';
-      return state.direction === 'asc' ? 'Sort ascending' : 'Sort descending';
+  const getSortIcon = useCallback(
+    (key: keyof T): string => {
+      const direction = getSortDirection(key);
+      if (!direction) return '↕️';
+      return direction === 'asc' ? '↑' : '↓';
     },
-    [isSorted, state.direction]
+    [getSortDirection]
+  );
+
+  const sortInfo = useMemo(
+    () => ({
+      currentSort: state.sortConfig,
+      isMultiSort: multiSort,
+      caseSensitive,
+    }),
+    [state.sortConfig, multiSort, caseSensitive]
   );
 
   return {
     ...state,
-    toggleSort,
-    setSort,
+    ...sortInfo,
+    handleSort,
     clearSort,
-    sortData,
-    getSortIcon,
+    getSortDirection,
     isSorted,
-    getSortLabel,
+    getSortIcon,
   };
 }; 

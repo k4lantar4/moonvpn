@@ -1,130 +1,183 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useCallback, useState, useMemo } from 'react';
 
-type FilterOperator = 'equals' | 'contains' | 'startsWith' | 'endsWith' | 'greaterThan' | 'lessThan' | 'between' | 'in';
+type FilterOperator = 'equals' | 'contains' | 'startsWith' | 'endsWith' | 'greaterThan' | 'lessThan' | 'between' | 'in' | 'custom';
 
-interface FilterCondition<T> {
-  field: keyof T;
+interface FilterValue {
   operator: FilterOperator;
   value: any;
-  value2?: any; // For 'between' operator
+  customFilter?: (item: any) => boolean;
 }
 
-interface FilterState<T> {
-  conditions: FilterCondition<T>[];
+interface FilterConfig<T> {
+  [key: string]: FilterValue;
 }
 
-interface FilterOptions<T> {
-  initialConditions?: FilterCondition<T>[];
+interface FilteringOptions<T> {
+  initialFilters?: FilterConfig<T>;
+  caseSensitive?: boolean;
+  debounceTime?: number;
+}
+
+interface FilteringState<T> {
+  filters: FilterConfig<T>;
+  filteredData: T[];
 }
 
 export const useFiltering = <T extends Record<string, any>>(
-  options: FilterOptions<T> = {}
+  data: T[],
+  options: FilteringOptions<T> = {}
 ) => {
   const {
-    initialConditions = [],
+    initialFilters = {},
+    caseSensitive = false,
+    debounceTime = 300,
   } = options;
 
-  const [state, setState] = useState<FilterState<T>>({
-    conditions: initialConditions,
+  const [state, setState] = useState<FilteringState<T>>({
+    filters: initialFilters,
+    filteredData: data,
   });
 
-  const addFilter = useCallback((condition: FilterCondition<T>) => {
-    setState((prev) => ({
-      conditions: [...prev.conditions, condition],
-    }));
-  }, []);
+  const applyFilter = useCallback(
+    (item: T, key: string, filter: FilterValue): boolean => {
+      const { operator, value, customFilter } = filter;
+      const itemValue = item[key];
 
-  const removeFilter = useCallback((field: keyof T) => {
-    setState((prev) => ({
-      conditions: prev.conditions.filter((c) => c.field !== field),
-    }));
-  }, []);
+      if (customFilter) {
+        return customFilter(item);
+      }
 
-  const updateFilter = useCallback((field: keyof T, condition: Partial<FilterCondition<T>>) => {
-    setState((prev) => ({
-      conditions: prev.conditions.map((c) =>
-        c.field === field ? { ...c, ...condition } : c
-      ),
-    }));
-  }, []);
+      if (itemValue === null || itemValue === undefined) {
+        return false;
+      }
 
-  const clearFilters = useCallback(() => {
-    setState({
-      conditions: [],
-    });
-  }, []);
+      switch (operator) {
+        case 'equals':
+          return caseSensitive
+            ? itemValue === value
+            : String(itemValue).toLowerCase() === String(value).toLowerCase();
+
+        case 'contains':
+          return caseSensitive
+            ? String(itemValue).includes(String(value))
+            : String(itemValue).toLowerCase().includes(String(value).toLowerCase());
+
+        case 'startsWith':
+          return caseSensitive
+            ? String(itemValue).startsWith(String(value))
+            : String(itemValue).toLowerCase().startsWith(String(value).toLowerCase());
+
+        case 'endsWith':
+          return caseSensitive
+            ? String(itemValue).endsWith(String(value))
+            : String(itemValue).toLowerCase().endsWith(String(value).toLowerCase());
+
+        case 'greaterThan':
+          return itemValue > value;
+
+        case 'lessThan':
+          return itemValue < value;
+
+        case 'between':
+          const [min, max] = value;
+          return itemValue >= min && itemValue <= max;
+
+        case 'in':
+          return Array.isArray(value) && value.includes(itemValue);
+
+        default:
+          return true;
+      }
+    },
+    [caseSensitive]
+  );
 
   const filterData = useCallback(
-    <R extends T>(data: R[]): R[] => {
-      if (state.conditions.length === 0) {
+    (filters: FilterConfig<T>) => {
+      if (Object.keys(filters).length === 0) {
         return data;
       }
 
       return data.filter((item) =>
-        state.conditions.every((condition) => {
-          const value = item[condition.field];
-          const filterValue = condition.value;
-          const filterValue2 = condition.value2;
-
-          switch (condition.operator) {
-            case 'equals':
-              return value === filterValue;
-            case 'contains':
-              return String(value).toLowerCase().includes(String(filterValue).toLowerCase());
-            case 'startsWith':
-              return String(value).toLowerCase().startsWith(String(filterValue).toLowerCase());
-            case 'endsWith':
-              return String(value).toLowerCase().endsWith(String(filterValue).toLowerCase());
-            case 'greaterThan':
-              return value > filterValue;
-            case 'lessThan':
-              return value < filterValue;
-            case 'between':
-              return value >= filterValue && value <= filterValue2!;
-            case 'in':
-              return Array.isArray(filterValue) && filterValue.includes(value);
-            default:
-              return true;
-          }
-        })
+        Object.entries(filters).every(([key, filter]) =>
+          applyFilter(item, key, filter)
+        )
       );
     },
-    [state.conditions]
+    [data, applyFilter]
   );
 
-  const getActiveFilters = useCallback(() => {
-    return state.conditions;
-  }, [state.conditions]);
+  const handleFilter = useCallback(
+    (key: string, filter: FilterValue) => {
+      setState((prev) => {
+        const newFilters = {
+          ...prev.filters,
+          [key]: filter,
+        };
 
-  const hasActiveFilters = useCallback(() => {
-    return state.conditions.length > 0;
-  }, [state.conditions]);
+        const filteredData = filterData(newFilters);
+
+        return {
+          filters: newFilters,
+          filteredData,
+        };
+      });
+    },
+    [filterData]
+  );
+
+  const removeFilter = useCallback(
+    (key: string) => {
+      setState((prev) => {
+        const { [key]: removed, ...remainingFilters } = prev.filters;
+        const filteredData = filterData(remainingFilters);
+
+        return {
+          filters: remainingFilters,
+          filteredData,
+        };
+      });
+    },
+    [filterData]
+  );
+
+  const clearFilters = useCallback(() => {
+    setState({
+      filters: {},
+      filteredData: data,
+    });
+  }, [data]);
+
+  const hasFilter = useCallback(
+    (key: string): boolean => {
+      return key in state.filters;
+    },
+    [state.filters]
+  );
 
   const getFilterValue = useCallback(
-    (field: keyof T) => {
-      const condition = state.conditions.find((c) => c.field === field);
-      return condition?.value;
+    (key: string): FilterValue | undefined => {
+      return state.filters[key];
     },
-    [state.conditions]
+    [state.filters]
   );
 
-  const getFilterOperator = useCallback(
-    (field: keyof T) => {
-      const condition = state.conditions.find((c) => c.field === field);
-      return condition?.operator;
-    },
-    [state.conditions]
+  const filterInfo = useMemo(
+    () => ({
+      activeFilters: Object.keys(state.filters),
+      totalItems: data.length,
+      filteredItems: state.filteredData.length,
+    }),
+    [state.filters, data.length, state.filteredData.length]
   );
 
   return {
-    addFilter,
+    ...state,
+    ...filterInfo,
+    handleFilter,
     removeFilter,
-    updateFilter,
     clearFilters,
-    filterData,
-    getActiveFilters,
-    hasActiveFilters,
+    hasFilter,
     getFilterValue,
-    getFilterOperator,
   };
 }; 
