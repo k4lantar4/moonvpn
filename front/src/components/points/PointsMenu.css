@@ -1,0 +1,241 @@
+.points-menu {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+/* Points Balance Card */
+.points-balance {
+  background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%);
+  color: white;
+  border-radius: 16px;
+  padding: 2rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.points-balance-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.points-balance-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  opacity: 0.9;
+}
+
+.points-balance-amount {
+  font-size: 2.5rem;
+  font-weight: 700;
+  margin: 1rem 0;
+}
+
+.points-balance-actions {
+  display: flex;
+  gap: 1rem;
+}
+
+/* Points History */
+.points-history {
+  background: white;
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.points-history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.points-history-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #2d3748;
+}
+
+.points-history-filters {
+  display: flex;
+  gap: 1rem;
+}
+
+.points-history-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.points-history-table th,
+.points-history-table td {
+  padding: 1rem;
+  text-align: left;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.points-history-table th {
+  font-weight: 600;
+  color: #4a5568;
+  background-color: #f7fafc;
+}
+
+.points-history-table tr:hover {
+  background-color: #f7fafc;
+}
+
+/* Points Redemption */
+.points-redemption {
+  background: white;
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.points-redemption-header {
+  margin-bottom: 1.5rem;
+}
+
+.points-redemption-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #2d3748;
+  margin-bottom: 0.5rem;
+}
+
+.points-redemption-description {
+  color: #718096;
+  font-size: 0.875rem;
+}
+
+.points-redemption-form {
+  display: grid;
+  gap: 1rem;
+}
+
+.points-redemption-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin: 1rem 0;
+}
+
+.points-option-card {
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 1rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.points-option-card:hover {
+  border-color: #4299e1;
+  background-color: #f7fafc;
+}
+
+.points-option-card.selected {
+  border-color: #4299e1;
+  background-color: #ebf8ff;
+}
+
+.points-option-title {
+  font-weight: 600;
+  color: #2d3748;
+  margin-bottom: 0.5rem;
+}
+
+.points-option-description {
+  color: #718096;
+  font-size: 0.875rem;
+  margin-bottom: 0.5rem;
+}
+
+.points-option-cost {
+  color: #4299e1;
+  font-weight: 600;
+}
+
+/* Empty States */
+.points-empty-state {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: #718096;
+}
+
+.points-empty-state-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  color: #cbd5e0;
+}
+
+.points-empty-state-text {
+  font-size: 1.125rem;
+  margin-bottom: 1rem;
+}
+
+/* Loading States */
+.points-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+}
+
+.points-loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #e2e8f0;
+  border-top-color: #4299e1;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .points-menu {
+    padding: 1rem;
+  }
+
+  .points-balance {
+    padding: 1.5rem;
+  }
+
+  .points-balance-amount {
+    font-size: 2rem;
+  }
+
+  .points-balance-actions {
+    flex-direction: column;
+  }
+
+  .points-history-filters {
+    flex-direction: column;
+  }
+
+  .points-redemption-options {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* RTL Support */
+[dir="rtl"] .points-history-table th,
+[dir="rtl"] .points-history-table td {
+  text-align: right;
+}
+
+[dir="rtl"] .points-balance-header {
+  flex-direction: row-reverse;
+}
+
+[dir="rtl"] .points-history-header {
+  flex-direction: row-reverse;
+} 

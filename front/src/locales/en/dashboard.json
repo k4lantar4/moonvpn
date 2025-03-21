@@ -1,0 +1,12 @@
+{
+  "title": "Dashboard",
+  "subtitle": "Welcome to your dashboard",
+  "stats": {
+    "total_sales": "Total Sales",
+    "active_users": "Active Users",
+    "total_orders": "Total Orders",
+    "total_points": "Total Points"
+  },
+  "recent_activity": "Recent Activity",
+  "no_activity": "No recent activity to display"
+} 
