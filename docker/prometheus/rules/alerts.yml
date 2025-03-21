@@ -1,0 +1,74 @@
+groups:
+  - name: system_alerts
+    rules:
+      - alert: HighCPUUsage
+        expr: system_cpu_usage > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: High CPU usage detected
+          description: CPU usage is above 80% for 5 minutes
+
+      - alert: HighMemoryUsage
+        expr: system_memory_usage > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: High memory usage detected
+          description: Memory usage is above 85% for 5 minutes
+
+      - alert: HighDiskUsage
+        expr: system_disk_usage > 90
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: High disk usage detected
+          description: Disk usage is above 90% for 5 minutes
+
+      - alert: HighAPIResponseTime
+        expr: rate(api_response_time_seconds_sum[5m]) / rate(api_response_time_seconds_count[5m]) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: High API response time
+          description: Average API response time is above 1 second for 5 minutes
+
+      - alert: HighErrorRate
+        expr: rate(api_requests_total{status=~"5.."}[5m]) / rate(api_requests_total[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: High error rate detected
+          description: Error rate is above 5% for 5 minutes
+
+      - alert: DatabaseConnectionIssues
+        expr: db_active_connections / db_connection_pool_size > 0.9
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Database connection pool near capacity
+          description: Database connection pool usage is above 90% for 5 minutes
+
+      - alert: VPNServiceIssues
+        expr: vpn_active_users == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: VPN service issues
+          description: No active VPN users for 5 minutes
+
+      - alert: HighAlertCount
+        expr: sum(active_alerts) > 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: High number of active alerts
+          description: More than 10 active alerts for 5 minutes 

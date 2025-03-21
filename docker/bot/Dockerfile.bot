@@ -1,0 +1,36 @@
+FROM python:3.11-slim
+
+# تنظیم متغیرهای محیطی
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app
+
+# نصب وابستگی‌های سیستمی
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        gcc \
+        python3-dev \
+        libpq-dev \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# ایجاد دایرکتوری کاری
+WORKDIR /app
+
+# کپی فایل‌های مورد نیاز
+COPY bot/requirements.txt .
+
+# نصب وابستگی‌های پایتون
+RUN pip install --no-cache-dir -r requirements.txt
+
+# کپی کدهای بات
+COPY bot/ .
+
+# اعطای دسترسی اجرایی به entrypoint.sh
+RUN chmod +x entrypoint.sh
+
+# تعریف نقطه ورود
+ENTRYPOINT ["/app/entrypoint.sh"]
+
+# دستور اجرای پیش‌فرض
+CMD ["python", "main.py"] 

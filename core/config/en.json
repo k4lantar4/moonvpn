@@ -1,0 +1,18 @@
+{
+    "template_documentation": "Template Documentation",
+    "overview": "Overview",
+    "parameters": "Parameters",
+    "validation_rules": "Validation Rules",
+    "message": "Message",
+    "status": "Status",
+    "active": "Active",
+    "inactive": "Inactive",
+    "metadata": "Metadata",
+    "created_at": "Created At",
+    "updated_at": "Updated At",
+    "usage_example": "Usage Example",
+    "notes": "Notes",
+    "validation_notes": "All validation rules must be satisfied for the template to be valid.",
+    "parameter_notes": "Parameters are required unless specified otherwise.",
+    "usage_notes": "Make sure to follow the validation rules when using this template."
+} 

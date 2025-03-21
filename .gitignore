@@ -1,0 +1,332 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+env/
+ENV/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Project specific
+core/**/__pycache__/
+api/**/__pycache__/
+web/**/__pycache__/
+tests/**/__pycache__/
+
+# Docker
+.docker/
+docker-compose.override.yml
+
+# Node (for web frontend)
+web/node_modules/
+web/.next/
+web/.nuxt/
+web/dist/
+web/.cache/
+web/.output/
+
+# Temporary files
+*.tmp
+*.bak
+.DS_Store
+
+# Database
+*.db
+*.sqlite3
+
+# Logs
+*.log
+logs/
+
+# Coverage reports
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# pytest
+.pytest_cache/
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDEs and editors
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Project specific
+*.sqlite3
+media/
+static/
+coverage/
+.coverage
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Temporary files
+*.swp
+*.swo
+*~
+*.bak
+*.tmp
+*.temp
+
+# Django
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+media/
+staticfiles/
+
+# VS Code
+.vscode/
+*.code-workspace
+.history/
+
+# PyCharm
+*.iml
+*.iws
+.idea_modules/
+
+# React
+/frontend/build
+
+# Testing
+.tox/
+.nox/
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+
+# Logs
+.ubuntu.log
+
+# Security
+*.pem
+*.key
+*.cert
+*.crt
+
+# Database backups
+*.dump
+*.sql
+*.sqlite3-*
+
+# Redis
+*.rdb
+*.aof
+
+# Celery
+celerybeat-schedule
+celerybeat.pid
+
+# Documentation
+/docs/_build/
+/site
+
+# Deployment
+*.pyc
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info
+dist
+build
+eggs
+parts
+bin
+var
+sdist
+develop-eggs
+.installed.cfg
+lib
+lib64
+__pycache__
+
+# Translations
+*.mo
+*.pot
+
+# Mr Developer
+.mr.developer.cfg
+.pydevproject
+
+# Rope
+.ropeproject
+
+# mkdocs documentation
+/site
+
+# mypy
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# pytype static type analyzer
+.pytype/
+
+# Cython debug symbols
+cython_debug/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IPython
+profile_default/
+ipython_config.py
+
+# Backup
+*.bak
+*.backup
+*.swp
+*~
+
+# Local development
+*.local
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Distribution
+dist/
+build/
+*.tar.gz
+*.zip
+*.rar
+*.7z
+
+# Misc
+.DS_Store
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Database
+*.db
+
+# Virtual Environment
+venv/
+env/
+ENV/
+.env
+
+# Logs
+logs/
+*.log
+
+# Coverage
+.coverage
+htmlcov/
+.tox/
+.nox/
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+cover/
+
+# Translations
+*.mo
+*.pot
+
+# Local development
+local_settings.py
+instance/
+.webassets-cache
+
+# Backup files
+*.bak
+*.swp
+*~
+
+# System Files
+.DS_Store
+Thumbs.db

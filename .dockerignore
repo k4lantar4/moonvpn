@@ -1,0 +1,46 @@
+# Git
+.git
+.gitignore
+.github
+.gitattributes
+
+# Docker
+.dockerignore
+Dockerfile
+docker-compose.yml
+
+# Python
+**/__pycache__
+**/*.pyc
+**/*.pyo
+**/*.pyd
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+.pytest_cache/
+
+# Node.js
+node_modules/
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Project specific
+logs/
+media/
+static/
+redundant_backup/
+backup_before_removal/

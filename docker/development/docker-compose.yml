@@ -1,0 +1,81 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: ../../
+      dockerfile: docker/development/Dockerfile
+    volumes:
+      - ../../:/app
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=development
+      - DATABASE_URL=postgresql://moonvpn:moonvpn@db:5432/moonvpn
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - db
+      - redis
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  bot:
+    build:
+      context: ../../
+      dockerfile: docker/development/Dockerfile
+    volumes:
+      - ../../:/app
+    environment:
+      - ENVIRONMENT=development
+      - DATABASE_URL=postgresql://moonvpn:moonvpn@db:5432/moonvpn
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - db
+      - redis
+    command: python -m app.bot.main
+
+  db:
+    image: postgres:13
+    environment:
+      - POSTGRES_USER=moonvpn
+      - POSTGRES_PASSWORD=moonvpn
+      - POSTGRES_DB=moonvpn
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:6
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  prometheus:
+    image: prom/prometheus
+    volumes:
+      - ../../monitoring/prometheus:/etc/prometheus
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+
+  grafana:
+    image: grafana/grafana
+    volumes:
+      - ../../monitoring/grafana:/etc/grafana/provisioning
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+
+volumes:
+  postgres_data:
+  redis_data:
+  prometheus_data:
+  grafana_data: 
