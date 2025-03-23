@@ -1,3 +1,0 @@
-"""
-Bot command handlers package.
-""" 
