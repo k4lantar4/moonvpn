@@ -62,13 +62,13 @@ moonvpn/
 ### Current Phase: PHASE-0: Setup & Infrastructure (Confidence: 94%)
 **Goal:** Prepare project structure, detailed database schema, basic API/Bot setup, and installation script.
 **Tasks:**
-- [-] [P0-T001] Define detailed Database Schema (MySQL) - Incorporating new tables/fields (Locations, Settings, Roles, Affiliate, User Notes, Freeze, etc.). Status: [-] Priority: High
-- [ ] [P0-T002] Setup Mono-repo project structure locally. Status: [ ] Priority: High
-- [ ] [P0-T003] Initialize Core API (FastAPI) project: basic setup, DB connection (SQLAlchemy). Status: [ ] Priority: Medium
-- [ ] [P0-T004] Initialize Telegram Bot (python-telegram-bot) project: basic setup, API token config. Status: [ ] Priority: Medium
-- [ ] [P0-T005] Create initial `scripts/install.sh` structure. Status: [X] Priority: Low
-- [ ] [P0-T006] Select & integrate Tabler UI template basics into FastAPI. Status: [ ] Priority: Medium
-- [ ] [P0-T007] Create initial `README.md` and `.gitignore`. Status: [ ] Priority: Low
+- [X] [P0-T001] Define detailed Database Schema (MySQL) - Incorporating new tables/fields (Locations, Settings, Roles, Affiliate, User Notes, Freeze, etc.). Status: [X] Priority: High
+- [X] [P0-T002] Setup Mono-repo project structure locally. Status: [X] Priority: High
+- [X] [P0-T003] Initialize Core API (FastAPI) project: basic setup, DB connection (SQLAlchemy). Status: [X] Priority: Medium
+- [X] [P0-T004] Initialize Telegram Bot (python-telegram-bot) project: basic setup, API token config. Status: [X] Priority: Medium
+- [X] [P0-T005] Create initial `scripts/install.sh` structure. Status: [X] Priority: Low
+- [X] [P0-T006] Select & integrate Tabler UI template basics into FastAPI. Status: [X] Priority: Medium
+- [X] [P0-T007] Create initial `README.md` and `.gitignore`. Status: [X] Priority: Low
 
 ### PHASE-1: Core Bot, User Registration & Roles
 **Goal:** Implement basic bot functions, user registration/verification, and basic Admin Role/Permission structure.
