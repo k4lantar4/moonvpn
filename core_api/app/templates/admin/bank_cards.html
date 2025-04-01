@@ -1,0 +1,557 @@
+{% extends "base.html" %}
+
+{% block title %}Bank Card Management - MoonVPN Dashboard{% endblock %}
+
+{% block page_title %}Bank Card Management{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Bank Cards</h3>
+                <div class="card-actions">
+                    <button type="button" class="btn btn-primary" id="btn-add-card">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-plus" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                            <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                            <path d="M12 5l0 14"></path>
+                            <path d="M5 12l14 0"></path>
+                        </svg>
+                        Add New Card
+                    </button>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-vcenter card-table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Bank Name</th>
+                                <th>Card Number</th>
+                                <th>Card Holder</th>
+                                <th>Priority</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="bank-cards-table-body">
+                            <!-- Card data will be loaded here via JavaScript -->
+                            <tr>
+                                <td colspan="6" class="text-center">Loading bank cards...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Card Modal -->
+<div class="modal modal-blur fade" id="modal-add-card" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add New Bank Card</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="add-card-form">
+                    <div class="mb-3">
+                        <label class="form-label required">Bank Name</label>
+                        <input type="text" class="form-control" name="bank_name" placeholder="e.g., Mellat, Melli, Saman" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label required">Card Number</label>
+                        <input type="text" class="form-control" name="card_number" placeholder="6104-XXXX-XXXX-XXXX" required 
+                            pattern="[0-9]{16}" title="Card number must be 16 digits">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label required">Card Holder Name</label>
+                        <input type="text" class="form-control" name="card_holder_name" placeholder="Full name on card" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Account Number</label>
+                        <input type="text" class="form-control" name="account_number" placeholder="Optional: Account number">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">SHEBA Number</label>
+                        <input type="text" class="form-control" name="sheba_number" placeholder="Optional: IR...">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Priority</label>
+                        <input type="number" class="form-control" name="priority" placeholder="1-100 (lower number = higher priority)" value="10">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Description</label>
+                        <textarea class="form-control" name="description" rows="3" placeholder="Optional: Add notes about this card"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" name="is_active" checked>
+                            <span class="form-check-label">Active</span>
+                        </label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-link link-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="btn-save-card">Save Card</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Card Modal -->
+<div class="modal modal-blur fade" id="modal-edit-card" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Bank Card</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="edit-card-form">
+                    <input type="hidden" name="card_id">
+                    <div class="mb-3">
+                        <label class="form-label required">Bank Name</label>
+                        <input type="text" class="form-control" name="bank_name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label required">Card Number</label>
+                        <input type="text" class="form-control" name="card_number" required 
+                            pattern="[0-9]{16}" title="Card number must be 16 digits">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label required">Card Holder Name</label>
+                        <input type="text" class="form-control" name="card_holder_name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Account Number</label>
+                        <input type="text" class="form-control" name="account_number">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">SHEBA Number</label>
+                        <input type="text" class="form-control" name="sheba_number">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Priority</label>
+                        <input type="number" class="form-control" name="priority">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Description</label>
+                        <textarea class="form-control" name="description" rows="3"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" name="is_active">
+                            <span class="form-check-label">Active</span>
+                        </label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-link link-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="btn-update-card">Update Card</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal modal-blur fade" id="modal-delete-card" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-sm modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-body">
+                <div class="modal-title">Are you sure?</div>
+                <div>If you delete this bank card, all related payment admin assignments will also be affected.</div>
+                <input type="hidden" id="delete-card-id">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-link link-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="btn-confirm-delete">Yes, delete card</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Alert for notifications -->
+<div class="alert-container position-fixed top-0 end-0 p-3" style="z-index: 5">
+    <div id="alert-toast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-header">
+            <strong class="me-auto" id="alert-title">Notification</strong>
+            <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+        <div class="toast-body" id="alert-message">
+            Message here
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // DOM Elements
+    const bankCardsTableBody = document.getElementById('bank-cards-table-body');
+    const btnAddCard = document.getElementById('btn-add-card');
+    const btnSaveCard = document.getElementById('btn-save-card');
+    const btnUpdateCard = document.getElementById('btn-update-card');
+    const btnConfirmDelete = document.getElementById('btn-confirm-delete');
+    const addCardModal = new bootstrap.Modal(document.getElementById('modal-add-card'));
+    const editCardModal = new bootstrap.Modal(document.getElementById('modal-edit-card'));
+    const deleteCardModal = new bootstrap.Modal(document.getElementById('modal-delete-card'));
+    const alertToast = new bootstrap.Toast(document.getElementById('alert-toast'));
+    const alertTitle = document.getElementById('alert-title');
+    const alertMessage = document.getElementById('alert-message');
+
+    // Show notification
+    function showNotification(title, message, type = 'success') {
+        alertTitle.textContent = title;
+        alertMessage.textContent = message;
+        alertToast.show();
+    }
+
+    // Format card number with masking
+    function formatCardNumber(number) {
+        if (!number) return '';
+        // Keep only the last 4 digits visible
+        const masked = number.substring(0, 12).replace(/\d/g, '*') + number.substring(12);
+        // Add dashes for readability
+        return masked.replace(/(.{4})/g, '$1-').slice(0, -1);
+    }
+
+    // Load bank cards from API
+    async function loadBankCards() {
+        try {
+            const token = localStorage.getItem('accessToken');
+            if (!token) {
+                window.location.href = '/login';
+                return;
+            }
+
+            const response = await fetch('/api/v1/bank-cards', {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to load bank cards: ${response.statusText}`);
+            }
+
+            const cards = await response.json();
+            
+            // Clear loading message
+            bankCardsTableBody.innerHTML = '';
+            
+            if (cards.length === 0) {
+                bankCardsTableBody.innerHTML = '<tr><td colspan="6" class="text-center">No bank cards found. Add your first card.</td></tr>';
+                return;
+            }
+
+            // Sort cards by priority (lower number first)
+            cards.sort((a, b) => a.priority - b.priority);
+            
+            // Populate table
+            cards.forEach(card => {
+                const row = document.createElement('tr');
+                
+                // Status badge color
+                const statusBadgeClass = card.is_active ? 'bg-success' : 'bg-danger';
+                const statusText = card.is_active ? 'Active' : 'Inactive';
+                
+                row.innerHTML = `
+                    <td>${card.bank_name}</td>
+                    <td>${formatCardNumber(card.card_number)}</td>
+                    <td>${card.card_holder_name}</td>
+                    <td>${card.priority}</td>
+                    <td><span class="badge ${statusBadgeClass}">${statusText}</span></td>
+                    <td>
+                        <div class="btn-list flex-nowrap">
+                            <button class="btn btn-sm btn-primary btn-edit" data-id="${card.id}">
+                                Edit
+                            </button>
+                            <button class="btn btn-sm btn-danger btn-delete" data-id="${card.id}">
+                                Delete
+                            </button>
+                            <button class="btn btn-sm btn-outline-${card.is_active ? 'warning' : 'success'} btn-toggle-status" data-id="${card.id}">
+                                ${card.is_active ? 'Deactivate' : 'Activate'}
+                            </button>
+                        </div>
+                    </td>
+                `;
+                
+                bankCardsTableBody.appendChild(row);
+            });
+            
+            // Add event listeners to the newly created buttons
+            attachButtonEventListeners();
+            
+        } catch (error) {
+            console.error('Error loading bank cards:', error);
+            bankCardsTableBody.innerHTML = `<tr><td colspan="6" class="text-center text-danger">Error loading bank cards: ${error.message}</td></tr>`;
+        }
+    }
+
+    // Attach event listeners to the action buttons in the table
+    function attachButtonEventListeners() {
+        // Edit buttons
+        document.querySelectorAll('.btn-edit').forEach(button => {
+            button.addEventListener('click', async () => {
+                const cardId = button.getAttribute('data-id');
+                await loadCardDetails(cardId);
+            });
+        });
+        
+        // Delete buttons
+        document.querySelectorAll('.btn-delete').forEach(button => {
+            button.addEventListener('click', () => {
+                const cardId = button.getAttribute('data-id');
+                document.getElementById('delete-card-id').value = cardId;
+                deleteCardModal.show();
+            });
+        });
+        
+        // Toggle status buttons
+        document.querySelectorAll('.btn-toggle-status').forEach(button => {
+            button.addEventListener('click', async () => {
+                const cardId = button.getAttribute('data-id');
+                await toggleCardStatus(cardId);
+            });
+        });
+    }
+
+    // Load card details for editing
+    async function loadCardDetails(cardId) {
+        try {
+            const token = localStorage.getItem('accessToken');
+            const response = await fetch(`/api/v1/bank-cards/${cardId}`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to load card details: ${response.statusText}`);
+            }
+
+            const card = await response.json();
+            
+            // Populate the edit form
+            const form = document.getElementById('edit-card-form');
+            form.elements.card_id.value = card.id;
+            form.elements.bank_name.value = card.bank_name;
+            form.elements.card_number.value = card.card_number;
+            form.elements.card_holder_name.value = card.card_holder_name;
+            form.elements.account_number.value = card.account_number || '';
+            form.elements.sheba_number.value = card.sheba_number || '';
+            form.elements.priority.value = card.priority;
+            form.elements.description.value = card.description || '';
+            form.elements.is_active.checked = card.is_active;
+            
+            // Show the modal
+            editCardModal.show();
+            
+        } catch (error) {
+            console.error('Error loading card details:', error);
+            showNotification('Error', `Failed to load card details: ${error.message}`, 'danger');
+        }
+    }
+
+    // Toggle card active status
+    async function toggleCardStatus(cardId) {
+        try {
+            const token = localStorage.getItem('accessToken');
+            const response = await fetch(`/api/v1/bank-cards/${cardId}/toggle-status`, {
+                method: 'PATCH',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to toggle card status: ${response.statusText}`);
+            }
+
+            const result = await response.json();
+            
+            // Reload the cards to reflect the change
+            await loadBankCards();
+            
+            // Show success notification
+            const statusText = result.is_active ? 'activated' : 'deactivated';
+            showNotification('Success', `Bank card has been ${statusText}.`);
+            
+        } catch (error) {
+            console.error('Error toggling card status:', error);
+            showNotification('Error', `Failed to toggle card status: ${error.message}`, 'danger');
+        }
+    }
+
+    // Create a new bank card
+    async function createCard(formData) {
+        try {
+            const token = localStorage.getItem('accessToken');
+            
+            const payload = {
+                bank_name: formData.get('bank_name'),
+                card_number: formData.get('card_number'),
+                card_holder_name: formData.get('card_holder_name'),
+                account_number: formData.get('account_number') || null,
+                sheba_number: formData.get('sheba_number') || null,
+                priority: parseInt(formData.get('priority')) || 10,
+                description: formData.get('description') || null,
+                is_active: formData.get('is_active') ? true : false
+            };
+            
+            const response = await fetch('/api/v1/bank-cards', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || `Failed to create card: ${response.statusText}`);
+            }
+
+            // Close the modal and reset the form
+            addCardModal.hide();
+            document.getElementById('add-card-form').reset();
+            
+            // Reload the cards to include the new one
+            await loadBankCards();
+            
+            // Show success notification
+            showNotification('Success', 'Bank card created successfully.');
+            
+        } catch (error) {
+            console.error('Error creating card:', error);
+            showNotification('Error', `Failed to create card: ${error.message}`, 'danger');
+        }
+    }
+
+    // Update an existing bank card
+    async function updateCard(formData) {
+        try {
+            const token = localStorage.getItem('accessToken');
+            const cardId = formData.get('card_id');
+            
+            const payload = {
+                bank_name: formData.get('bank_name'),
+                card_number: formData.get('card_number'),
+                card_holder_name: formData.get('card_holder_name'),
+                account_number: formData.get('account_number') || null,
+                sheba_number: formData.get('sheba_number') || null,
+                priority: parseInt(formData.get('priority')) || 10,
+                description: formData.get('description') || null,
+                is_active: formData.get('is_active') ? true : false
+            };
+            
+            const response = await fetch(`/api/v1/bank-cards/${cardId}`, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || `Failed to update card: ${response.statusText}`);
+            }
+
+            // Close the modal
+            editCardModal.hide();
+            
+            // Reload the cards to reflect changes
+            await loadBankCards();
+            
+            // Show success notification
+            showNotification('Success', 'Bank card updated successfully.');
+            
+        } catch (error) {
+            console.error('Error updating card:', error);
+            showNotification('Error', `Failed to update card: ${error.message}`, 'danger');
+        }
+    }
+
+    // Delete a bank card
+    async function deleteCard(cardId) {
+        try {
+            const token = localStorage.getItem('accessToken');
+            const response = await fetch(`/api/v1/bank-cards/${cardId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || `Failed to delete card: ${response.statusText}`);
+            }
+
+            // Close the modal
+            deleteCardModal.hide();
+            
+            // Reload the cards to reflect the deletion
+            await loadBankCards();
+            
+            // Show success notification
+            showNotification('Success', 'Bank card deleted successfully.');
+            
+        } catch (error) {
+            console.error('Error deleting card:', error);
+            showNotification('Error', `Failed to delete card: ${error.message}`, 'danger');
+        }
+    }
+
+    // Event Listeners
+    document.addEventListener('DOMContentLoaded', () => {
+        // Load cards when page loads
+        loadBankCards();
+        
+        // Add card button
+        btnAddCard.addEventListener('click', () => {
+            document.getElementById('add-card-form').reset();
+            addCardModal.show();
+        });
+        
+        // Save card button
+        btnSaveCard.addEventListener('click', () => {
+            const form = document.getElementById('add-card-form');
+            if (form.checkValidity()) {
+                const formData = new FormData(form);
+                createCard(formData);
+            } else {
+                form.reportValidity();
+            }
+        });
+        
+        // Update card button
+        btnUpdateCard.addEventListener('click', () => {
+            const form = document.getElementById('edit-card-form');
+            if (form.checkValidity()) {
+                const formData = new FormData(form);
+                updateCard(formData);
+            } else {
+                form.reportValidity();
+            }
+        });
+        
+        // Confirm delete button
+        btnConfirmDelete.addEventListener('click', () => {
+            const cardId = document.getElementById('delete-card-id').value;
+            deleteCard(cardId);
+        });
+    });
+</script>
+{% endblock %} 

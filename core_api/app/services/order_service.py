@@ -343,17 +343,17 @@ class OrderService:
         order_id: int
     ) -> Dict[str, Any]:
         """
-        Get client configuration for a confirmed order.
+        Get the client configuration for a confirmed order.
         
         Args:
             db: Database session
-            order_id: ID of the order to get config for
+            order_id: ID of the order
             
         Returns:
-            Dictionary with client configuration
+            Client configuration information
             
         Raises:
-            OrderProcessingError: If config cannot be retrieved
+            OrderProcessingError: If configuration cannot be retrieved
         """
         # Get the order
         order = crud.order.get(db, id=order_id)
@@ -367,46 +367,264 @@ class OrderService:
             )
         
         # Get the panel
+        if not order.panel_id:
+            raise OrderProcessingError("Order doesn't have a panel assigned")
+            
         panel = crud.panel.get(db, id=order.panel_id)
         if not panel:
             raise OrderProcessingError(f"Panel with ID {order.panel_id} not found")
         
-        # Build configuration
-        # TODO: Implement actual config generation based on the panel's protocol
-        
-        config = {
-            "client_uuid": order.client_uuid,
-            "panel_url": panel.url,
-            "inbound_id": order.inbound_id,
-            "email": order.client_email,
-            "expires_at": order.expires_at.isoformat() if order.expires_at else None,
-            # Additional config details would be added here
-        }
-        
-        # Check if there's a subscription for this order
-        if hasattr(order, 'subscription_id') and order.subscription_id:
-            # Add subscription ID to the config
-            config["subscription_id"] = order.subscription_id
-            
-            # We could potentially redirect to the subscription endpoints for full config
-            config["config_url"] = f"/api/v1/subscriptions/{order.subscription_id}/config"
-            config["qrcode_url"] = f"/api/v1/subscriptions/{order.subscription_id}/qrcode"
-        
-        return config
-    
+        # Get client configuration from panel
+        try:
+            with SyncPanelClient(panel.url, panel.admin_username, panel.admin_password) as client:
+                if not order.client_uuid:
+                    raise OrderProcessingError("Order doesn't have a client UUID assigned")
+                    
+                # Get client info
+                client_info = client.get_client(order.client_uuid)
+                if not client_info:
+                    raise OrderProcessingError(f"Client with UUID {order.client_uuid} not found on panel")
+                
+                # Get subscription link
+                sub_link = client.get_subscription_link(order.client_uuid)
+                if not sub_link:
+                    raise OrderProcessingError("Failed to get subscription link")
+                
+                # Get client config
+                config = client.get_client_config(order.client_uuid)
+                if not config:
+                    raise OrderProcessingError("Failed to get client configuration")
+                
+                return {
+                    "subscription_link": sub_link,
+                    "client_info": client_info,
+                    "config": config
+                }
+        except PanelClientError as e:
+            raise OrderProcessingError(f"Failed to get client configuration: {str(e)}")
+
     @staticmethod
-    def mark_expired_orders(db: Session, days: int = 7) -> int:
+    def submit_payment_proof(
+        db: Session,
+        order_id: int,
+        payment_proof_img_url: str,
+        payment_reference: str,
+        payment_method: PaymentMethod,
+        notes: Optional[str] = None
+    ) -> Order:
         """
-        Mark pending orders older than X days as expired.
+        Submit payment proof for an order.
         
         Args:
             db: Database session
-            days: Number of days after which to mark orders as expired
+            order_id: ID of the order
+            payment_proof_img_url: URL to the uploaded proof image
+            payment_reference: Payment reference number or transaction ID
+            payment_method: Payment method used
+            notes: Additional notes from the user
+            
+        Returns:
+            Updated Order object
+            
+        Raises:
+            OrderProcessingError: If submission fails
+        """
+        # Get the order
+        order = crud.order.get(db, id=order_id)
+        if not order:
+            raise OrderProcessingError(f"Order with ID {order_id} not found")
+        
+        # Check if order can be updated with payment proof
+        valid_statuses = [OrderStatus.PENDING, OrderStatus.REJECTED]
+        if order.status not in valid_statuses:
+            raise OrderProcessingError(
+                f"Order is in state {order.status.value}, cannot submit payment proof"
+            )
+        
+        # Update order with payment proof details
+        update_data = {
+            "status": OrderStatus.VERIFICATION_PENDING,
+            "payment_proof_img_url": payment_proof_img_url,
+            "payment_proof_submitted_at": datetime.utcnow(),
+            "payment_reference": payment_reference,
+            "payment_method": payment_method,
+            "admin_note": notes if notes else order.admin_note
+        }
+        
+        # Update the order
+        updated_order = crud.order.update(db, db_obj=order, obj_in=update_data)
+        
+        return updated_order
+
+    @staticmethod
+    def verify_payment_proof(
+        db: Session,
+        order_id: int,
+        admin_id: int,
+        is_approved: bool,
+        rejection_reason: Optional[str] = None,
+        admin_note: Optional[str] = None
+    ) -> Order:
+        """
+        Verify a payment proof for an order.
+        
+        Args:
+            db: Database session
+            order_id: The ID of the order to verify
+            admin_id: The ID of the admin who is verifying the proof
+            is_approved: Whether the payment is approved or rejected
+            rejection_reason: The reason for rejection (required if not approved)
+            admin_note: Optional note from the admin
+            
+        Returns:
+            The updated Order object
+            
+        Raises:
+            ValueError: If the order is not found or if the verification parameters are invalid
+        """
+        # Get the order
+        order = crud.order.get(db, id=order_id)
+        if not order:
+            raise ValueError(f"Order with ID {order_id} not found")
+        
+        # Check if the order is in a state that can be verified
+        if order.status != OrderStatus.VERIFICATION_PENDING:
+            raise ValueError(f"Order with ID {order_id} is not pending verification")
+        
+        # Check if a rejection reason is provided for rejected payments
+        if not is_approved and not rejection_reason:
+            raise ValueError("A rejection reason is required when rejecting a payment")
+        
+        # Get the admin
+        admin = crud.user.get(db, id=admin_id)
+        if not admin:
+            raise ValueError(f"Admin with ID {admin_id} not found")
+        
+        # Update the order
+        if is_approved:
+            order.status = OrderStatus.CONFIRMED
+        else:
+            order.status = OrderStatus.REJECTED
+            order.payment_rejection_reason = rejection_reason
+        
+        order.payment_verified_at = datetime.now()
+        order.payment_verification_admin_id = admin_id
+        
+        if admin_note:
+            # Append to existing notes or create new if None
+            if order.admin_note:
+                order.admin_note += f"\nAdmin note ({admin.email}): {admin_note}"
+            else:
+                order.admin_note = f"Admin note ({admin.email}): {admin_note}"
+        
+        try:
+            # Track admin metrics
+            payment_admin_service = PaymentAdminService(db)
+            payment_admin_service.record_processed_payment(
+                admin_id=admin_id,
+                is_approved=is_approved,
+                response_time_seconds=(datetime.now() - order.payment_proof_submitted_at).total_seconds() 
+                if order.payment_proof_submitted_at else 0
+            )
+        except Exception as e:
+            # Don't fail the verification if metrics tracking fails
+            logger.error(f"Failed to track payment admin metrics: {str(e)}")
+        
+        # If the payment is approved, create the client on the panel
+        if is_approved:
+            try:
+                # This will also create a subscription
+                OrderService.create_client_on_panel(
+                    db=db,
+                    order_id=order_id,
+                    admin_id=admin_id,
+                    admin_note=admin_note
+                )
+            except Exception as e:
+                # Log the error but don't fail the verification
+                logger.error(f"Failed to create client on panel: {str(e)}")
+                # Add a note about the failure
+                if order.admin_note:
+                    order.admin_note += f"\nFailed to create client on panel: {str(e)}"
+                else:
+                    order.admin_note = f"Failed to create client on panel: {str(e)}"
+        
+        # Commit the changes
+        crud.order.update(db, db_obj=order, obj_in=order)
+        db.commit()
+        db.refresh(order)
+        
+        return order
+
+    @staticmethod
+    def mark_expired_orders(db: Session, days: int = 7) -> int:
+        """
+        Mark expired orders that haven't been paid within the given time period.
+        
+        Args:
+            db: Database session
+            days: Number of days after which unpaid orders are considered expired
             
         Returns:
             Number of orders marked as expired
         """
-        return crud.order.mark_expired_orders(db, days=days)
+        # Calculate cutoff date
+        cutoff_date = datetime.utcnow() - timedelta(days=days)
+        
+        # Find orders that are still pending and older than cutoff_date
+        query = db.query(Order).filter(
+            Order.status.in_([OrderStatus.PENDING, OrderStatus.VERIFICATION_PENDING]),
+            Order.created_at < cutoff_date
+        )
+        
+        # Count orders to expire
+        count = query.count()
+        
+        # Update orders to expired status
+        if count > 0:
+            query.update(
+                {"status": OrderStatus.EXPIRED},
+                synchronize_session=False
+            )
+            db.commit()
+        
+        return count
+
+    def update_telegram_message_info(
+        self,
+        order_id: int,
+        telegram_msg_id: int,
+        telegram_group_id: str
+    ) -> Order:
+        """
+        Update Telegram message information for an order.
+        
+        Args:
+            order_id: The ID of the order to update
+            telegram_msg_id: The Telegram message ID
+            telegram_group_id: The Telegram group ID
+            
+        Returns:
+            The updated Order object
+            
+        Raises:
+            ValueError: If the order is not found
+        """
+        # Get the order
+        order = crud.order.get(self.db, id=order_id)
+        if not order:
+            raise ValueError(f"Order with ID {order_id} not found")
+        
+        # Update Telegram message information
+        order.payment_proof_telegram_msg_id = telegram_msg_id
+        order.payment_proof_telegram_group_id = telegram_group_id
+        
+        # Commit the changes
+        crud.order.update(self.db, db_obj=order, obj_in=order)
+        self.db.commit()
+        self.db.refresh(order)
+        
+        return order
 
 
 # Create a singleton instance

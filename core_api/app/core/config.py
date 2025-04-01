@@ -26,6 +26,11 @@ class Settings(BaseSettings):
     REDIS_HOST: str = "localhost"
     REDIS_PORT: int = 6379
     REDIS_DB: int = 0
+    
+    # --- File Storage Settings --- #
+    STATIC_FILES_DIR: str = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "static")
+    STATIC_FILES_URL_PATH: str = "/static"
+    MAX_UPLOAD_SIZE_MB: int = 10  # Default max upload size in MB
 
     # Pydantic-Settings configuration
     # Remove env_file, rely on docker-compose to set environment variables

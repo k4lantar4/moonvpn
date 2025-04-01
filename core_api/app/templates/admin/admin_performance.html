@@ -1,0 +1,664 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Performance Reports - MoonVPN Dashboard{% endblock %}
+
+{% block page_title %}Admin Performance Reports{% endblock %}
+
+{% block content %}
+<div class="row mb-3">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Filter Reports</h3>
+            </div>
+            <div class="card-body">
+                <form id="filter-form">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Start Date</label>
+                            <input type="date" class="form-control" id="start-date">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">End Date</label>
+                            <input type="date" class="form-control" id="end-date">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Payment Admin</label>
+                        <select class="form-select" id="admin-id">
+                            <option value="">All Payment Admins</option>
+                            <!-- Options will be populated via JavaScript -->
+                        </select>
+                    </div>
+                    <div class="d-flex justify-content-end">
+                        <button type="button" class="btn btn-primary" id="btn-apply-filter">Apply Filter</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Overall Performance</h3>
+            </div>
+            <div class="card-body" id="overall-stats">
+                <div class="row text-center">
+                    <div class="col-md-3 mb-3">
+                        <div class="h1 m-0" id="overall-total">0</div>
+                        <div class="text-muted">Total Payments</div>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <div class="h1 m-0" id="overall-approved">0</div>
+                        <div class="text-muted">Approved</div>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <div class="h1 m-0" id="overall-rejected">0</div>
+                        <div class="text-muted">Rejected</div>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <div class="h1 m-0" id="overall-approval-rate">0%</div>
+                        <div class="text-muted">Approval Rate</div>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <div class="d-flex align-items-center">
+                        <span class="text-muted">Report Period:</span>
+                        <span class="ms-2" id="report-period">All time</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Admin Performance Metrics</h3>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-vcenter card-table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Admin</th>
+                                <th>User ID</th>
+                                <th class="text-center">Total Processed</th>
+                                <th class="text-center">Approval Rate</th>
+                                <th class="text-center">Avg Response Time</th>
+                                <th class="text-center">This Week</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="admin-metrics-table-body">
+                            <!-- Admin performance data will be loaded here via JavaScript -->
+                            <tr>
+                                <td colspan="7" class="text-center">Loading admin performance data...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- View Admin Details Modal -->
+<div class="modal modal-blur fade" id="modal-admin-details" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Admin Performance Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <h4 id="admin-name-title">Admin Performance</h4>
+                        <div class="text-muted" id="admin-user-id"></div>
+                    </div>
+                    <div class="col-md-6 text-end">
+                        <div class="text-muted">Report Period:</div>
+                        <div id="admin-report-period">All time</div>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-lg-3 col-md-6 mb-3">
+                        <div class="card">
+                            <div class="card-body p-3 text-center">
+                                <div class="text-right text-green">
+                                    <span id="admin-approval-percentage-card">0%</span>
+                                </div>
+                                <div class="h1 m-0" id="admin-total-processed">0</div>
+                                <div class="text-muted mb-3">Total Processed</div>
+                                <div class="d-flex">
+                                    <div class="flex-grow-1">
+                                        <div class="text-muted">Approved</div>
+                                        <div class="h3" id="admin-total-approved">0</div>
+                                    </div>
+                                    <div class="flex-grow-1">
+                                        <div class="text-muted">Rejected</div>
+                                        <div class="h3" id="admin-total-rejected">0</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-3 col-md-6 mb-3">
+                        <div class="card">
+                            <div class="card-body p-3">
+                                <div class="text-muted">Response Time</div>
+                                <div class="h1 mb-3" id="admin-avg-response-time">0s</div>
+                                <div class="d-flex mb-2">
+                                    <div>Fastest</div>
+                                    <div class="ms-auto text-green" id="admin-min-response-time">0s</div>
+                                </div>
+                                <div class="d-flex">
+                                    <div>Slowest</div>
+                                    <div class="ms-auto text-red" id="admin-max-response-time">0s</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-3 col-md-6 mb-3">
+                        <div class="card">
+                            <div class="card-body p-3">
+                                <div class="text-muted">Recent Activity</div>
+                                <div class="d-flex align-items-center mt-3">
+                                    <div>Today</div>
+                                    <div class="ms-auto" id="admin-total-today">0</div>
+                                </div>
+                                <div class="d-flex align-items-center mt-3">
+                                    <div>This Week</div>
+                                    <div class="ms-auto" id="admin-total-week">0</div>
+                                </div>
+                                <div class="d-flex align-items-center mt-3">
+                                    <div>This Month</div>
+                                    <div class="ms-auto" id="admin-total-month">0</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-3 col-md-6 mb-3">
+                        <div class="card">
+                            <div class="card-body p-3">
+                                <div class="d-flex mb-2">
+                                    <div class="text-muted">Workload Distribution</div>
+                                    <div class="ms-auto" id="admin-workload-percentage">0%</div>
+                                </div>
+                                <div class="progress progress-sm">
+                                    <div class="progress-bar bg-blue" id="admin-workload-bar" style="width: 0%"></div>
+                                </div>
+                                <div class="text-muted mt-3">
+                                    Of all payments processed by admins
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <div class="card">
+                            <div class="card-header">
+                                <h4 class="card-title">Rejection Reasons</h4>
+                            </div>
+                            <div class="card-body p-2">
+                                <div id="rejection-reasons-list" class="list-group list-group-flush">
+                                    <div class="list-group-item">
+                                        <div class="row align-items-center">
+                                            <div class="col">Loading rejection reasons...</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <div class="card">
+                            <div class="card-header">
+                                <h4 class="card-title">Bank Card Distribution</h4>
+                            </div>
+                            <div class="card-body p-2">
+                                <div id="bank-cards-list" class="list-group list-group-flush">
+                                    <div class="list-group-item">
+                                        <div class="row align-items-center">
+                                            <div class="col">Loading bank cards...</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-link link-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Alert for notifications -->
+<div class="alert-container position-fixed top-0 end-0 p-3" style="z-index: 5">
+    <div id="alert-toast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-header">
+            <strong class="me-auto" id="alert-title">Notification</strong>
+            <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+        <div class="toast-body" id="alert-message">
+            Message here
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // DOM Elements
+    const adminMetricsTableBody = document.getElementById('admin-metrics-table-body');
+    const startDateInput = document.getElementById('start-date');
+    const endDateInput = document.getElementById('end-date');
+    const adminIdSelect = document.getElementById('admin-id');
+    const btnApplyFilter = document.getElementById('btn-apply-filter');
+    const adminDetailsModal = new bootstrap.Modal(document.getElementById('modal-admin-details'));
+    const alertToast = new bootstrap.Toast(document.getElementById('alert-toast'));
+    const alertTitle = document.getElementById('alert-title');
+    const alertMessage = document.getElementById('alert-message');
+    
+    // Overall stats elements
+    const overallTotalElement = document.getElementById('overall-total');
+    const overallApprovedElement = document.getElementById('overall-approved');
+    const overallRejectedElement = document.getElementById('overall-rejected');
+    const overallApprovalRateElement = document.getElementById('overall-approval-rate');
+    const reportPeriodElement = document.getElementById('report-period');
+    
+    // Current state
+    let reportData = null;
+    let allAdmins = [];
+
+    // Show notification
+    function showNotification(title, message, type = 'success') {
+        alertTitle.textContent = title;
+        alertMessage.textContent = message;
+        
+        const toastElement = document.getElementById('alert-toast');
+        toastElement.classList.remove('bg-success', 'bg-danger', 'bg-warning', 'text-white');
+        
+        if (type === 'success') {
+            toastElement.classList.add('bg-success', 'text-white');
+        } else if (type === 'danger') {
+            toastElement.classList.add('bg-danger', 'text-white');
+        } else if (type === 'warning') {
+            toastElement.classList.add('bg-warning');
+        }
+        
+        alertToast.show();
+    }
+
+    // Format date for display
+    function formatDate(dateString) {
+        if (!dateString) return 'N/A';
+        const date = new Date(dateString);
+        return new Intl.DateTimeFormat('fa-IR', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric'
+        }).format(date);
+    }
+
+    // Format time in seconds to a readable format
+    function formatTime(seconds) {
+        if (!seconds && seconds !== 0) return 'N/A';
+        
+        // Format as minutes:seconds if less than an hour
+        if (seconds < 60) {
+            return `${seconds.toFixed(1)}s`;
+        } else if (seconds < 3600) {
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}m ${secs}s`;
+        }
+        
+        // Format as hours:minutes:seconds
+        const hours = Math.floor(seconds / 3600);
+        const mins = Math.floor((seconds % 3600) / 60);
+        const secs = Math.floor(seconds % 60);
+        return `${hours}h ${mins}m ${secs}s`;
+    }
+
+    // Load admin list for filter dropdown
+    async function loadAdmins() {
+        try {
+            const token = localStorage.getItem('accessToken');
+            if (!token) {
+                window.location.href = '/login';
+                return;
+            }
+
+            const response = await fetch('/api/v1/payment-admins', {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to load admins: ${response.statusText}`);
+            }
+
+            allAdmins = await response.json();
+            
+            // Populate admin dropdown
+            adminIdSelect.innerHTML = '<option value="">All Payment Admins</option>';
+            
+            for (const admin of allAdmins) {
+                const option = document.createElement('option');
+                option.value = admin.user_id;
+                option.textContent = `${admin.user_id} - ${admin.user_name || 'Unknown'}`;
+                adminIdSelect.appendChild(option);
+            }
+            
+        } catch (error) {
+            console.error('Error loading admins:', error);
+            showNotification('Error', `Failed to load admins: ${error.message}`, 'danger');
+        }
+    }
+
+    // Load performance reports from API
+    async function loadPerformanceReports() {
+        try {
+            const token = localStorage.getItem('accessToken');
+            if (!token) {
+                window.location.href = '/login';
+                return;
+            }
+
+            adminMetricsTableBody.innerHTML = '<tr><td colspan="7" class="text-center">Loading admin performance data...</td></tr>';
+            
+            // Build the API URL with filter parameters
+            let url = '/api/v1/payment-admins/reports';
+            const params = new URLSearchParams();
+            
+            if (startDateInput.value) {
+                params.append('start_date', startDateInput.value);
+            }
+            
+            if (endDateInput.value) {
+                params.append('end_date', endDateInput.value);
+            }
+            
+            if (adminIdSelect.value) {
+                params.append('admin_id', adminIdSelect.value);
+            }
+            
+            if (params.toString()) {
+                url += `?${params.toString()}`;
+            }
+
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to load reports: ${response.statusText}`);
+            }
+
+            const result = await response.json();
+            
+            if (!result.success || !result.data) {
+                throw new Error(result.detail || 'Failed to load performance data');
+            }
+            
+            reportData = result.data;
+            
+            // Update overall stats
+            updateOverallStats();
+            
+            // Display admin metrics
+            displayAdminMetrics();
+            
+        } catch (error) {
+            console.error('Error loading performance reports:', error);
+            adminMetricsTableBody.innerHTML = `<tr><td colspan="7" class="text-center text-danger">Error loading reports: ${error.message}</td></tr>`;
+            showNotification('Error', `Failed to load reports: ${error.message}`, 'danger');
+        }
+    }
+
+    // Update overall stats display
+    function updateOverallStats() {
+        if (!reportData) return;
+        
+        overallTotalElement.textContent = reportData.total_payments || 0;
+        overallApprovedElement.textContent = reportData.total_approved || 0;
+        overallRejectedElement.textContent = reportData.total_rejected || 0;
+        overallApprovalRateElement.textContent = reportData.overall_approval_rate 
+            ? `${(reportData.overall_approval_rate * 100).toFixed(1)}%` 
+            : '0%';
+        
+        // Update report period
+        let periodText = 'All time';
+        if (reportData.start_date && reportData.end_date) {
+            periodText = `${formatDate(reportData.start_date)} to ${formatDate(reportData.end_date)}`;
+        } else if (reportData.start_date) {
+            periodText = `From ${formatDate(reportData.start_date)}`;
+        } else if (reportData.end_date) {
+            periodText = `Until ${formatDate(reportData.end_date)}`;
+        }
+        reportPeriodElement.textContent = periodText;
+    }
+
+    // Display admin metrics in the table
+    function displayAdminMetrics() {
+        adminMetricsTableBody.innerHTML = '';
+        
+        if (!reportData || !reportData.admin_metrics || reportData.admin_metrics.length === 0) {
+            adminMetricsTableBody.innerHTML = '<tr><td colspan="7" class="text-center">No admin performance data available for the selected period.</td></tr>';
+            return;
+        }
+        
+        // Create table rows
+        reportData.admin_metrics.forEach(admin => {
+            const row = document.createElement('tr');
+            
+            // Format approval rate
+            const approvalRate = admin.avg_approval_rate 
+                ? `${(admin.avg_approval_rate * 100).toFixed(1)}%` 
+                : '0%';
+            
+            // Format response time
+            const responseTime = formatTime(admin.avg_response_time_seconds);
+            
+            // Format this week's processed count
+            const thisWeekCount = admin.total_processed_week || 0;
+            
+            row.innerHTML = `
+                <td>
+                    <div class="d-flex align-items-center">
+                        <span class="avatar me-2" style="background-color: #3498db;">${admin.admin_name?.substring(0, 2) || '??'}</span>
+                        <div>${admin.admin_name || 'Unknown Admin'}</div>
+                    </div>
+                </td>
+                <td>${admin.admin_id}</td>
+                <td class="text-center">${admin.total_processed}</td>
+                <td class="text-center">
+                    <div class="d-flex align-items-center justify-content-center">
+                        <span class="me-2">${approvalRate}</span>
+                        <div class="progress progress-sm flex-grow-1" style="width: 60px">
+                            <div class="progress-bar bg-${admin.avg_approval_rate >= 0.9 ? 'success' : admin.avg_approval_rate >= 0.7 ? 'primary' : admin.avg_approval_rate >= 0.5 ? 'warning' : 'danger'}" 
+                                style="width: ${admin.avg_approval_rate * 100}%"></div>
+                        </div>
+                    </div>
+                </td>
+                <td class="text-center">${responseTime}</td>
+                <td class="text-center">${thisWeekCount}</td>
+                <td>
+                    <button class="btn btn-sm btn-primary btn-view-details" data-id="${admin.admin_id}">
+                        View Details
+                    </button>
+                </td>
+            `;
+            
+            adminMetricsTableBody.appendChild(row);
+        });
+        
+        // Add event listeners to view details buttons
+        document.querySelectorAll('.btn-view-details').forEach(button => {
+            button.addEventListener('click', () => {
+                const adminId = button.getAttribute('data-id');
+                viewAdminDetails(adminId);
+            });
+        });
+    }
+
+    // View detailed admin performance
+    function viewAdminDetails(adminId) {
+        if (!reportData || !reportData.admin_metrics) return;
+        
+        // Find admin data
+        const adminData = reportData.admin_metrics.find(admin => admin.admin_id.toString() === adminId.toString());
+        if (!adminData) {
+            showNotification('Error', 'Admin data not found', 'danger');
+            return;
+        }
+        
+        // Update modal title
+        document.getElementById('admin-name-title').textContent = adminData.admin_name || `Admin ${adminData.admin_id}`;
+        document.getElementById('admin-user-id').textContent = `User ID: ${adminData.admin_id}`;
+        
+        // Update report period
+        let periodText = 'All time';
+        if (reportData.start_date && reportData.end_date) {
+            periodText = `${formatDate(reportData.start_date)} to ${formatDate(reportData.end_date)}`;
+        } else if (reportData.start_date) {
+            periodText = `From ${formatDate(reportData.start_date)}`;
+        } else if (reportData.end_date) {
+            periodText = `Until ${formatDate(reportData.end_date)}`;
+        }
+        document.getElementById('admin-report-period').textContent = periodText;
+        
+        // Update performance metrics
+        document.getElementById('admin-total-processed').textContent = adminData.total_processed || 0;
+        document.getElementById('admin-total-approved').textContent = adminData.total_approved || 0;
+        document.getElementById('admin-total-rejected').textContent = adminData.total_rejected || 0;
+        
+        const approvalPercentage = adminData.avg_approval_rate 
+            ? `${(adminData.avg_approval_rate * 100).toFixed(1)}%` 
+            : '0%';
+        document.getElementById('admin-approval-percentage-card').textContent = approvalPercentage;
+        
+        // Update response times
+        document.getElementById('admin-avg-response-time').textContent = formatTime(adminData.avg_response_time_seconds);
+        document.getElementById('admin-min-response-time').textContent = formatTime(adminData.min_response_time_seconds);
+        document.getElementById('admin-max-response-time').textContent = formatTime(adminData.max_response_time_seconds);
+        
+        // Update recent activity
+        document.getElementById('admin-total-today').textContent = adminData.total_processed_today || 0;
+        document.getElementById('admin-total-week').textContent = adminData.total_processed_week || 0;
+        document.getElementById('admin-total-month').textContent = adminData.total_processed_month || 0;
+        
+        // Calculate workload percentage
+        let workloadPercentage = 0;
+        if (reportData.total_payments > 0) {
+            workloadPercentage = (adminData.total_processed / reportData.total_payments) * 100;
+        }
+        document.getElementById('admin-workload-percentage').textContent = `${workloadPercentage.toFixed(1)}%`;
+        document.getElementById('admin-workload-bar').style.width = `${workloadPercentage}%`;
+        
+        // Update rejection reasons
+        const rejectionReasonsList = document.getElementById('rejection-reasons-list');
+        rejectionReasonsList.innerHTML = '';
+        
+        if (!adminData.rejection_reasons || Object.keys(adminData.rejection_reasons).length === 0) {
+            rejectionReasonsList.innerHTML = `
+                <div class="list-group-item">
+                    <div class="row align-items-center">
+                        <div class="col">No rejection data available</div>
+                    </div>
+                </div>
+            `;
+        } else {
+            // Sort rejection reasons by count (descending)
+            const sortedReasons = Object.entries(adminData.rejection_reasons)
+                .sort((a, b) => b[1] - a[1]);
+            
+            for (const [reason, count] of sortedReasons) {
+                const item = document.createElement('div');
+                item.className = 'list-group-item';
+                item.innerHTML = `
+                    <div class="row align-items-center">
+                        <div class="col">${reason || 'Unknown'}</div>
+                        <div class="col-auto">
+                            <span class="badge bg-red">${count}</span>
+                        </div>
+                    </div>
+                `;
+                rejectionReasonsList.appendChild(item);
+            }
+        }
+        
+        // Update bank card distribution
+        const bankCardsList = document.getElementById('bank-cards-list');
+        bankCardsList.innerHTML = '';
+        
+        if (!adminData.bank_card_distribution || Object.keys(adminData.bank_card_distribution).length === 0) {
+            bankCardsList.innerHTML = `
+                <div class="list-group-item">
+                    <div class="row align-items-center">
+                        <div class="col">No bank card data available</div>
+                    </div>
+                </div>
+            `;
+        } else {
+            // Sort bank cards by count (descending)
+            const sortedCards = Object.entries(adminData.bank_card_distribution)
+                .sort((a, b) => b[1] - a[1]);
+            
+            for (const [cardInfo, count] of sortedCards) {
+                const item = document.createElement('div');
+                item.className = 'list-group-item';
+                item.innerHTML = `
+                    <div class="row align-items-center">
+                        <div class="col">${cardInfo}</div>
+                        <div class="col-auto">
+                            <span class="badge bg-blue">${count}</span>
+                        </div>
+                    </div>
+                `;
+                bankCardsList.appendChild(item);
+            }
+        }
+        
+        // Show the modal
+        adminDetailsModal.show();
+    }
+
+    // Event Listeners
+    document.addEventListener('DOMContentLoaded', () => {
+        // Set default date values (last 30 days)
+        const today = new Date();
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(today.getDate() - 30);
+        
+        endDateInput.value = today.toISOString().split('T')[0];
+        startDateInput.value = thirtyDaysAgo.toISOString().split('T')[0];
+        
+        // Load admins for dropdown
+        loadAdmins();
+        
+        // Load initial performance reports
+        loadPerformanceReports();
+        
+        // Apply filter button
+        btnApplyFilter.addEventListener('click', () => {
+            loadPerformanceReports();
+        });
+    });
+</script>
+{% endblock %} 

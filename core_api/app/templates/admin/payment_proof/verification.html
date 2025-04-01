@@ -1,0 +1,707 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Payment Verification{% endblock %}
+
+{% block content %}
+<div class="container-xl">
+  <!-- Page title -->
+  <div class="page-header d-print-none">
+    <div class="row align-items-center">
+      <div class="col">
+        <h2 class="page-title">
+          Payment Verification
+        </h2>
+        <div class="text-muted mt-1">
+          Review and process pending payment proofs
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Payment verification interface -->
+  <div class="row mt-3">
+    <!-- Filter sidebar -->
+    <div class="col-12 col-md-3">
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">Filters</h3>
+        </div>
+        <div class="card-body">
+          <form id="filter-form">
+            <div class="mb-3">
+              <label class="form-label">Status</label>
+              <select class="form-select" id="status-filter">
+                <option value="pending" selected>Pending</option>
+                <option value="approved">Approved</option>
+                <option value="rejected">Rejected</option>
+                <option value="all">All</option>
+              </select>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Date Range</label>
+              <div class="input-group mb-2">
+                <span class="input-group-text">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 7a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12z" /><path d="M16 3v4" /><path d="M8 3v4" /><path d="M4 11h16" /><path d="M11 15h1" /><path d="M12 15v3" /></svg>
+                </span>
+                <input type="date" class="form-control" id="start-date">
+              </div>
+              <div class="input-group">
+                <span class="input-group-text">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 7a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12z" /><path d="M16 3v4" /><path d="M8 3v4" /><path d="M4 11h16" /><path d="M11 15h1" /><path d="M12 15v3" /></svg>
+                </span>
+                <input type="date" class="form-control" id="end-date">
+              </div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Bank Card</label>
+              <select class="form-select" id="bank-card-filter">
+                <option value="all" selected>All Cards</option>
+                <!-- Bank cards will be populated dynamically -->
+              </select>
+            </div>
+            <div class="mb-3">
+              <button type="submit" class="btn btn-primary w-100">
+                Apply Filters
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Stats card -->
+      <div class="card mt-3">
+        <div class="card-header">
+          <h3 class="card-title">Statistics</h3>
+        </div>
+        <div class="card-body">
+          <div class="d-flex mb-2">
+            <div>Pending</div>
+            <div class="ms-auto">
+              <span class="text-yellow" id="pending-count">0</span>
+            </div>
+          </div>
+          <div class="d-flex mb-2">
+            <div>Approved Today</div>
+            <div class="ms-auto">
+              <span class="text-green" id="approved-today-count">0</span>
+            </div>
+          </div>
+          <div class="d-flex mb-2">
+            <div>Rejected Today</div>
+            <div class="ms-auto">
+              <span class="text-red" id="rejected-today-count">0</span>
+            </div>
+          </div>
+          <div class="d-flex">
+            <div>Average Response Time</div>
+            <div class="ms-auto">
+              <span class="text-blue" id="avg-response-time">0 min</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Payment verification queue -->
+    <div class="col-12 col-md-9">
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">Payment Verification Queue</h3>
+          <div class="card-actions">
+            <button class="btn btn-outline-primary btn-sm" id="refresh-btn">
+              <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4" /><path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4" /></svg>
+              Refresh
+            </button>
+          </div>
+        </div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-vcenter card-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>User</th>
+                  <th>Amount</th>
+                  <th>Bank Card</th>
+                  <th>Submitted At</th>
+                  <th>Status</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="payment-queue">
+                <!-- Payment items will be populated dynamically -->
+                <tr class="placeholder-loading" id="queue-loading">
+                  <td colspan="7" class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <p class="mt-2">Loading payment queue...</p>
+                  </td>
+                </tr>
+                <tr class="d-none" id="queue-empty">
+                  <td colspan="7" class="text-center py-4">
+                    <div class="empty">
+                      <div class="empty-img">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-file-invoice" width="40" height="40" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                          <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                          <path d="M14 3v4a1 1 0 0 0 1 1h4"></path>
+                          <path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z"></path>
+                          <path d="M9 7l6 0"></path>
+                          <path d="M9 13l6 0"></path>
+                          <path d="M9 17l4 0"></path>
+                        </svg>
+                      </div>
+                      <p class="empty-title">No payments to verify</p>
+                      <p class="empty-subtitle text-muted">
+                        All payment proofs have been processed. Check back later for new submissions.
+                      </p>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Payment verification modal -->
+  <div class="modal modal-blur fade" id="payment-verification-modal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Payment Verification</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body" id="payment-details">
+          <!-- Payment details will be populated dynamically -->
+          <div class="placeholder-loading text-center py-4" id="modal-loading">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p class="mt-2">Loading payment details...</p>
+          </div>
+          <div class="row d-none" id="payment-details-content">
+            <div class="col-md-7">
+              <h3 class="mb-3">Payment Information</h3>
+              <div class="row g-3">
+                <div class="col-6">
+                  <div class="form-label">Payment ID</div>
+                  <div class="form-control-plaintext" id="modal-payment-id"></div>
+                </div>
+                <div class="col-6">
+                  <div class="form-label">Amount</div>
+                  <div class="form-control-plaintext" id="modal-amount"></div>
+                </div>
+                <div class="col-6">
+                  <div class="form-label">Bank Card</div>
+                  <div class="form-control-plaintext" id="modal-bank-card"></div>
+                </div>
+                <div class="col-6">
+                  <div class="form-label">Submitted At</div>
+                  <div class="form-control-plaintext" id="modal-submitted-at"></div>
+                </div>
+                <div class="col-6">
+                  <div class="form-label">User ID</div>
+                  <div class="form-control-plaintext" id="modal-user-id"></div>
+                </div>
+                <div class="col-6">
+                  <div class="form-label">Username</div>
+                  <div class="form-control-plaintext" id="modal-username"></div>
+                </div>
+                <div class="col-12">
+                  <div class="form-label">Reference Number</div>
+                  <div class="form-control-plaintext" id="modal-reference-number"></div>
+                </div>
+                <div class="col-12">
+                  <div class="form-label">User Note</div>
+                  <div class="form-control-plaintext" id="modal-user-note"></div>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-5">
+              <h3 class="mb-3">Payment Proof</h3>
+              <div class="text-center mb-3">
+                <a href="#" id="modal-image-link" target="_blank">
+                  <img id="modal-payment-proof" src="" alt="Payment Proof" class="img-fluid rounded border" style="max-height: 350px;">
+                </a>
+              </div>
+              <div class="text-center">
+                <a href="#" class="btn btn-outline-primary btn-sm" id="modal-image-link-btn" target="_blank">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M11 7h-5a2 2 0 0 0 -2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2 -2v-5" /><path d="M10 14l10 -10" /><path d="M15 4l5 0l0 5" /></svg>
+                  View Full Size
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer d-none" id="modal-footer">
+          <div class="row g-3 w-100">
+            <div class="col-12" id="rejection-reason-container" style="display: none;">
+              <label class="form-label">Rejection Reason</label>
+              <select class="form-select" id="rejection-reason">
+                <option value="incorrect_amount">Incorrect Amount</option>
+                <option value="invalid_receipt">Invalid Receipt</option>
+                <option value="wrong_card">Wrong Bank Card</option>
+                <option value="unreadable_proof">Unreadable Proof</option>
+                <option value="duplicate_payment">Duplicate Payment</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div class="col-12" id="other-reason-container" style="display: none;">
+              <label class="form-label">Other Reason</label>
+              <textarea class="form-control" id="other-reason" rows="2"></textarea>
+            </div>
+            <div class="col-12">
+              <div class="btn-list justify-content-end">
+                <button type="button" class="btn btn-danger" id="reject-btn">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M18 6l-12 12" /><path d="M6 6l12 12" /></svg>
+                  Reject
+                </button>
+                <button type="button" class="btn btn-success" id="approve-btn">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M5 12l5 5l10 -10" /></svg>
+                  Approve
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Define current filters
+  let currentFilters = {
+    status: 'pending',
+    startDate: null,
+    endDate: null,
+    bankCardId: 'all'
+  };
+
+  // Define payment queue and current payment
+  let paymentQueue = [];
+  let currentPayment = null;
+
+  // Initialize page
+  document.addEventListener('DOMContentLoaded', function() {
+    // Initialize date inputs with current date
+    const today = new Date();
+    const todayFormatted = today.toISOString().split('T')[0];
+    
+    // Set default date range to last 7 days
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(today.getDate() - 7);
+    const sevenDaysAgoFormatted = sevenDaysAgo.toISOString().split('T')[0];
+    
+    document.getElementById('start-date').value = sevenDaysAgoFormatted;
+    document.getElementById('end-date').value = todayFormatted;
+    
+    // Load bank cards for filter dropdown
+    loadBankCards();
+    
+    // Load payment queue
+    loadPaymentQueue();
+    
+    // Load statistics
+    loadStatistics();
+    
+    // Setup event listeners
+    setupEventListeners();
+    
+    // Set up auto-refresh (every 60 seconds)
+    setInterval(loadPaymentQueue, 60000);
+  });
+  
+  // Load bank cards for filter dropdown
+  function loadBankCards() {
+    fetch('/api/v1/bank-cards')
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          const bankCardSelect = document.getElementById('bank-card-filter');
+          // Clear existing options except "All Cards"
+          bankCardSelect.innerHTML = '<option value="all" selected>All Cards</option>';
+          
+          // Add bank cards to dropdown
+          data.data.forEach(card => {
+            const option = document.createElement('option');
+            option.value = card.id;
+            option.textContent = `${card.bank_name} (${maskCardNumber(card.card_number)})`;
+            bankCardSelect.appendChild(option);
+          });
+        }
+      })
+      .catch(error => {
+        console.error('Error loading bank cards:', error);
+      });
+  }
+  
+  // Mask card number for display
+  function maskCardNumber(cardNumber) {
+    if (!cardNumber) return 'Unknown';
+    // Show only last 4 digits
+    return '****' + cardNumber.slice(-4);
+  }
+  
+  // Load payment queue
+  function loadPaymentQueue() {
+    // Show loading indicator
+    document.getElementById('queue-loading').classList.remove('d-none');
+    document.getElementById('queue-empty').classList.add('d-none');
+    
+    // Build query parameters
+    const params = new URLSearchParams();
+    if (currentFilters.status !== 'all') {
+      params.append('status', currentFilters.status);
+    }
+    if (currentFilters.startDate) {
+      params.append('start_date', currentFilters.startDate);
+    }
+    if (currentFilters.endDate) {
+      params.append('end_date', currentFilters.endDate);
+    }
+    if (currentFilters.bankCardId !== 'all') {
+      params.append('bank_card_id', currentFilters.bankCardId);
+    }
+    
+    fetch(`/api/v1/payment-proofs?${params.toString()}`)
+      .then(response => response.json())
+      .then(data => {
+        // Hide loading indicator
+        document.getElementById('queue-loading').classList.add('d-none');
+        
+        if (data.success) {
+          paymentQueue = data.data;
+          
+          if (paymentQueue.length === 0) {
+            document.getElementById('queue-empty').classList.remove('d-none');
+          } else {
+            renderPaymentQueue(paymentQueue);
+          }
+        } else {
+          showError('Failed to load payment queue: ' + data.detail);
+        }
+      })
+      .catch(error => {
+        console.error('Error loading payment queue:', error);
+        document.getElementById('queue-loading').classList.add('d-none');
+        document.getElementById('queue-empty').classList.remove('d-none');
+        showError('Failed to load payment queue. Please try again.');
+      });
+  }
+  
+  // Render payment queue
+  function renderPaymentQueue(payments) {
+    const tbody = document.getElementById('payment-queue');
+    // Clear existing content except for loading and empty placeholders
+    Array.from(tbody.querySelectorAll('tr:not(.placeholder-loading):not(#queue-empty)')).forEach(row => row.remove());
+    
+    payments.forEach(payment => {
+      const row = document.createElement('tr');
+      
+      // Format date
+      const submittedDate = new Date(payment.submitted_at);
+      const formattedDate = submittedDate.toLocaleString();
+      
+      // Define status badge class
+      let statusBadgeClass = '';
+      switch (payment.status) {
+        case 'pending':
+          statusBadgeClass = 'bg-yellow';
+          break;
+        case 'approved':
+          statusBadgeClass = 'bg-green';
+          break;
+        case 'rejected':
+          statusBadgeClass = 'bg-red';
+          break;
+        default:
+          statusBadgeClass = 'bg-blue';
+      }
+      
+      row.innerHTML = `
+        <td>${payment.id}</td>
+        <td>${payment.user.username || 'Unknown'}</td>
+        <td>${payment.amount} ${payment.currency || 'IRR'}</td>
+        <td>${payment.bank_card ? maskCardNumber(payment.bank_card.card_number) : 'Unknown'}</td>
+        <td>${formattedDate}</td>
+        <td><span class="badge ${statusBadgeClass}">${payment.status}</span></td>
+        <td>
+          <button class="btn btn-primary btn-sm view-payment" data-payment-id="${payment.id}">
+            View
+          </button>
+        </td>
+      `;
+      
+      tbody.appendChild(row);
+    });
+    
+    // Add event listeners for view buttons
+    document.querySelectorAll('.view-payment').forEach(button => {
+      button.addEventListener('click', function() {
+        const paymentId = this.getAttribute('data-payment-id');
+        openPaymentVerificationModal(paymentId);
+      });
+    });
+  }
+  
+  // Load statistics
+  function loadStatistics() {
+    fetch('/api/v1/payment-proofs/statistics')
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          const stats = data.data;
+          document.getElementById('pending-count').textContent = stats.pending_count;
+          document.getElementById('approved-today-count').textContent = stats.approved_today;
+          document.getElementById('rejected-today-count').textContent = stats.rejected_today;
+          document.getElementById('avg-response-time').textContent = `${stats.avg_response_time_minutes} min`;
+        }
+      })
+      .catch(error => {
+        console.error('Error loading statistics:', error);
+      });
+  }
+  
+  // Open payment verification modal
+  function openPaymentVerificationModal(paymentId) {
+    // Show loading indicator
+    document.getElementById('modal-loading').classList.remove('d-none');
+    document.getElementById('payment-details-content').classList.add('d-none');
+    document.getElementById('modal-footer').classList.add('d-none');
+    
+    // Show modal
+    const modal = new bootstrap.Modal(document.getElementById('payment-verification-modal'));
+    modal.show();
+    
+    // Fetch payment details
+    fetch(`/api/v1/payment-proofs/${paymentId}`)
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          currentPayment = data.data;
+          renderPaymentDetails(currentPayment);
+        } else {
+          showError('Failed to load payment details: ' + data.detail);
+        }
+      })
+      .catch(error => {
+        console.error('Error loading payment details:', error);
+        showError('Failed to load payment details. Please try again.');
+      });
+  }
+  
+  // Render payment details in modal
+  function renderPaymentDetails(payment) {
+    // Hide loading indicator
+    document.getElementById('modal-loading').classList.add('d-none');
+    document.getElementById('payment-details-content').classList.remove('d-none');
+    
+    // Format date
+    const submittedDate = new Date(payment.submitted_at);
+    const formattedDate = submittedDate.toLocaleString();
+    
+    // Populate fields
+    document.getElementById('modal-payment-id').textContent = payment.id;
+    document.getElementById('modal-amount').textContent = `${payment.amount} ${payment.currency || 'IRR'}`;
+    document.getElementById('modal-bank-card').textContent = payment.bank_card ? 
+      `${payment.bank_card.bank_name} (${maskCardNumber(payment.bank_card.card_number)})` : 'Unknown';
+    document.getElementById('modal-submitted-at').textContent = formattedDate;
+    document.getElementById('modal-user-id').textContent = payment.user.id;
+    document.getElementById('modal-username').textContent = payment.user.username || 'Unknown';
+    document.getElementById('modal-reference-number').textContent = payment.reference_number || 'Not provided';
+    document.getElementById('modal-user-note').textContent = payment.note || 'No note provided';
+    
+    // Set payment proof image
+    const proofImage = document.getElementById('modal-payment-proof');
+    const imageLink = document.getElementById('modal-image-link');
+    const imageLinkBtn = document.getElementById('modal-image-link-btn');
+    
+    if (payment.proof_file_url) {
+      proofImage.src = payment.proof_file_url;
+      imageLink.href = payment.proof_file_url;
+      imageLinkBtn.href = payment.proof_file_url;
+    } else {
+      proofImage.src = '/static/img/no-image.png';
+      imageLink.href = '#';
+      imageLinkBtn.href = '#';
+    }
+    
+    // Show footer only for pending payments
+    if (payment.status === 'pending') {
+      document.getElementById('modal-footer').classList.remove('d-none');
+    } else {
+      document.getElementById('modal-footer').classList.add('d-none');
+    }
+  }
+  
+  // Process payment approval
+  function approvePayment() {
+    if (!currentPayment) return;
+    
+    // Disable buttons during processing
+    document.getElementById('approve-btn').disabled = true;
+    document.getElementById('reject-btn').disabled = true;
+    
+    fetch(`/api/v1/payment-proofs/${currentPayment.id}/approve`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          // Close modal
+          bootstrap.Modal.getInstance(document.getElementById('payment-verification-modal')).hide();
+          
+          // Show success notification
+          showNotification('Payment has been approved successfully.');
+          
+          // Reload payment queue and statistics
+          loadPaymentQueue();
+          loadStatistics();
+        } else {
+          showError('Failed to approve payment: ' + data.detail);
+        }
+      })
+      .catch(error => {
+        console.error('Error approving payment:', error);
+        showError('Failed to approve payment. Please try again.');
+      })
+      .finally(() => {
+        // Re-enable buttons
+        document.getElementById('approve-btn').disabled = false;
+        document.getElementById('reject-btn').disabled = false;
+      });
+  }
+  
+  // Process payment rejection
+  function rejectPayment() {
+    if (!currentPayment) return;
+    
+    // Get rejection reason
+    const reasonSelect = document.getElementById('rejection-reason');
+    const otherReasonInput = document.getElementById('other-reason');
+    
+    let reason = reasonSelect.value;
+    if (reason === 'other') {
+      reason = otherReasonInput.value.trim();
+      if (!reason) {
+        showError('Please provide a rejection reason.');
+        return;
+      }
+    }
+    
+    // Disable buttons during processing
+    document.getElementById('approve-btn').disabled = true;
+    document.getElementById('reject-btn').disabled = true;
+    
+    fetch(`/api/v1/payment-proofs/${currentPayment.id}/reject`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        reason: reason
+      })
+    })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          // Close modal
+          bootstrap.Modal.getInstance(document.getElementById('payment-verification-modal')).hide();
+          
+          // Show success notification
+          showNotification('Payment has been rejected successfully.');
+          
+          // Reload payment queue and statistics
+          loadPaymentQueue();
+          loadStatistics();
+        } else {
+          showError('Failed to reject payment: ' + data.detail);
+        }
+      })
+      .catch(error => {
+        console.error('Error rejecting payment:', error);
+        showError('Failed to reject payment. Please try again.');
+      })
+      .finally(() => {
+        // Re-enable buttons
+        document.getElementById('approve-btn').disabled = false;
+        document.getElementById('reject-btn').disabled = false;
+      });
+  }
+  
+  // Show notification
+  function showNotification(message, type = 'success') {
+    // Use the dashboard's notification system
+    if (window.showToast) {
+      window.showToast(message, type);
+    } else {
+      alert(message);
+    }
+  }
+  
+  // Show error
+  function showError(message) {
+    showNotification(message, 'error');
+  }
+  
+  // Setup event listeners
+  function setupEventListeners() {
+    // Filter form submission
+    document.getElementById('filter-form').addEventListener('submit', function(e) {
+      e.preventDefault();
+      
+      // Update filter values
+      currentFilters.status = document.getElementById('status-filter').value;
+      currentFilters.startDate = document.getElementById('start-date').value;
+      currentFilters.endDate = document.getElementById('end-date').value;
+      currentFilters.bankCardId = document.getElementById('bank-card-filter').value;
+      
+      // Reload payment queue
+      loadPaymentQueue();
+    });
+    
+    // Refresh button
+    document.getElementById('refresh-btn').addEventListener('click', function() {
+      loadPaymentQueue();
+      loadStatistics();
+    });
+    
+    // Approve button
+    document.getElementById('approve-btn').addEventListener('click', approvePayment);
+    
+    // Reject button
+    document.getElementById('reject-btn').addEventListener('click', function() {
+      const rejectionReasonContainer = document.getElementById('rejection-reason-container');
+      const otherReasonContainer = document.getElementById('other-reason-container');
+      
+      // Toggle reason containers
+      if (rejectionReasonContainer.style.display === 'none') {
+        rejectionReasonContainer.style.display = 'block';
+        
+        // Reset other reason container
+        otherReasonContainer.style.display = 'none';
+        document.getElementById('other-reason').value = '';
+      } else {
+        // Process rejection
+        rejectPayment();
+      }
+    });
+    
+    // Rejection reason change
+    document.getElementById('rejection-reason').addEventListener('change', function() {
+      const otherReasonContainer = document.getElementById('other-reason-container');
+      
+      if (this.value === 'other') {
+        otherReasonContainer.style.display = 'block';
+      } else {
+        otherReasonContainer.style.display = 'none';
+      }
+    });
+  }
+</script>
+{% endblock %} 

@@ -16,10 +16,10 @@
 Cross-reference with @memories.md and @lessons-learned.md for context and best practices.`
 
 # Mode: Implementation ⚡ (Confidence: 94% - Minor uncertainties on SSH/Auto-Pay specifics)
-Current Phase: PHASE-2
+Current Phase: PHASE-3
 Mode Context: Implementation Type - New Project Setup
 Status: Active
-Last Updated: [v0.1.7]
+Last Updated: [v1.6.0]
 
 ## Project: MoonVPN System
 
@@ -122,15 +122,81 @@ moonvpn/
 ### PHASE-3: Card-to-Card Payment & Admin Verification
 **Goal:** Implement the manual payment flow with Telegram group verification.
 **Tasks:**
-- [ ] [P3-T001] Core API: Manage Bank Cards (CRUD). Status: [ ] Priority: High
-- [ ] [P3-T002] Core API: Manage Payment Admins & assign to cards/groups (link to Roles/Permissions). Status: [ ] Priority: High
-- [ ] [P3-T003] Core API: Endpoints for submitting payment proof & updating order status (pending, approved, rejected). Status: [ ] Priority: High
-- [ ] [P3-T004] Core API: Logic for rotating bank cards display. Status: [ ] Priority: Medium
-- [ ] [P3-T005] Core API: Generate reports on payment admin performance. Status: [ ] Priority: Medium
-- [ ] [P3-T006] Telegram Bot: Implement card-to-card payment flow (display card, timer, upload proof). Status: [ ] Priority: High
-- [ ] [P3-T007] Telegram Bot: Send proof notification to specific TG group (based on card) with Approve/Reject buttons. Status: [ ] Priority: High
-- [ ] [P3-T008] Telegram Bot: Handle admin actions (Approve/Reject callback) in group, check permissions, update order via API, notify user. Status: [ ] Priority: High
-- [ ] [P3-T009] Telegram Bot: Admin commands (in MANAGE group?) to manage cards & payment admins. Status: [ ] Priority: Medium
+- [X] [P3-T001] Core API: Manage Bank Cards (CRUD). Status: [X] Priority: High
+  Progress Notes:
+  - [v1.5.0] Implemented comprehensive bank card management functionality including model, schema, CRUD operations, and API endpoints. Created a migration script for the bank_cards table. Added full Telegram bot support with admin handlers for card listing, creation, detailed viewing, status toggling, priority management, and deletion. Implementation follows security best practices for handling sensitive financial information.
+- [X] [P3-T002] Core API: Manage Payment Admins & assign to cards/groups (link to Roles/Permissions). Status: [X] Priority: High
+  Progress Notes:
+  - [v1.6.0] Implemented comprehensive payment admin management system with database models (PaymentAdminAssignment, PaymentAdminMetrics), migration script, service layer (PaymentAdminService), and API endpoints. Created functionality for creating/updating assignments, tracking metrics, and selecting appropriate admins for payment verification using a load-balancing algorithm. Added specialized endpoints for recording processed payments and generating performance statistics. Implementation includes features for assigning specific admins to verify payments for particular bank cards and receive notifications in designated Telegram groups.
+- [X] [P3-T003] Core API: Endpoints for submitting payment proof & updating order status (pending, approved, rejected). Status: [X] Priority: High
+  Progress Notes:
+  - [v1.7.0] Implemented comprehensive payment proof submission and verification system.
+- [X] [P3-T004] Core API: Logic for rotating bank cards display. Status: [X] Priority: Medium
+  Progress Notes:
+  - [v1.5.0] Implemented bank card rotation logic in `get_next_active_card` method of CRUDBankCard class and `get_next_bank_card_for_payment` in BankCardService. The logic intelligently selects cards based on priority groups and rotation within the same priority to distribute payment load evenly. Added API endpoint `/bank-cards/next-for-payment` and appropriate API client method in the Telegram bot to fetch the next card for payment processing.
+- [X] [P3-T005] Core API: Generate reports on payment admin performance. Status: [X] Priority: Medium
+  Progress Notes:
+  - [v1.9.0] Implemented comprehensive payment admin performance reporting system:
+    - Created detailed schemas for PaymentAdminPerformanceMetrics, PaymentAdminReportData, and PaymentAdminReportResponse
+    - Added generate_performance_reports method to PaymentAdminService that calculates:
+      - Total processed/approved/rejected payments for each admin
+      - Average response times and approval rates
+      - Distribution of rejection reasons and bank cards
+      - Daily/weekly/monthly processing statistics
+    - Added API endpoint at /payment-admins/reports with filtering by dates and admin_id
+    - Implemented Telegram bot reporting with command /reports showing both text reports and visual charts
+    - Added matplotlib visualization of admin performance metrics with comparative charts
+    - Created flexible date range filtering (today, current week, current month, all time)
+- [X] [P3-T006] Telegram Bot: Implement card-to-card payment flow (display card, timer, upload proof). Status: [X] Priority: High
+  Progress Notes:
+  - [v1.8.0] Implemented comprehensive card-to-card payment flow in the Telegram bot:
+    - Created `payment_proof_handlers.py` with conversation handlers for the payment process
+    - Added bank card selection interface that displays available cards from the Core API
+    - Implemented payment timer with 15-minute expiration and automatic cleanup
+    - Added payment proof image upload with validation and processing
+    - Implemented reference/tracking number collection and validation
+    - Created secure image processing to send photos to the Core API
+    - Added API client function for submitting payment proofs using FormData
+    - Integrated with buy_flow handlers to properly handle payment method selection
+    - Added proper error handling, cancellation options, and user notifications throughout the flow
+    - Created helpful payment instructions and confirmations in Persian
+- [X] [P3-T007] Telegram Bot: Send proof notification to specific TG group (based on card) with Approve/Reject buttons. Status: [X] Priority: High
+  Progress Notes:
+    - [v1.11.0] Implemented a comprehensive payment notification system:
+      - Created a new `payment_notification_handlers.py` module with dedicated functions for sending notifications to Telegram groups
+      - Added functions to display payment details, card information, and user data in the notification messages
+      - Implemented approve/reject buttons in the notification interface
+      - Created a rejection system with predefined reasons and custom rejection option
+      - Added proper permission checking to ensure only payment admins can approve/reject
+      - Implemented user notifications for both approval and rejection events
+      - Added support for tracking Telegram message IDs in the database
+      - Created new API endpoints for updating message tracking information
+      - Integrated the notification system with the payment proof submission workflow
+      - Added Persian-language interface with emoji indicators for better readability
+- [X] [P3-T008] Telegram Bot: Handle admin actions (Approve/Reject callback) in group, check permissions, update order via API, notify user. Status: [X] Priority: High
+  Progress Notes:
+    - [v1.11.0] Implemented admin action handling as part of the payment notification system:
+      - Created callback handlers for approval (handle_payment_approve) and rejection (handle_payment_reject) buttons
+      - Implemented permission checks using is_payment_admin function to ensure only authorized admins can process payments
+      - Created a multi-stage rejection workflow with predefined reasons and custom reason input
+      - Added API communication with confirm_order_payment and reject_order_payment endpoints
+      - Implemented user notifications with subscription details upon approval or detailed rejection reasons
+      - Added error handling and fallback mechanisms for API communication issues
+      - Provided admin feedback with processing status and results of their actions
+      - Ensured secure handling of order IDs and admin attribution in the database
+- [X] [P3-T009] Telegram Bot: Admin commands (in MANAGE group?) to manage cards & payment admins. Status: [X] Priority: Medium
+  Progress Notes:
+    - [v1.12.0] Implemented comprehensive payment admin management in the Telegram bot:
+      - Created `payment_admin_handlers.py` with conversation handler for managing payment admins
+      - Added API client functions for all payment admin operations (create, read, update, delete)
+      - Implemented user-friendly interfaces for adding, viewing, updating, and removing payment admins
+      - Created specialized keyboards for selecting users, bank cards, and managing Telegram groups
+      - Added proper permission checking with superuser-only access for sensitive operations
+      - Implemented proper masking of sensitive card information in admin interfaces
+      - Added two-step confirmation for payment admin deletion to prevent accidents
+      - Implemented comprehensive error handling for all operations
+      - Created Persian-language interface with emoji indicators for better readability
+      - Integrated the payment admin management with the main admin menu
 - [ ] [P3-T010] Dashboard: Sections for managing cards, payment admins, manual payment verification, admin performance reports. Status: [ ] Priority: High
 - [ ] [P3-T011] Install Script: Add TG Bot token & group ID configurations. Status: [ ] Priority: Medium
 - [ ] [P3-T012] Core API: Consider endpoint for *potential* future auto-card payment check (Low Priority). Status: [ ] Priority: Low
@@ -180,93 +246,118 @@ moonvpn/
 
 # MoonVPN Core API Development Scratchpad
 
-## Current Phase: P2 - VPN Panel Integration & API Development
+## Current Phase: P3 - Card-to-Card Payment & Admin Verification
 
-### P2-T005: Implement Subscription Management (Freeze/Unfreeze, Notes, Auto-Renew)
+### P3-T001: Bank Card Management (Completed)
 **Status: [X] Complete**
 
-This task focused on implementing a subscription management system with:
-1. Freeze/unfreeze functionality (with date tracking)
-2. User notes 
-3. Auto-renewal settings
+This task focused on implementing a comprehensive bank card management system for handling card-to-card payments:
 
 #### Completed Implementation:
-- Created `Subscription` model with:
-  - Freeze-related fields: `is_frozen`, `freeze_start_date`, `freeze_end_date`, `freeze_reason`
-  - Notes field for admin and user notes
-  - Auto-renew fields: `auto_renew`, `auto_renew_payment_method`
+- Created `BankCard` model with:
+  - Essential card information fields: `card_number`, `sheba_number`, `bank_name`, `account_owner`
+  - Management fields: `is_active`, `priority`, `notes`
+  - Security fields for tracking ownership and usage
   
-- Implemented `SubscriptionService` with methods:
-  - `get_subscription` & `get_user_subscriptions` for retrieving subscription data
-  - `create_subscription` for setting up new subscriptions
-  - `freeze_subscription` & `unfreeze_subscription` for managing freeze state
-  - `add_note` for adding notes to subscriptions
-  - `toggle_auto_renew` for managing auto-renewal settings
-  - `check_expired_subscriptions` for handling subscription expiration
-
+- Implemented `BankCardService` with methods:
+  - CRUD operations for bank cards
+  - Priority management for card rotation
+  - Status toggling for enabling/disabling cards
+  
 - Created RESTful API endpoints:
-  - GET `/subscriptions/` - List user's subscriptions
-  - GET `/subscriptions/{id}` - Get specific subscription details
-  - POST `/subscriptions/` - Create a new subscription (admin only)
-  - POST `/subscriptions/{id}/freeze` - Freeze a subscription
-  - POST `/subscriptions/{id}/unfreeze` - Unfreeze a subscription
-  - POST `/subscriptions/{id}/notes` - Add a note
-  - POST `/subscriptions/{id}/auto-renew` - Toggle auto-renewal
+  - GET `/bank-cards/` - List all bank cards with filtering options
+  - GET `/bank-cards/{id}` - Get specific bank card details
+  - POST `/bank-cards/` - Create a new bank card
+  - PUT `/bank-cards/{id}` - Update a bank card
+  - DELETE `/bank-cards/{id}` - Delete a bank card
+  - PATCH `/bank-cards/{id}/toggle-status` - Enable/disable a bank card
+  - PATCH `/bank-cards/{id}/priority` - Update card display priority
 
-- Added relationships to:
-  - `User` model for linking users to subscriptions
-  - `Plan` model for connecting plans to subscriptions
+- Added Telegram Bot admin commands in the MANAGE group:
+  - List all bank cards with status indicators
+  - Add new bank cards with validation
+  - View detailed card information
+  - Toggle card active status
+  - Manage card priority
+  - Delete cards with confirmation
 
-- Developed comprehensive unit tests for:
-  - Service methods - Testing all subscription operations
-  - API endpoints - Ensuring proper HTTP interactions
+- Implemented data validation and security measures:
+  - Card number format validation
+  - SHEBA number validation
+  - Proper permission checks for all operations
+  - Secure handling of sensitive financial information
+
+### P3-T002: Payment Admin Management (Completed)
+**Status: [X] Complete**
+
+This task focused on implementing a system for managing payment admins and their assignments to bank cards and Telegram groups:
+
+#### Completed Implementation:
+- Created database tables:
+  - `payment_admin_assignments`: Tracks which admins are responsible for which cards/groups
+  - `payment_admin_metrics`: Stores performance data for payment admins (response time, approval rate)
   
-- Integrated with `PanelService` to automatically:
-  - Disable clients when subscriptions are frozen
-  - Enable clients when subscriptions are unfrozen
-  - Handle expired subscriptions
+- Implemented `PaymentAdminService` with methods for:
+  - Managing admin assignments (CRUD operations)
+  - Tracking admin performance metrics
+  - Selecting appropriate admins for payment verification using a load-balancing algorithm
+  - Generating statistics on admin performance
+  
+- Created RESTful API endpoints:
+  - GET/POST/PUT/DELETE for payment admin assignments
+  - Endpoints for retrieving and updating metrics
+  - Specialized endpoint for recording processed payments
+  - Endpoint for selecting an appropriate admin for a new payment
 
-### Next Tasks:
-1. P2-T006: Implement subscription renewal process
-2. P2-T007: Create admin subscription management dashboard
-3. P2-T008: Implement user subscription history tracking
+- Added proper validation and security:
+  - Validation of Telegram group IDs
+  - Superuser-only access control
+  - Proper error handling and logging
+  
+- Integrated with existing models:
+  - Added relationships to User model
+  - Connected to BankCard model for card assignments
 
-[P2-T005] Add subscription management features (freeze, add notes, auto-renew toggle)
-Status: [X] Priority: [Medium]
-Dependencies: [P2-T003]
-Progress Notes:
-- [v0.4.3] Implemented subscription management features including freeze/unfreeze functionality with panel synchronization, note addition, and auto-renew toggle capabilities.
+### P3-T003: Payment Proof Submission (Completed)
+**Status: [X] Completed**
 
-[P2-T006] Add protocol/location change feature for subscriptions
-Status: [X] Priority: [Medium]
-Dependencies: [P2-T003]
-Progress Notes:
-- [v0.4.4] Implemented protocol and location change functionality for active subscriptions. This allows users to change their VPN protocol or server location by moving to different inbounds or panels. Added comprehensive error handling with automatic rollback in case of failures, and ensured proper validation to prevent changes to expired or frozen subscriptions.
+This task focused on implementing a comprehensive payment proof submission and verification system:
 
-#### P2-T007: ✅ Purchase flow in the Telegram bot (Done)
-- Implemented the flow for purchasing VPN subscriptions in the Telegram bot
-- Added functionality for users to select plans, payment methods, and submit payments
-- Created a system for admins to approve or reject payments
-- Implemented proper error handling and user notifications
-
-#### P2-T008: ✅ "My Account" section for listing accounts (Done)
-- Created a new section in the Telegram bot for users to view and manage their VPN accounts
-- Implemented functionality to list all user subscriptions with their status
-- Added detailed view for each subscription showing expiry date, remaining days, protocol, and location
-- Implemented QR code display for easy connection to VPN services
-- Added traffic usage statistics with visual progress bar
-- Implemented account management features:
-  - Freeze/unfreeze subscription
-  - Add notes to subscriptions
-  - Toggle auto-renewal
-  - Change protocol or location
-
-#### P2-T009: ✅ Payment confirmation with automatic account creation (Done)
-- Implemented a complete payment confirmation flow in the Telegram bot that triggers automatic account creation
-- Added API functions for confirming and rejecting order payments:
-  - `confirm_order_payment`: Calls the core API's create-client endpoint to create a VPN account
-  - `reject_order_payment`: Updates the order status to rejected with detailed reason
-- Enhanced the admin payment confirmation handler to display detailed subscription information
-- Added robust error handling with appropriate messages for both users and admins
-- Implemented a fallback mechanism for manual processing when automatic account creation fails
-- Ensured proper cleanup of in-memory order data after successful processing
+#### Completed Implementation:
+- Created database migration for enhanced Order fields:
+  - `payment_proof_img_url`: Stores path to uploaded proof image
+  - `payment_proof_submitted_at`: Tracks submission time
+  - `payment_verified_at`: Records verification time
+  - `payment_verification_admin_id`: Links to admin who verified
+  - `payment_rejection_reason`: Stores reason for rejection if applicable
+  - `payment_proof_telegram_msg_id`: For linking to Telegram messages
+  
+- Added new OrderStatus enum value:
+  - `VERIFICATION_PENDING`: Indicates proof submitted but not yet verified
+  
+- Implemented FileStorageService for secure file handling:
+  - Proper file validation (size, format)
+  - Secure naming with UUID generation
+  - Directory structure with proper permissions
+  
+- Enhanced OrderService with methods for:
+  - `submit_payment_proof`: Process uploaded proof and update order status
+  - `verify_payment_proof`: Approve/reject proof with admin attribution
+  - Integration with PaymentAdminService for metrics tracking
+  
+- Created RESTful API endpoints:
+  - POST `/payment-proofs/{order_id}/submit`: For users to upload payment proof
+  - POST `/payment-proofs/{order_id}/verify`: For admins to verify/reject proofs
+  - GET `/payment-proofs/pending`: Retrieve orders awaiting verification
+  - GET `/payment-proofs/admin/{admin_id}`: List proofs verified by specific admin
+  
+- Added proper validation and security:
+  - Image format and size validation
+  - Permission checks (users can only submit for their own orders)
+  - Required rejection reason when rejecting payments
+  
+- Added static file serving capability:
+  - Configured proper directory structure 
+  - Set up file mount points for uploaded files
+  
+The system now provides a complete workflow for users to submit payment proof and for admins to verify them, tracking metrics about verification performance and maintaining a secure record of all payment proofs.

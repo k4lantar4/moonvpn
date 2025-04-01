@@ -1,0 +1,807 @@
+{% extends "base.html" %}
+
+{% block title %}Payment Verification - MoonVPN Dashboard{% endblock %}
+
+{% block page_title %}Payment Verification{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Pending Payments</h3>
+                <div class="card-actions">
+                    <div class="btn-group">
+                        <button type="button" class="btn dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                            <span id="current-filter">All Pending</span>
+                        </button>
+                        <div class="dropdown-menu dropdown-menu-end">
+                            <a class="dropdown-item filter-option" href="#" data-filter="all">All Pending</a>
+                            <a class="dropdown-item filter-option" href="#" data-filter="submitted">Payment Submitted</a>
+                            <a class="dropdown-item filter-option" href="#" data-filter="expired">Expired</a>
+                            <div class="dropdown-divider"></div>
+                            <a class="dropdown-item filter-option" href="#" data-filter="approved">Approved</a>
+                            <a class="dropdown-item filter-option" href="#" data-filter="rejected">Rejected</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-vcenter card-table table-striped">
+                        <thead>
+                            <tr>
+                                <th>User</th>
+                                <th>Order ID</th>
+                                <th>Amount</th>
+                                <th>Bank Card</th>
+                                <th>Submitted</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="pending-payments-table-body">
+                            <!-- Payment data will be loaded here via JavaScript -->
+                            <tr>
+                                <td colspan="7" class="text-center">Loading pending payments...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="card-footer d-flex align-items-center">
+                <p class="m-0 text-muted">Showing <span id="showing-count">0</span> of <span id="total-count">0</span> payments</p>
+                <ul class="pagination m-0 ms-auto" id="pagination-container">
+                    <!-- Pagination will be generated here -->
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- View Payment Details Modal -->
+<div class="modal modal-blur fade" id="modal-payment-details" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Payment Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">Order ID</label>
+                            <div class="form-control-plaintext" id="detail-order-id">-</div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">User ID</label>
+                            <div class="form-control-plaintext" id="detail-user-id">-</div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Amount</label>
+                            <div class="form-control-plaintext" id="detail-amount">-</div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Bank Card</label>
+                            <div class="form-control-plaintext" id="detail-bank-card">-</div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Reference Number</label>
+                            <div class="form-control-plaintext" id="detail-reference-number">-</div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Submitted At</label>
+                            <div class="form-control-plaintext" id="detail-submitted-at">-</div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Status</label>
+                            <div class="form-control-plaintext">
+                                <span class="badge" id="detail-status-badge">-</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">Payment Proof</label>
+                            <div id="payment-proof-container" class="d-flex flex-column align-items-center">
+                                <div class="placeholder-image border rounded d-flex align-items-center justify-content-center mb-2" style="width: 100%; height: 200px; background-color: #f5f7fb;">
+                                    <span class="text-muted">Loading payment proof...</span>
+                                </div>
+                                <a href="#" class="btn btn-sm btn-outline-primary" id="btn-view-full-image" target="_blank">
+                                    View Full Image
+                                </a>
+                            </div>
+                        </div>
+                        <div class="mb-3" id="verification-section">
+                            <label class="form-label">Verification</label>
+                            <div class="btn-group d-flex mb-2">
+                                <button type="button" class="btn btn-success w-100" id="btn-approve-payment">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-check" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                                        <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                                        <path d="M5 12l5 5l10 -10"></path>
+                                    </svg>
+                                    Approve
+                                </button>
+                                <button type="button" class="btn btn-danger w-100" id="btn-reject-payment">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-x" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                                        <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                                        <path d="M18 6l-12 12"></path>
+                                        <path d="M6 6l12 12"></path>
+                                    </svg>
+                                    Reject
+                                </button>
+                            </div>
+                            <div id="rejection-reason-container" class="d-none">
+                                <div class="input-group mb-2">
+                                    <select class="form-select" id="rejection-reason">
+                                        <option value="">Select reason (optional)</option>
+                                        <option value="amount_mismatch">Amount mismatch</option>
+                                        <option value="wrong_card">Wrong card/account</option>
+                                        <option value="payment_not_received">Payment not received</option>
+                                        <option value="unclear_proof">Unclear/invalid proof</option>
+                                        <option value="other">Other reason</option>
+                                    </select>
+                                    <button type="button" class="btn btn-danger" id="btn-confirm-reject">Confirm</button>
+                                </div>
+                                <textarea class="form-control" id="rejection-notes" rows="2" placeholder="Additional notes (optional)"></textarea>
+                            </div>
+                        </div>
+                        <div id="verification-result" class="d-none">
+                            <div class="alert" id="verification-alert">
+                                <h4 id="verification-title">Payment Verified</h4>
+                                <div id="verification-details">
+                                    Verified by: <span id="verified-by">-</span><br>
+                                    At: <span id="verified-at">-</span>
+                                </div>
+                                <div id="rejection-details" class="d-none mt-2">
+                                    Reason: <span id="rejection-reason-text">-</span><br>
+                                    Notes: <span id="rejection-notes-text">-</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-link link-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Alert for notifications -->
+<div class="alert-container position-fixed top-0 end-0 p-3" style="z-index: 5">
+    <div id="alert-toast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-header">
+            <strong class="me-auto" id="alert-title">Notification</strong>
+            <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+        <div class="toast-body" id="alert-message">
+            Message here
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // DOM Elements
+    const pendingPaymentsTableBody = document.getElementById('pending-payments-table-body');
+    const currentFilterElement = document.getElementById('current-filter');
+    const filterOptions = document.querySelectorAll('.filter-option');
+    const showingCountElement = document.getElementById('showing-count');
+    const totalCountElement = document.getElementById('total-count');
+    const paginationContainer = document.getElementById('pagination-container');
+    const paymentDetailsModal = new bootstrap.Modal(document.getElementById('modal-payment-details'));
+    const btnApprovePayment = document.getElementById('btn-approve-payment');
+    const btnRejectPayment = document.getElementById('btn-reject-payment');
+    const btnConfirmReject = document.getElementById('btn-confirm-reject');
+    const rejectionReasonContainer = document.getElementById('rejection-reason-container');
+    const alertToast = new bootstrap.Toast(document.getElementById('alert-toast'));
+    const alertTitle = document.getElementById('alert-title');
+    const alertMessage = document.getElementById('alert-message');
+
+    // Current state
+    let currentFilter = 'all';
+    let currentPage = 1;
+    let pageSize = 10;
+    let currentOrderId = null;
+    let allPayments = [];
+
+    // Show notification
+    function showNotification(title, message, type = 'success') {
+        alertTitle.textContent = title;
+        alertMessage.textContent = message;
+        
+        const toastElement = document.getElementById('alert-toast');
+        toastElement.classList.remove('bg-success', 'bg-danger', 'bg-warning', 'text-white');
+        
+        if (type === 'success') {
+            toastElement.classList.add('bg-success', 'text-white');
+        } else if (type === 'danger') {
+            toastElement.classList.add('bg-danger', 'text-white');
+        } else if (type === 'warning') {
+            toastElement.classList.add('bg-warning');
+        }
+        
+        alertToast.show();
+    }
+
+    // Format date to local format
+    function formatDate(dateString) {
+        if (!dateString) return '-';
+        const date = new Date(dateString);
+        return new Intl.DateTimeFormat('fa-IR', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        }).format(date);
+    }
+
+    // Calculate time difference in a human-readable format
+    function getTimeDifference(dateString) {
+        if (!dateString) return '';
+        
+        const now = new Date();
+        const date = new Date(dateString);
+        const diffMs = now - date;
+        
+        // Convert to minutes
+        const diffMins = Math.floor(diffMs / 60000);
+        
+        if (diffMins < 60) {
+            return `${diffMins} minutes ago`;
+        } else if (diffMins < 1440) {
+            // Less than a day
+            const hours = Math.floor(diffMins / 60);
+            return `${hours} hours ago`;
+        } else {
+            // More than a day
+            const days = Math.floor(diffMins / 1440);
+            return `${days} days ago`;
+        }
+    }
+
+    // Get status badge HTML based on payment status
+    function getStatusBadge(status) {
+        let badgeClass, statusText;
+        
+        switch(status) {
+            case 'pending':
+                badgeClass = 'bg-yellow';
+                statusText = 'Pending';
+                break;
+            case 'payment_submitted':
+                badgeClass = 'bg-blue';
+                statusText = 'Payment Submitted';
+                break;
+            case 'approved':
+                badgeClass = 'bg-success';
+                statusText = 'Approved';
+                break;
+            case 'rejected':
+                badgeClass = 'bg-danger';
+                statusText = 'Rejected';
+                break;
+            case 'expired':
+                badgeClass = 'bg-secondary';
+                statusText = 'Expired';
+                break;
+            case 'refunded':
+                badgeClass = 'bg-purple';
+                statusText = 'Refunded';
+                break;
+            default:
+                badgeClass = 'bg-secondary';
+                statusText = status || 'Unknown';
+        }
+        
+        return `<span class="badge ${badgeClass}">${statusText}</span>`;
+    }
+
+    // Load payments from API
+    async function loadPayments() {
+        try {
+            const token = localStorage.getItem('accessToken');
+            if (!token) {
+                window.location.href = '/login';
+                return;
+            }
+
+            pendingPaymentsTableBody.innerHTML = '<tr><td colspan="7" class="text-center">Loading payments...</td></tr>';
+            
+            // Build the API URL with filter parameter
+            let url = '/api/v1/orders';
+            
+            // Add status filter
+            switch(currentFilter) {
+                case 'all':
+                    url += '?status=pending&status=payment_submitted';
+                    break;
+                case 'submitted':
+                    url += '?status=payment_submitted';
+                    break;
+                case 'expired':
+                    url += '?status=expired';
+                    break;
+                case 'approved':
+                    url += '?status=approved';
+                    break;
+                case 'rejected':
+                    url += '?status=rejected';
+                    break;
+                default:
+                    url += '?status=pending&status=payment_submitted';
+            }
+            
+            // Add payment_method filter for card payments only
+            url += '&payment_method=card';
+
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to load payments: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            allPayments = data;
+            
+            // Update counters
+            totalCountElement.textContent = allPayments.length;
+            
+            // Display payments with pagination
+            displayPayments();
+            
+        } catch (error) {
+            console.error('Error loading payments:', error);
+            pendingPaymentsTableBody.innerHTML = `<tr><td colspan="7" class="text-center text-danger">Error loading payments: ${error.message}</td></tr>`;
+            showNotification('Error', `Failed to load payments: ${error.message}`, 'danger');
+        }
+    }
+
+    // Display payments with pagination
+    function displayPayments() {
+        // Clear the table
+        pendingPaymentsTableBody.innerHTML = '';
+        
+        if (allPayments.length === 0) {
+            pendingPaymentsTableBody.innerHTML = '<tr><td colspan="7" class="text-center">No payments found matching the selected filter.</td></tr>';
+            showingCountElement.textContent = '0';
+            
+            // Clear pagination
+            paginationContainer.innerHTML = '';
+            return;
+        }
+        
+        // Calculate pagination
+        const totalPages = Math.ceil(allPayments.length / pageSize);
+        const startIndex = (currentPage - 1) * pageSize;
+        const endIndex = Math.min(startIndex + pageSize, allPayments.length);
+        const pagedPayments = allPayments.slice(startIndex, endIndex);
+        
+        // Update showing count
+        showingCountElement.textContent = `${startIndex + 1}-${endIndex}`;
+        
+        // Create table rows
+        pagedPayments.forEach(payment => {
+            const row = document.createElement('tr');
+            
+            // Get bank card info if available
+            const bankCardInfo = payment.payment_details && payment.payment_details.selected_card 
+                ? `${payment.payment_details.selected_card.bank_name} - ${payment.payment_details.selected_card.card_number.substr(-4)}`
+                : 'N/A';
+            
+            // Format amount with comma separators
+            const formattedAmount = new Intl.NumberFormat('fa-IR').format(payment.amount);
+            
+            // Get submission time if available
+            const submissionTime = payment.payment_details && payment.payment_details.proof_submitted_at 
+                ? formatDate(payment.payment_details.proof_submitted_at)
+                : 'Not submitted';
+                
+            // Get time difference for submitted payments
+            const timeDifference = payment.payment_details && payment.payment_details.proof_submitted_at
+                ? getTimeDifference(payment.payment_details.proof_submitted_at)
+                : '';
+            
+            row.innerHTML = `
+                <td>
+                    <div>${payment.user_id}</div>
+                </td>
+                <td>${payment.id}</td>
+                <td><span class="text-nowrap">${formattedAmount} تومان</span></td>
+                <td>${bankCardInfo}</td>
+                <td>
+                    <div>${submissionTime}</div>
+                    <div class="text-muted">${timeDifference}</div>
+                </td>
+                <td>${getStatusBadge(payment.status)}</td>
+                <td>
+                    <div class="btn-list flex-nowrap">
+                        <button class="btn btn-sm btn-primary btn-view-details" data-id="${payment.id}">
+                            View Details
+                        </button>
+                    </div>
+                </td>
+            `;
+            
+            pendingPaymentsTableBody.appendChild(row);
+        });
+        
+        // Add event listeners to the view details buttons
+        document.querySelectorAll('.btn-view-details').forEach(button => {
+            button.addEventListener('click', () => {
+                const orderId = button.getAttribute('data-id');
+                viewPaymentDetails(orderId);
+            });
+        });
+        
+        // Generate pagination
+        generatePagination(totalPages);
+    }
+
+    // Generate pagination controls
+    function generatePagination(totalPages) {
+        paginationContainer.innerHTML = '';
+        
+        if (totalPages <= 1) return;
+        
+        // Previous button
+        const prevLi = document.createElement('li');
+        prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
+        prevLi.innerHTML = `
+            <a class="page-link" href="#" tabindex="-1" aria-disabled="${currentPage === 1}">
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                    <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                    <path d="M15 6l-6 6l6 6"></path>
+                </svg>
+                prev
+            </a>
+        `;
+        paginationContainer.appendChild(prevLi);
+        
+        if (currentPage > 1) {
+            prevLi.addEventListener('click', (e) => {
+                e.preventDefault();
+                currentPage--;
+                displayPayments();
+            });
+        }
+        
+        // Page numbers
+        let startPage = Math.max(1, currentPage - 2);
+        let endPage = Math.min(totalPages, startPage + 4);
+        
+        if (endPage - startPage < 4) {
+            startPage = Math.max(1, endPage - 4);
+        }
+        
+        for (let i = startPage; i <= endPage; i++) {
+            const pageLi = document.createElement('li');
+            pageLi.className = `page-item ${i === currentPage ? 'active' : ''}`;
+            pageLi.innerHTML = `<a class="page-link" href="#">${i}</a>`;
+            paginationContainer.appendChild(pageLi);
+            
+            if (i !== currentPage) {
+                pageLi.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    currentPage = i;
+                    displayPayments();
+                });
+            }
+        }
+        
+        // Next button
+        const nextLi = document.createElement('li');
+        nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
+        nextLi.innerHTML = `
+            <a class="page-link" href="#" tabindex="-1" aria-disabled="${currentPage === totalPages}">
+                next
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                    <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                    <path d="M9 6l6 6l-6 6"></path>
+                </svg>
+            </a>
+        `;
+        paginationContainer.appendChild(nextLi);
+        
+        if (currentPage < totalPages) {
+            nextLi.addEventListener('click', (e) => {
+                e.preventDefault();
+                currentPage++;
+                displayPayments();
+            });
+        }
+    }
+
+    // View payment details
+    async function viewPaymentDetails(orderId) {
+        try {
+            currentOrderId = orderId;
+            
+            // Find the payment in our local data
+            const payment = allPayments.find(p => p.id.toString() === orderId.toString());
+            if (!payment) {
+                throw new Error('Payment not found');
+            }
+            
+            // Clear previous data
+            document.getElementById('detail-order-id').textContent = payment.id;
+            document.getElementById('detail-user-id').textContent = payment.user_id;
+            document.getElementById('detail-amount').textContent = `${new Intl.NumberFormat('fa-IR').format(payment.amount)} تومان`;
+            
+            // Bank card details
+            const bankCard = payment.payment_details && payment.payment_details.selected_card 
+                ? payment.payment_details.selected_card 
+                : null;
+                
+            if (bankCard) {
+                const maskedCardNumber = `${bankCard.card_number.substr(0, 6)}******${bankCard.card_number.substr(-4)}`;
+                document.getElementById('detail-bank-card').textContent = `${bankCard.bank_name} - ${maskedCardNumber} - ${bankCard.card_holder_name}`;
+            } else {
+                document.getElementById('detail-bank-card').textContent = 'N/A';
+            }
+            
+            // Reference number
+            document.getElementById('detail-reference-number').textContent = 
+                payment.payment_details && payment.payment_details.reference_number
+                ? payment.payment_details.reference_number
+                : 'Not provided';
+            
+            // Submission time
+            document.getElementById('detail-submitted-at').textContent = 
+                payment.payment_details && payment.payment_details.proof_submitted_at
+                ? formatDate(payment.payment_details.proof_submitted_at)
+                : 'Not submitted';
+            
+            // Status badge
+            const statusBadgeElement = document.getElementById('detail-status-badge');
+            statusBadgeElement.className = ''; // Clear previous classes
+            statusBadgeElement.className = 'badge'; // Add base class
+            
+            switch(payment.status) {
+                case 'pending':
+                    statusBadgeElement.classList.add('bg-yellow');
+                    statusBadgeElement.textContent = 'Pending';
+                    break;
+                case 'payment_submitted':
+                    statusBadgeElement.classList.add('bg-blue');
+                    statusBadgeElement.textContent = 'Payment Submitted';
+                    break;
+                case 'approved':
+                    statusBadgeElement.classList.add('bg-success');
+                    statusBadgeElement.textContent = 'Approved';
+                    break;
+                case 'rejected':
+                    statusBadgeElement.classList.add('bg-danger');
+                    statusBadgeElement.textContent = 'Rejected';
+                    break;
+                case 'expired':
+                    statusBadgeElement.classList.add('bg-secondary');
+                    statusBadgeElement.textContent = 'Expired';
+                    break;
+                default:
+                    statusBadgeElement.classList.add('bg-secondary');
+                    statusBadgeElement.textContent = payment.status || 'Unknown';
+            }
+            
+            // Payment proof image
+            const proofContainer = document.getElementById('payment-proof-container');
+            const btnViewFullImage = document.getElementById('btn-view-full-image');
+            
+            if (payment.payment_details && payment.payment_details.proof_file_id) {
+                // Fetch the image URL
+                const token = localStorage.getItem('accessToken');
+                const proofUrl = `/api/v1/media/payment-proofs/${payment.payment_details.proof_file_id}`;
+                
+                proofContainer.innerHTML = `
+                    <div class="mb-2">
+                        <img src="${proofUrl}" class="img-fluid border rounded" style="max-height: 300px;">
+                    </div>
+                `;
+                
+                btnViewFullImage.href = proofUrl;
+                btnViewFullImage.classList.remove('d-none');
+            } else {
+                proofContainer.innerHTML = `
+                    <div class="placeholder-image border rounded d-flex align-items-center justify-content-center" style="width: 100%; height: 200px; background-color: #f5f7fb;">
+                        <span class="text-muted">No payment proof provided</span>
+                    </div>
+                `;
+                btnViewFullImage.classList.add('d-none');
+            }
+            
+            // Show/hide verification controls based on status
+            const verificationSection = document.getElementById('verification-section');
+            const verificationResult = document.getElementById('verification-result');
+            
+            if (payment.status === 'payment_submitted') {
+                // Show verification controls
+                verificationSection.classList.remove('d-none');
+                verificationResult.classList.add('d-none');
+                rejectionReasonContainer.classList.add('d-none');
+            } else if (payment.status === 'approved' || payment.status === 'rejected') {
+                // Show verification result
+                verificationSection.classList.add('d-none');
+                verificationResult.classList.remove('d-none');
+                
+                // Update verification result details
+                const verificationAlert = document.getElementById('verification-alert');
+                const verificationTitle = document.getElementById('verification-title');
+                
+                if (payment.status === 'approved') {
+                    verificationAlert.className = 'alert alert-success';
+                    verificationTitle.textContent = 'Payment Approved';
+                } else {
+                    verificationAlert.className = 'alert alert-danger';
+                    verificationTitle.textContent = 'Payment Rejected';
+                }
+                
+                // Verification details
+                document.getElementById('verified-by').textContent = 
+                    payment.payment_details && payment.payment_details.verified_by
+                    ? payment.payment_details.verified_by
+                    : 'Unknown';
+                    
+                document.getElementById('verified-at').textContent = 
+                    payment.payment_details && payment.payment_details.verified_at
+                    ? formatDate(payment.payment_details.verified_at)
+                    : '-';
+                
+                // Rejection details
+                const rejectionDetails = document.getElementById('rejection-details');
+                
+                if (payment.status === 'rejected' && payment.payment_details && 
+                    (payment.payment_details.rejection_reason || payment.payment_details.rejection_notes)) {
+                    rejectionDetails.classList.remove('d-none');
+                    
+                    document.getElementById('rejection-reason-text').textContent = 
+                        payment.payment_details.rejection_reason || 'Not specified';
+                        
+                    document.getElementById('rejection-notes-text').textContent = 
+                        payment.payment_details.rejection_notes || 'None';
+                } else {
+                    rejectionDetails.classList.add('d-none');
+                }
+            } else {
+                // Hide both sections for other statuses
+                verificationSection.classList.add('d-none');
+                verificationResult.classList.add('d-none');
+            }
+            
+            // Show the modal
+            paymentDetailsModal.show();
+            
+        } catch (error) {
+            console.error('Error viewing payment details:', error);
+            showNotification('Error', `Failed to load payment details: ${error.message}`, 'danger');
+        }
+    }
+
+    // Approve payment
+    async function approvePayment(orderId) {
+        try {
+            const token = localStorage.getItem('accessToken');
+            
+            const response = await fetch(`/api/v1/orders/${orderId}/approve-payment`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || `Failed to approve payment: ${response.statusText}`);
+            }
+
+            // Close the modal
+            paymentDetailsModal.hide();
+            
+            // Reload payments
+            await loadPayments();
+            
+            // Show success notification
+            showNotification('Success', 'Payment approved successfully.', 'success');
+            
+        } catch (error) {
+            console.error('Error approving payment:', error);
+            showNotification('Error', `Failed to approve payment: ${error.message}`, 'danger');
+        }
+    }
+
+    // Reject payment
+    async function rejectPayment(orderId, reason, notes) {
+        try {
+            const token = localStorage.getItem('accessToken');
+            
+            const payload = {
+                rejection_reason: reason || null,
+                rejection_notes: notes || null
+            };
+            
+            const response = await fetch(`/api/v1/orders/${orderId}/reject-payment`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || `Failed to reject payment: ${response.statusText}`);
+            }
+
+            // Close the modal
+            paymentDetailsModal.hide();
+            
+            // Reload payments
+            await loadPayments();
+            
+            // Show success notification
+            showNotification('Success', 'Payment rejected successfully.', 'success');
+            
+        } catch (error) {
+            console.error('Error rejecting payment:', error);
+            showNotification('Error', `Failed to reject payment: ${error.message}`, 'danger');
+        }
+    }
+
+    // Event Listeners
+    document.addEventListener('DOMContentLoaded', () => {
+        // Load payments when page loads
+        loadPayments();
+        
+        // Filter options
+        filterOptions.forEach(option => {
+            option.addEventListener('click', (e) => {
+                e.preventDefault();
+                const filter = option.getAttribute('data-filter');
+                currentFilterElement.textContent = option.textContent;
+                currentFilter = filter;
+                currentPage = 1; // Reset to first page
+                loadPayments();
+            });
+        });
+        
+        // Approve payment button
+        btnApprovePayment.addEventListener('click', () => {
+            if (currentOrderId) {
+                approvePayment(currentOrderId);
+            }
+        });
+        
+        // Reject payment button (show reason form)
+        btnRejectPayment.addEventListener('click', () => {
+            rejectionReasonContainer.classList.remove('d-none');
+        });
+        
+        // Confirm reject button
+        btnConfirmReject.addEventListener('click', () => {
+            if (currentOrderId) {
+                const reason = document.getElementById('rejection-reason').value;
+                const notes = document.getElementById('rejection-notes').value;
+                rejectPayment(currentOrderId, reason, notes);
+            }
+        });
+        
+        // Reset rejection form when modal is closed
+        document.getElementById('modal-payment-details').addEventListener('hidden.bs.modal', () => {
+            rejectionReasonContainer.classList.add('d-none');
+            document.getElementById('rejection-reason').value = '';
+            document.getElementById('rejection-notes').value = '';
+        });
+    });
+</script>
+{% endblock %} 

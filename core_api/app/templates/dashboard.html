@@ -1,130 +1,533 @@
 {% extends "base.html" %}
 
-{% block title %}Dashboard - MoonVPN{% endblock %}
+{% block title %}Admin Dashboard - MoonVPN{% endblock %}
+
+{% block page_title %}Admin Dashboard{% endblock %}
 
 {% block content %}
-<div class="page-wrapper">
-    <!-- Page header -->
-    <div class="page-header d-print-none">
-        <div class="container-xl">
-            <div class="row g-2 align-items-center">
-                <div class="col">
-                    <h2 class="page-title">
-                        Dashboard
-                    </h2>
-                    <div class="text-muted mt-1" id="user-greeting">Loading user info...</div>
-                </div>
-                 <!-- Optional Page title actions -->
-                 <div class="col-auto ms-auto d-print-none">
-                    <div class="btn-list">
-                      <button id="logout-button" class="btn btn-danger">
-                        Logout
-                      </button>
+<div class="row row-cards">
+    <div class="col-md-6 col-xl-3">
+        <div class="card card-sm">
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col-auto">
+                        <span class="bg-blue text-white avatar">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-users" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                                <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                                <path d="M9 7m-4 0a4 4 0 1 0 8 0a4 4 0 1 0 -8 0"></path>
+                                <path d="M3 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2"></path>
+                                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                                <path d="M21 21v-2a4 4 0 0 0 -3 -3.85"></path>
+                            </svg>
+                        </span>
                     </div>
-                  </div>
-            </div>
-        </div>
-    </div>
-    <!-- Page body -->
-    <div class="page-body">
-        <div class="container-xl">
-            <div class="row row-deck row-cards">
-                <div class="col-12">
-                    <div class="card">
-                        <div class="card-body">
-                            <h3 class="card-title">Account Information</h3>
-                            <p id="user-telegram-id">Telegram ID: Loading...</p>
-                            <p id="user-wallet-balance">Wallet Balance: Loading...</p>
-                            <!-- Add more user info here as needed -->
+                    <div class="col">
+                        <div class="font-weight-medium">
+                            Active Users
+                        </div>
+                        <div class="text-muted" id="active-users-count">
+                            Loading...
                         </div>
                     </div>
                 </div>
-                <!-- Add more cards/widgets for the dashboard here -->
-                 <div class="col-12">
-                    <div id="alert-message-dash" class="alert" style="display: none;" role="alert"></div>
-                 </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 col-xl-3">
+        <div class="card card-sm">
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col-auto">
+                        <span class="bg-green text-white avatar">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-receipt" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                                <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                                <path d="M5 21v-16a2 2 0 0 1 2 -2h10a2 2 0 0 1 2 2v16l-3 -2l-2 2l-2 -2l-2 2l-2 -2l-3 2m4 -14h6m-6 4h6m-2 4h2"></path>
+                            </svg>
+                        </span>
+                    </div>
+                    <div class="col">
+                        <div class="font-weight-medium">
+                            Pending Payments
+                        </div>
+                        <div class="text-muted" id="pending-payments-count">
+                            Loading...
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 col-xl-3">
+        <div class="card card-sm">
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col-auto">
+                        <span class="bg-purple text-white avatar">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-chart-bar" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                                <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                                <path d="M3 12m0 1a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v6a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z"></path>
+                                <path d="M9 8m0 1a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v10a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z"></path>
+                                <path d="M15 4m0 1a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v14a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z"></path>
+                                <path d="M4 20l14 0"></path>
+                            </svg>
+                        </span>
+                    </div>
+                    <div class="col">
+                        <div class="font-weight-medium">
+                            Total Revenue
+                        </div>
+                        <div class="text-muted" id="total-revenue">
+                            Loading...
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 col-xl-3">
+        <div class="card card-sm">
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col-auto">
+                        <span class="bg-red text-white avatar">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-file-alert" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                                <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                                <path d="M14 3v4a1 1 0 0 0 1 1h4"></path>
+                                <path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z"></path>
+                                <path d="M12 17l.01 0"></path>
+                                <path d="M12 11l0 3"></path>
+                            </svg>
+                        </span>
+                    </div>
+                    <div class="col">
+                        <div class="font-weight-medium">
+                            Active Bank Cards
+                        </div>
+                        <div class="text-muted" id="active-bank-cards-count">
+                            Loading...
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Admin Sections</h3>
+            </div>
+            <div class="card-body">
+                <div class="row row-cards">
+                    <div class="col-sm-6 col-lg-3">
+                        <div class="card card-sm">
+                            <div class="card-body">
+                                <div class="d-flex align-items-center mb-3">
+                                    <span class="avatar me-3 bg-blue-lt">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-credit-card" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                                            <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                                            <path d="M3 5m0 3a3 3 0 0 1 3 -3h12a3 3 0 0 1 3 3v8a3 3 0 0 1 -3 3h-12a3 3 0 0 1 -3 -3z"></path>
+                                            <path d="M3 10l18 0"></path>
+                                            <path d="M7 15l.01 0"></path>
+                                            <path d="M11 15l2 0"></path>
+                                        </svg>
+                                    </span>
+                                    <div>
+                                        <div class="font-weight-medium">Bank Card Management</div>
+                                        <div class="text-muted">Manage bank cards for payment</div>
+                                    </div>
+                                </div>
+                                <div class="d-flex justify-content-end">
+                                    <a href="/admin/bank-cards" class="btn btn-primary">Manage Cards</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-6 col-lg-3">
+                        <div class="card card-sm">
+                            <div class="card-body">
+                                <div class="d-flex align-items-center mb-3">
+                                    <span class="avatar me-3 bg-green-lt">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-users-group" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                                            <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                                            <path d="M10 13a2 2 0 1 0 4 0a2 2 0 0 0 -4 0"></path>
+                                            <path d="M8 21v-1a2 2 0 0 1 2 -2h4a2 2 0 0 1 2 2v1"></path>
+                                            <path d="M15 5a2 2 0 1 0 4 0a2 2 0 0 0 -4 0"></path>
+                                            <path d="M17 10h2a2 2 0 0 1 2 2v1"></path>
+                                            <path d="M5 5a2 2 0 1 0 4 0a2 2 0 0 0 -4 0"></path>
+                                            <path d="M3 13v-1a2 2 0 0 1 2 -2h2"></path>
+                                        </svg>
+                                    </span>
+                                    <div>
+                                        <div class="font-weight-medium">Payment Admins</div>
+                                        <div class="text-muted">Manage payment admin assignments</div>
+                                    </div>
+                                </div>
+                                <div class="d-flex justify-content-end">
+                                    <a href="/admin/payment-admins" class="btn btn-primary">Manage Admins</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-6 col-lg-3">
+                        <div class="card card-sm">
+                            <div class="card-body">
+                                <div class="d-flex align-items-center mb-3">
+                                    <span class="avatar me-3 bg-purple-lt">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-file-check" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                                            <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                                            <path d="M14 3v4a1 1 0 0 0 1 1h4"></path>
+                                            <path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z"></path>
+                                            <path d="M9 15l2 2l4 -4"></path>
+                                        </svg>
+                                    </span>
+                                    <div>
+                                        <div class="font-weight-medium">Payment Verification</div>
+                                        <div class="text-muted">Verify pending payments</div>
+                                    </div>
+                                </div>
+                                <div class="d-flex justify-content-end">
+                                    <a href="/admin/payment-verification" class="btn btn-primary">Verify Payments</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-6 col-lg-3">
+                        <div class="card card-sm">
+                            <div class="card-body">
+                                <div class="d-flex align-items-center mb-3">
+                                    <span class="avatar me-3 bg-red-lt">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-chart-line" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                                            <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                                            <path d="M4 19l16 0"></path>
+                                            <path d="M4 15l4 -6l4 2l4 -5l4 4"></path>
+                                        </svg>
+                                    </span>
+                                    <div>
+                                        <div class="font-weight-medium">Performance Reports</div>
+                                        <div class="text-muted">View admin performance metrics</div>
+                                    </div>
+                                </div>
+                                <div class="d-flex justify-content-end">
+                                    <a href="/admin/performance-reports" class="btn btn-primary">View Reports</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-12 col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Recent Payments</h3>
+                <div class="card-actions">
+                    <a href="/admin/payment-verification" class="btn btn-primary">
+                        View All
+                    </a>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-vcenter">
+                        <thead>
+                            <tr>
+                                <th>Order ID</th>
+                                <th>User</th>
+                                <th>Amount</th>
+                                <th>Date</th>
+                                <th>Status</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="recent-payments-table">
+                            <tr>
+                                <td colspan="6" class="text-center">Loading recent payments...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Payment Admin Status</h3>
+                <div class="card-actions">
+                    <a href="/admin/payment-admins" class="btn btn-primary">
+                        View All
+                    </a>
+                </div>
+            </div>
+            <div class="card-body">
+                <div id="payment-admins-status">
+                    <p class="text-center">Loading payment admin status...</p>
+                </div>
             </div>
         </div>
     </div>
 </div>
 {% endblock %}
 
-{% block scripts %}
+{% block extra_js %}
 <script>
-    const userGreeting = document.getElementById('user-greeting');
-    const userTelegramId = document.getElementById('user-telegram-id');
-    const userWalletBalance = document.getElementById('user-wallet-balance');
-    const logoutButton = document.getElementById('logout-button');
-    const alertMessageDiv = document.getElementById('alert-message-dash');
+    // DOM Elements
+    const activeUsersCountElement = document.getElementById('active-users-count');
+    const pendingPaymentsCountElement = document.getElementById('pending-payments-count');
+    const totalRevenueElement = document.getElementById('total-revenue');
+    const activeBankCardsCountElement = document.getElementById('active-bank-cards-count');
+    const recentPaymentsTableElement = document.getElementById('recent-payments-table');
+    const paymentAdminsStatusElement = document.getElementById('payment-admins-status');
 
-    function showAlert(message, type = 'danger') {
-        alertMessageDiv.className = `alert alert-${type}`;
-        alertMessageDiv.textContent = message;
-        alertMessageDiv.style.display = 'block';
+    // Format date to local format
+    function formatDate(dateString) {
+        if (!dateString) return '-';
+        const date = new Date(dateString);
+        return new Intl.DateTimeFormat('fa-IR', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        }).format(date);
     }
 
-    function formatCurrency(value) {
-        try {
-            return parseFloat(value).toLocaleString('fa-IR', { style: 'currency', currency: 'IRR', minimumFractionDigits: 0 }).replace('ریال', 'تومان');
-        } catch (e) {
-            return value + " تومان"; // Fallback
+    // Get status badge HTML based on payment status
+    function getStatusBadge(status) {
+        let badgeClass, statusText;
+        
+        switch(status) {
+            case 'pending':
+                badgeClass = 'bg-yellow';
+                statusText = 'Pending';
+                break;
+            case 'payment_submitted':
+                badgeClass = 'bg-blue';
+                statusText = 'Payment Submitted';
+                break;
+            case 'approved':
+                badgeClass = 'bg-success';
+                statusText = 'Approved';
+                break;
+            case 'rejected':
+                badgeClass = 'bg-danger';
+                statusText = 'Rejected';
+                break;
+            case 'expired':
+                badgeClass = 'bg-secondary';
+                statusText = 'Expired';
+                break;
+            default:
+                badgeClass = 'bg-secondary';
+                statusText = status || 'Unknown';
         }
+        
+        return `<span class="badge ${badgeClass}">${statusText}</span>`;
     }
 
-    async function fetchUserInfo() {
-        const token = localStorage.getItem('accessToken');
-        const tokenType = localStorage.getItem('tokenType') || 'Bearer'; // Default to Bearer
-
-        if (!token) {
-            // No token found, redirect to login
-            window.location.href = '/login'; // Adjust path if needed
-            return;
-        }
-
+    // Load dashboard statistics
+    async function loadDashboardStats() {
         try {
-            const response = await fetch('/api/v1/users/me', {
-                method: 'GET',
-                headers: {
-                    'Authorization': `${tokenType} ${token}`
-                }
-            });
-
-            if (response.ok) {
-                const user = await response.json();
-                userGreeting.textContent = `Welcome, ${user.first_name || 'User'}!`;
-                userTelegramId.textContent = `Telegram ID: ${user.telegram_id}`;
-                userWalletBalance.textContent = `Wallet Balance: ${formatCurrency(user.wallet_balance)}`;
-                // Populate other user info fields here
-            } else if (response.status === 401 || response.status === 403) {
-                // Unauthorized or Forbidden - token might be invalid/expired
-                localStorage.removeItem('accessToken');
-                localStorage.removeItem('tokenType');
-                showAlert('Your session has expired or is invalid. Please log in again.', 'warning');
-                setTimeout(() => { window.location.href = '/login'; }, 2000);
-            } else {
-                // Other errors
-                const errorData = await response.json();
-                showAlert(`Error fetching user info: ${errorData.detail || response.statusText}`);
-                userGreeting.textContent = "Error loading user info.";
+            const token = localStorage.getItem('accessToken');
+            if (!token) {
+                window.location.href = '/login';
+                return;
             }
+
+            // Load active users count
+            const usersResponse = await fetch('/api/v1/users/stats', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            if (usersResponse.ok) {
+                const usersData = await usersResponse.json();
+                activeUsersCountElement.textContent = usersData.active_count || 0;
+            } else {
+                activeUsersCountElement.textContent = 'Error loading';
+            }
+
+            // Load pending payments count
+            const paymentsResponse = await fetch('/api/v1/orders/stats?status=pending&status=payment_submitted', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            if (paymentsResponse.ok) {
+                const paymentsData = await paymentsResponse.json();
+                pendingPaymentsCountElement.textContent = paymentsData.count || 0;
+            } else {
+                pendingPaymentsCountElement.textContent = 'Error loading';
+            }
+
+            // Load total revenue (last 30 days)
+            const thirtyDaysAgo = new Date();
+            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+            const dateStr = thirtyDaysAgo.toISOString().split('T')[0];
+            
+            const revenueResponse = await fetch(`/api/v1/orders/stats?status=approved&from_date=${dateStr}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            if (revenueResponse.ok) {
+                const revenueData = await revenueResponse.json();
+                const formattedAmount = new Intl.NumberFormat('fa-IR').format(revenueData.total_amount || 0);
+                totalRevenueElement.textContent = `${formattedAmount} تومان`;
+            } else {
+                totalRevenueElement.textContent = 'Error loading';
+            }
+
+            // Load active bank cards count
+            const bankCardsResponse = await fetch('/api/v1/bank-cards?is_active=true', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            if (bankCardsResponse.ok) {
+                const bankCards = await bankCardsResponse.json();
+                activeBankCardsCountElement.textContent = bankCards.length || 0;
+            } else {
+                activeBankCardsCountElement.textContent = 'Error loading';
+            }
+
         } catch (error) {
-            console.error('Error fetching user info:', error);
-            showAlert('An error occurred while fetching your information.');
-            userGreeting.textContent = "Error loading user info.";
-            // Maybe redirect to login after a few seconds on network error?
-            // setTimeout(() => { window.location.href = '/login'; }, 3000);
+            console.error('Error loading dashboard stats:', error);
+            activeUsersCountElement.textContent = 'Error';
+            pendingPaymentsCountElement.textContent = 'Error';
+            totalRevenueElement.textContent = 'Error';
+            activeBankCardsCountElement.textContent = 'Error';
         }
     }
 
-    logoutButton.addEventListener('click', () => {
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('tokenType');
-        showAlert('You have been logged out.', 'info');
-        setTimeout(() => { window.location.href = '/login'; }, 1000);
+    // Load recent payments
+    async function loadRecentPayments() {
+        try {
+            const token = localStorage.getItem('accessToken');
+            if (!token) {
+                window.location.href = '/login';
+                return;
+            }
+
+            const response = await fetch('/api/v1/orders?limit=5', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            if (!response.ok) {
+                throw new Error(`Failed to load recent payments: ${response.statusText}`);
+            }
+
+            const payments = await response.json();
+            
+            if (payments.length === 0) {
+                recentPaymentsTableElement.innerHTML = '<tr><td colspan="6" class="text-center">No recent payments found.</td></tr>';
+                return;
+            }
+            
+            recentPaymentsTableElement.innerHTML = '';
+            
+            payments.forEach(payment => {
+                const row = document.createElement('tr');
+                
+                // Format amount with comma separators
+                const formattedAmount = new Intl.NumberFormat('fa-IR').format(payment.amount);
+                
+                row.innerHTML = `
+                    <td>${payment.id}</td>
+                    <td>${payment.user_id}</td>
+                    <td>${formattedAmount} تومان</td>
+                    <td>${formatDate(payment.created_at)}</td>
+                    <td>${getStatusBadge(payment.status)}</td>
+                    <td>
+                        <a href="/admin/payment-verification" class="btn btn-sm btn-primary">
+                            View
+                        </a>
+                    </td>
+                `;
+                
+                recentPaymentsTableElement.appendChild(row);
+            });
+            
+        } catch (error) {
+            console.error('Error loading recent payments:', error);
+            recentPaymentsTableElement.innerHTML = '<tr><td colspan="6" class="text-center text-danger">Error loading recent payments.</td></tr>';
+        }
+    }
+
+    // Load payment admins status
+    async function loadPaymentAdminsStatus() {
+        try {
+            const token = localStorage.getItem('accessToken');
+            if (!token) {
+                window.location.href = '/login';
+                return;
+            }
+
+            const response = await fetch('/api/v1/payment-admins', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            if (!response.ok) {
+                throw new Error(`Failed to load payment admins: ${response.statusText}`);
+            }
+
+            const admins = await response.json();
+            
+            if (admins.length === 0) {
+                paymentAdminsStatusElement.innerHTML = '<p class="text-center">No payment admins found.</p>';
+                return;
+            }
+            
+            // Create status list
+            let html = '<ul class="list-group list-group-flush">';
+            
+            admins.forEach(admin => {
+                const statusClass = admin.is_active ? 'bg-success' : 'bg-danger';
+                const statusText = admin.is_active ? 'Active' : 'Inactive';
+                
+                // Get assigned cards count
+                const cardsCount = admin.assigned_cards ? admin.assigned_cards.length : 0;
+                
+                html += `
+                    <li class="list-group-item">
+                        <div class="row align-items-center">
+                            <div class="col-auto">
+                                <span class="avatar" style="background-color: #3498db;">
+                                    ${admin.user_name?.substring(0, 2) || '??'}
+                                </span>
+                            </div>
+                            <div class="col">
+                                <div class="font-weight-medium">${admin.user_name || `Admin ${admin.user_id}`}</div>
+                                <div class="text-muted small">
+                                    ${cardsCount} card(s) assigned
+                                </div>
+                            </div>
+                            <div class="col-auto">
+                                <span class="badge ${statusClass}">${statusText}</span>
+                            </div>
+                        </div>
+                    </li>
+                `;
+            });
+            
+            html += '</ul>';
+            paymentAdminsStatusElement.innerHTML = html;
+            
+        } catch (error) {
+            console.error('Error loading payment admins status:', error);
+            paymentAdminsStatusElement.innerHTML = '<p class="text-center text-danger">Error loading payment admins.</p>';
+        }
+    }
+
+    // Initialize dashboard
+    document.addEventListener('DOMContentLoaded', () => {
+        // Load initial data
+        loadDashboardStats();
+        loadRecentPayments();
+        loadPaymentAdminsStatus();
     });
-
-    // Fetch user info when the page loads
-    document.addEventListener('DOMContentLoaded', fetchUserInfo);
-
 </script>
 {% endblock %} 

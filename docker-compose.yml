@@ -10,6 +10,8 @@ services:
     volumes:
       # Mount the core_api directory for live code changes
       - ./core_api:/app
+      # Mount volume for uploaded files
+      - upload_data:/app/app/static/uploads
     # Use environment_file to load DB credentials from .env
     env_file:
       - .env
@@ -21,6 +23,22 @@ services:
       # - DATABASE_URL=postgresql://user:password@db:5432/appdb
       # Add other environment variables as needed
     command: uvicorn app.main:app --host 0.0.0.0 --port 8888 --reload # Use --reload for development
+
+  telegram_bot:
+    build:
+      context: ./telegram_bot
+      dockerfile: Dockerfile
+    volumes:
+      # Mount the telegram_bot directory for live code changes
+      - ./telegram_bot:/app
+    env_file:
+      - .env
+    depends_on:
+      - core_api
+    environment:
+      - CORE_API_URL=http://core_api:8888/api/v1
+    # No ports needed since bot connects to Telegram API outbound
+    command: python app/main.py
 
   db:
     image: mysql:8.0 # Use an official MySQL image
@@ -41,7 +59,6 @@ services:
       # - ./mysql/my.cnf:/etc/mysql/conf.d/my.cnf
 
 # Define named volumes for persistent data
-# volumes:
-#   postgres_data: 
 volumes:
-  mysql_data: # Define the named volume 
+  mysql_data: # Define the named volume for database
+  upload_data: # Define the named volume for uploads 

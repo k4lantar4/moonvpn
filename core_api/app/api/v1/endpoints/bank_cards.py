@@ -305,4 +305,59 @@ def delete_bank_card(
         )
     
     bank_card = crud.bank_card.remove(db=db, id=bank_card_id)
-    return bank_card 
+    return bank_card
+
+
+@router.get("/next-for-payment", response_model=schemas.BankCardResponse)
+async def get_next_card_for_payment(
+    last_used_id: Optional[int] = None,
+    db: Session = Depends(deps.get_db),
+    current_user: models.User = Depends(deps.get_current_active_user),
+):
+    """
+    Get the next bank card for payment based on rotation logic.
+    
+    This endpoint implements a card rotation algorithm that distributes payments 
+    across multiple bank cards. It prioritizes cards based on their priority setting
+    and ensures fair rotation within the same priority level.
+    
+    - Higher priority cards are selected first
+    - Within the same priority, cards are rotated to distribute load
+    - Only active cards are considered
+    
+    Parameters:
+    - last_used_id: Optional ID of the last used card to avoid consecutive use
+    
+    Returns:
+    - A single bank card to use for the next payment
+    """
+    # Check if user has permission to view bank cards
+    if not current_user.is_superuser and not await deps.check_user_permission(db, current_user.id, "read:bank_cards"):
+        raise HTTPException(status_code=403, detail="Not enough permissions to view bank cards")
+    
+    # Get next bank card using service
+    try:
+        bank_card = bank_card_service.get_next_bank_card_for_payment(db=db, last_used_id=last_used_id)
+        
+        if bank_card is None:
+            raise HTTPException(status_code=404, detail="No active bank cards available for payment")
+        
+        # Format the card number for privacy/security
+        card_data = bank_card.__dict__.copy()
+        if "card_number" in card_data and card_data["card_number"]:
+            # Mask all but last 4 digits
+            card_number = card_data["card_number"]
+            card_data["masked_card_number"] = "*" * (len(card_number) - 4) + card_number[-4:]
+        
+        return {
+            "success": True,
+            "data": bank_card,
+            "detail": "Successfully retrieved next bank card for payment"
+        }
+    
+    except HTTPException as e:
+        # Re-raise HTTP exceptions
+        raise e
+    except Exception as e:
+        logger.error(f"Error retrieving next bank card for payment: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error retrieving next bank card for payment") 

@@ -231,7 +231,149 @@ class CRUDOrder(CRUDBase[Order, OrderCreate, OrderUpdate]):
         
         db.commit()
         return len(expired_orders)
+    
+    # Get orders with payment proof
+    def get_orders_with_payment_proof(
+        self, db: Session, *, verified: Optional[bool] = None, skip: int = 0, limit: int = 100
+    ) -> List[Order]:
+        """
+        Get orders with payment proof.
+        
+        If verified is True, returns orders with verified payment proof.
+        If verified is False, returns orders with rejected payment proof.
+        If verified is None, returns all orders with payment proof.
+        """
+        query = db.query(self.model).filter(self.model.payment_proof_img_url.isnot(None))
+        
+        if verified is True:
+            query = query.filter(self.model.payment_verified_at.isnot(None))
+            query = query.filter(self.model.status.in_([OrderStatus.PAID, OrderStatus.CONFIRMED]))
+        elif verified is False:
+            query = query.filter(self.model.payment_verified_at.isnot(None))
+            query = query.filter(self.model.status == OrderStatus.REJECTED)
+        
+        return query.order_by(desc(self.model.payment_proof_submitted_at)).offset(skip).limit(limit).all()
+    
+    # Get orders pending verification
+    def get_orders_pending_verification(
+        self, db: Session, *, skip: int = 0, limit: int = 100
+    ) -> List[Order]:
+        """Get orders with payment proof that are waiting for verification"""
+        return (
+            db.query(self.model)
+            .filter(self.model.status == OrderStatus.VERIFICATION_PENDING)
+            .order_by(desc(self.model.payment_proof_submitted_at))
+            .offset(skip)
+            .limit(limit)
+            .all()
+        )
+    
+    # Get orders verified by admin
+    def get_orders_verified_by_admin(
+        self, db: Session, *, admin_id: int, skip: int = 0, limit: int = 100
+    ) -> List[Order]:
+        """Get orders verified by a specific admin"""
+        return (
+            db.query(self.model)
+            .filter(self.model.payment_verification_admin_id == admin_id)
+            .order_by(desc(self.model.payment_verified_at))
+            .offset(skip)
+            .limit(limit)
+            .all()
+        )
+    
+    # Get orders verification metrics
+    def get_verification_metrics(
+        self, db: Session, *, days: int = 30
+    ) -> Dict[str, Any]:
+        """Get metrics about order verification for the last X days"""
+        cutoff_date = datetime.utcnow() - timedelta(days=days)
+        
+        # Total orders with payment proof
+        total_with_proof = (
+            db.query(func.count(self.model.id))
+            .filter(
+                and_(
+                    self.model.payment_proof_img_url.isnot(None),
+                    self.model.payment_proof_submitted_at >= cutoff_date
+                )
+            )
+            .scalar()
+        )
+        
+        # Total verified orders
+        total_verified = (
+            db.query(func.count(self.model.id))
+            .filter(
+                and_(
+                    self.model.payment_verified_at.isnot(None),
+                    self.model.status.in_([OrderStatus.PAID, OrderStatus.CONFIRMED]),
+                    self.model.payment_proof_submitted_at >= cutoff_date
+                )
+            )
+            .scalar()
+        )
+        
+        # Total rejected orders
+        total_rejected = (
+            db.query(func.count(self.model.id))
+            .filter(
+                and_(
+                    self.model.payment_verified_at.isnot(None),
+                    self.model.status == OrderStatus.REJECTED,
+                    self.model.payment_proof_submitted_at >= cutoff_date
+                )
+            )
+            .scalar()
+        )
+        
+        # Total pending verification
+        total_pending = (
+            db.query(func.count(self.model.id))
+            .filter(
+                and_(
+                    self.model.status == OrderStatus.VERIFICATION_PENDING,
+                    self.model.payment_proof_submitted_at >= cutoff_date
+                )
+            )
+            .scalar()
+        )
+        
+        # Average verification time
+        avg_verification_time = 0
+        if total_verified + total_rejected > 0:
+            verification_times = (
+                db.query(
+                    func.timestampdiff(
+                        func.second,
+                        self.model.payment_proof_submitted_at,
+                        self.model.payment_verified_at
+                    )
+                )
+                .filter(
+                    and_(
+                        self.model.payment_proof_submitted_at >= cutoff_date,
+                        self.model.payment_verified_at.isnot(None)
+                    )
+                )
+                .all()
+            )
+            
+            if verification_times:
+                total_seconds = sum([time[0] or 0 for time in verification_times])
+                avg_verification_time = total_seconds / len(verification_times)
+        
+        return {
+            "total_with_proof": total_with_proof,
+            "total_verified": total_verified,
+            "total_rejected": total_rejected,
+            "total_pending": total_pending,
+            "avg_verification_time_seconds": avg_verification_time,
+            "verification_rate": (total_verified / total_with_proof * 100) if total_with_proof > 0 else 0,
+            "rejection_rate": (total_rejected / total_with_proof * 100) if total_with_proof > 0 else 0,
+            "period_days": days
+        }
 
 
 # Create a singleton instance for use across the app
-order = CRUDOrder(Order) 
+order = CRUDOrder(Order)

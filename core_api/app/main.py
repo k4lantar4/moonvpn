@@ -39,6 +39,18 @@ if not os.path.isdir(static_dir):
         static_dir = static_dir_alt
     else:
         print(f"Warning: Static directory not found at {static_dir} or {static_dir_alt}")
+        
+# Check for uploads directory in the root core_api
+uploads_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static/uploads")
+if os.path.isdir(uploads_dir):
+    print(f"Found uploads directory at {uploads_dir}")
+    app.mount("/static/uploads", StaticFiles(directory=uploads_dir), name="static_uploads")
+    
+    # Ensure payment proofs directory exists
+    payment_proofs_dir = os.path.join(uploads_dir, "payment_proofs")
+    if not os.path.isdir(payment_proofs_dir):
+        os.makedirs(payment_proofs_dir, exist_ok=True)
+        print(f"Created payment proofs directory at {payment_proofs_dir}")
 
 # Only mount if directory exists (won't crash if static files are not downloaded yet)
 if os.path.isdir(static_dir):

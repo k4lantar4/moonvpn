@@ -1,6 +1,7 @@
 import logging
 import httpx
 from typing import Dict, List, Optional
+import aiohttp
 
 from app.utils.logger import get_logger
 
@@ -769,4 +770,492 @@ async def delete_bank_card(bank_card_id: int) -> Optional[Dict]:
                 return None
     except Exception as e:
         logger.error(f"Error deleting bank card: {str(e)}")
-        return None 
+        return None
+
+async def submit_payment_proof(
+    order_id: int,
+    payment_reference: str,
+    payment_proof: bytes,
+    payment_method: str = "card_to_card",
+    notes: str = None
+) -> dict:
+    """
+    Submit payment proof for an order.
+    
+    Args:
+        order_id: Order ID to submit payment for
+        payment_reference: Reference/tracking number of the payment
+        payment_proof: Image file of the payment proof as bytes
+        payment_method: Payment method used (default: card_to_card)
+        notes: Additional notes about the payment
+        
+    Returns:
+        dict: API response with status and details
+    """
+    try:
+        token = await get_auth_token()
+        if not token:
+            logger.error("Failed to get auth token for submitting payment proof")
+            return {"success": False, "detail": "Authentication failed"}
+        
+        # Prepare request data
+        url = f"{BASE_URL}/payment-proofs/"
+        
+        # Create form data with the image file
+        form_data = aiohttp.FormData()
+        form_data.add_field("order_id", str(order_id))
+        form_data.add_field("payment_reference", payment_reference)
+        form_data.add_field("payment_method", payment_method)
+        
+        if notes:
+            form_data.add_field("notes", notes)
+        
+        # Add the payment proof image
+        form_data.add_field(
+            "payment_proof_image",
+            payment_proof,
+            filename="payment_proof.jpg",
+            content_type="image/jpeg"
+        )
+        
+        # Send request
+        async with aiohttp.ClientSession() as session:
+            headers = get_auth_headers()
+            headers["Authorization"] = f"Bearer {token}"
+            # No Content-Type header as it's automatically set by aiohttp for FormData
+            async with session.post(url, data=form_data, headers=headers) as response:
+                response_json = await response.json()
+                status_code = response.status
+                
+                if status_code == 201:  # Created
+                    logger.info(f"Successfully submitted payment proof for order {order_id}")
+                    return {"success": True, "data": response_json}
+                else:
+                    logger.error(f"Failed to submit payment proof for order {order_id}. Status: {status_code}, Response: {response_json}")
+                    return {"success": False, "detail": response_json.get("detail", "Failed to submit payment proof")}
+    
+    except Exception as e:
+        logger.error(f"Error in submit_payment_proof: {str(e)}")
+        return {"success": False, "detail": str(e)}
+
+async def get_payment_admin_for_card(bank_card_id: int) -> Optional[Dict]:
+    """
+    Get the assigned payment admin for a bank card.
+    
+    Args:
+        bank_card_id: ID of the bank card
+    
+    Returns:
+        Dictionary containing the admin assignment information or None if no assignment exists
+    """
+    endpoint = f"{BASE_URL}/payment-admins/assignments/card/{bank_card_id}"
+    headers = get_auth_headers()
+    
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(endpoint, headers=headers) as response:
+                if response.status == 200:
+                    result = await response.json()
+                    return result
+                else:
+                    error_text = await response.text()
+                    logger.error(f"Error getting payment admin for card: {error_text}")
+                    return None
+    except Exception as e:
+        logger.error(f"Exception getting payment admin for card: {str(e)}")
+        return None
+
+async def update_payment_proof_telegram_msg_id(
+    order_id: int,
+    telegram_msg_id: int,
+    telegram_group_id: str
+) -> Optional[Dict]:
+    """
+    Update an order with the Telegram message ID of the payment proof notification.
+    
+    Args:
+        order_id: ID of the order
+        telegram_msg_id: Telegram message ID of the notification
+        telegram_group_id: ID of the Telegram group where the message was sent
+    
+    Returns:
+        Updated order data or None on failure
+    """
+    endpoint = f"{BASE_URL}/payment-proofs/{order_id}/telegram-message"
+    headers = get_auth_headers()
+    data = {
+        "telegram_msg_id": telegram_msg_id,
+        "telegram_group_id": telegram_group_id
+    }
+    
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.patch(endpoint, headers=headers, json=data) as response:
+                if response.status == 200:
+                    result = await response.json()
+                    return result
+                else:
+                    error_text = await response.text()
+                    logger.error(f"Error updating payment proof telegram message ID: {error_text}")
+                    return None
+    except Exception as e:
+        logger.error(f"Exception updating payment proof telegram message ID: {str(e)}")
+        return None
+
+async def get_user_permissions(user_id: int) -> Optional[List[str]]:
+    """
+    Get permissions for a user.
+    
+    Args:
+        user_id: User ID (Telegram ID)
+    
+    Returns:
+        List of permission keys or None on failure
+    """
+    endpoint = f"{BASE_URL}/users/{user_id}/permissions"
+    headers = get_auth_headers()
+    
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(endpoint, headers=headers) as response:
+                if response.status == 200:
+                    result = await response.json()
+                    return result.get("permissions", [])
+                else:
+                    error_text = await response.text()
+                    logger.error(f"Error getting user permissions: {error_text}")
+                    return None
+    except Exception as e:
+        logger.error(f"Exception getting user permissions: {str(e)}")
+        return None
+
+async def get_user_by_id(user_id: int) -> Optional[Dict]:
+    """
+    Get user information by internal user ID.
+    
+    Args:
+        user_id: Internal user ID
+    
+    Returns:
+        User data or None on failure
+    """
+    endpoint = f"{BASE_URL}/users/{user_id}"
+    headers = get_auth_headers()
+    
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(endpoint, headers=headers) as response:
+                if response.status == 200:
+                    return await response.json()
+                else:
+                    error_text = await response.text()
+                    logger.error(f"Error getting user by ID: {error_text}")
+                    return None
+    except Exception as e:
+        logger.error(f"Exception getting user by ID: {str(e)}")
+        return None
+
+async def get_order_details(order_id: int) -> Optional[Dict]:
+    """
+    Get detailed order information.
+    
+    Args:
+        order_id: ID of the order
+    
+    Returns:
+        Order data or None on failure
+    """
+    endpoint = f"{BASE_URL}/orders/{order_id}"
+    headers = get_auth_headers()
+    
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(endpoint, headers=headers) as response:
+                if response.status == 200:
+                    return await response.json()
+                else:
+                    error_text = await response.text()
+                    logger.error(f"Error getting order details: {error_text}")
+                    return None
+    except Exception as e:
+        logger.error(f"Exception getting order details: {str(e)}")
+        return None
+
+async def get_next_bank_card_for_payment(last_used_id: Optional[int] = None) -> Optional[Dict]:
+    """
+    Get the next bank card for payment based on rotation logic.
+    
+    Args:
+        last_used_id: Optional ID of the last card used (to avoid consecutive use)
+        
+    Returns:
+        Bank card data or None if no active cards are available
+    """
+    endpoint = f"{BASE_URL}/bank-cards/next-for-payment"
+    params = {}
+    
+    if last_used_id is not None:
+        params["last_used_id"] = last_used_id
+        
+    headers = get_auth_headers()
+    
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(endpoint, params=params, headers=headers) as response:
+                if response.status == 200:
+                    result = await response.json()
+                    if result.get("success") and "data" in result:
+                        return result["data"]
+                    return None
+                else:
+                    logger.error(f"Error getting next bank card: {await response.text()}")
+                    return None
+    except Exception as e:
+        logger.error(f"Exception getting next bank card: {str(e)}")
+        return None
+
+async def get_payment_admin_reports(
+    start_date: Optional[str] = None, 
+    end_date: Optional[str] = None, 
+    admin_id: Optional[int] = None
+) -> Optional[Dict]:
+    """
+    Get detailed performance reports for payment admins.
+    
+    Args:
+        start_date: Optional start date in YYYY-MM-DD format
+        end_date: Optional end date in YYYY-MM-DD format
+        admin_id: Optional admin ID to filter for a specific admin
+        
+    Returns:
+        Report data or None if an error occurs
+    """
+    endpoint = f"{BASE_URL}/payment-admins/reports"
+    params = {}
+    
+    # Add optional parameters if provided
+    if start_date:
+        params["start_date"] = start_date
+    if end_date:
+        params["end_date"] = end_date
+    if admin_id:
+        params["admin_id"] = admin_id
+        
+    headers = get_auth_headers()
+    
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(endpoint, params=params, headers=headers) as response:
+                if response.status == 200:
+                    result = await response.json()
+                    if result.get("success") and "data" in result:
+                        return result["data"]
+                    return None
+                else:
+                    logger.error(f"Error getting payment admin reports: {await response.text()}")
+                    return None
+    except Exception as e:
+        logger.error(f"Exception getting payment admin reports: {str(e)}")
+        return None
+
+async def get_payment_admin_assignments(
+    user_id: Optional[int] = None,
+    bank_card_id: Optional[int] = None,
+    telegram_group_id: Optional[str] = None
+) -> Optional[List[Dict]]:
+    """
+    Get list of payment admin assignments with optional filtering.
+    
+    Args:
+        user_id: Optional filter by admin user ID
+        bank_card_id: Optional filter by bank card ID
+        telegram_group_id: Optional filter by Telegram group ID
+        
+    Returns:
+        List of payment admin assignments or None if an error occurs
+    """
+    endpoint = f"{BASE_URL}/payment-admins"
+    params = {}
+    
+    if user_id:
+        params["user_id"] = user_id
+    if bank_card_id:
+        params["bank_card_id"] = bank_card_id
+    if telegram_group_id:
+        params["telegram_group_id"] = telegram_group_id
+        
+    headers = get_auth_headers()
+    
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(endpoint, params=params, headers=headers) as response:
+                if response.status == 200:
+                    result = await response.json()
+                    return result
+                else:
+                    logger.error(f"Error getting payment admin assignments: {await response.text()}")
+                    return None
+    except Exception as e:
+        logger.error(f"Exception getting payment admin assignments: {str(e)}")
+        return None
+
+async def get_payment_admin_assignment(assignment_id: int) -> Optional[Dict]:
+    """
+    Get details of a specific payment admin assignment.
+    
+    Args:
+        assignment_id: ID of the payment admin assignment
+        
+    Returns:
+        Payment admin assignment details or None if an error occurs
+    """
+    endpoint = f"{BASE_URL}/payment-admins/{assignment_id}"
+    headers = get_auth_headers()
+    
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(endpoint, headers=headers) as response:
+                if response.status == 200:
+                    result = await response.json()
+                    return result
+                else:
+                    logger.error(f"Error getting payment admin assignment: {await response.text()}")
+                    return None
+    except Exception as e:
+        logger.error(f"Exception getting payment admin assignment: {str(e)}")
+        return None
+
+async def create_payment_admin_assignment(
+    user_id: int,
+    bank_card_id: Optional[int] = None,
+    telegram_group_id: Optional[str] = None,
+    is_active: bool = True
+) -> Optional[Dict]:
+    """
+    Create a new payment admin assignment.
+    
+    Args:
+        user_id: ID of the user to be assigned as payment admin
+        bank_card_id: Optional ID of the bank card to assign
+        telegram_group_id: Optional Telegram group ID to assign
+        is_active: Whether the assignment is active
+        
+    Returns:
+        Created payment admin assignment or None if an error occurs
+    """
+    endpoint = f"{BASE_URL}/payment-admins"
+    payload = {
+        "user_id": user_id,
+        "is_active": is_active
+    }
+    
+    if bank_card_id:
+        payload["bank_card_id"] = bank_card_id
+    if telegram_group_id:
+        payload["telegram_group_id"] = telegram_group_id
+        
+    headers = get_auth_headers()
+    
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(endpoint, json=payload, headers=headers) as response:
+                if response.status == 201:
+                    result = await response.json()
+                    return result
+                else:
+                    logger.error(f"Error creating payment admin assignment: {await response.text()}")
+                    return None
+    except Exception as e:
+        logger.error(f"Exception creating payment admin assignment: {str(e)}")
+        return None
+
+async def update_payment_admin_assignment(
+    assignment_id: int,
+    bank_card_id: Optional[int] = None,
+    telegram_group_id: Optional[str] = None,
+    is_active: Optional[bool] = None
+) -> Optional[Dict]:
+    """
+    Update an existing payment admin assignment.
+    
+    Args:
+        assignment_id: ID of the payment admin assignment to update
+        bank_card_id: Optional new bank card ID
+        telegram_group_id: Optional new Telegram group ID
+        is_active: Optional new active status
+        
+    Returns:
+        Updated payment admin assignment or None if an error occurs
+    """
+    endpoint = f"{BASE_URL}/payment-admins/{assignment_id}"
+    payload = {}
+    
+    if bank_card_id is not None:
+        payload["bank_card_id"] = bank_card_id
+    if telegram_group_id is not None:
+        payload["telegram_group_id"] = telegram_group_id
+    if is_active is not None:
+        payload["is_active"] = is_active
+        
+    headers = get_auth_headers()
+    
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.put(endpoint, json=payload, headers=headers) as response:
+                if response.status == 200:
+                    result = await response.json()
+                    return result
+                else:
+                    logger.error(f"Error updating payment admin assignment: {await response.text()}")
+                    return None
+    except Exception as e:
+        logger.error(f"Exception updating payment admin assignment: {str(e)}")
+        return None
+
+async def delete_payment_admin_assignment(assignment_id: int) -> bool:
+    """
+    Delete a payment admin assignment.
+    
+    Args:
+        assignment_id: ID of the payment admin assignment to delete
+        
+    Returns:
+        True if successful, False otherwise
+    """
+    endpoint = f"{BASE_URL}/payment-admins/{assignment_id}"
+    headers = get_auth_headers()
+    
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.delete(endpoint, headers=headers) as response:
+                if response.status == 200:
+                    return True
+                else:
+                    logger.error(f"Error deleting payment admin assignment: {await response.text()}")
+                    return False
+    except Exception as e:
+        logger.error(f"Exception deleting payment admin assignment: {str(e)}")
+        return False
+
+async def get_users_available_for_payment_admin() -> Optional[List[Dict]]:
+    """
+    Get list of users that can be assigned as payment admins.
+    
+    Returns:
+        List of available users or None if an error occurs
+    """
+    endpoint = f"{BASE_URL}/users/available-for-payment-admin"
+    headers = get_auth_headers()
+    
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(endpoint, headers=headers) as response:
+                if response.status == 200:
+                    result = await response.json()
+                    return result
+                else:
+                    logger.error(f"Error getting available payment admin users: {await response.text()}")
+                    return None
+    except Exception as e:
+        logger.error(f"Exception getting available payment admin users: {str(e)}")
+        return None

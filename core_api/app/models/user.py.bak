@@ -52,9 +52,8 @@ class User(Base):
     # Relationship (One-to-Many: User to Referrals)
     # referrals = relationship("User", backref="referrer", remote_side=[id]) # Relationship to users referred by this user
 
-    # Payment admin relationships
-    payment_admin_assignments = relationship("PaymentAdminAssignment", back_populates="user")
-    payment_admin_metrics = relationship("PaymentAdminMetrics", back_populates="user", uselist=False)
+    # Add relationships to other tables like Subscriptions, etc. later
+    # subscriptions = relationship("Subscription", back_populates="user")
 
     # Relationships
     items = relationship("Item", back_populates="owner") # Example relationship

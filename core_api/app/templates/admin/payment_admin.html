@@ -1,0 +1,893 @@
+{% extends "base.html" %}
+
+{% block title %}Payment Admin Management - MoonVPN Dashboard{% endblock %}
+
+{% block page_title %}Payment Admin Management{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Payment Admins</h3>
+                <div class="card-actions">
+                    <button type="button" class="btn btn-primary" id="btn-add-admin">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-plus" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                            <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                            <path d="M12 5l0 14"></path>
+                            <path d="M5 12l14 0"></path>
+                        </svg>
+                        Add Payment Admin
+                    </button>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-vcenter card-table table-striped">
+                        <thead>
+                            <tr>
+                                <th>User</th>
+                                <th>User ID</th>
+                                <th>Assigned Bank Cards</th>
+                                <th>Performance</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="payment-admins-table-body">
+                            <!-- Payment admin data will be loaded here via JavaScript -->
+                            <tr>
+                                <td colspan="6" class="text-center">Loading payment admins...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Payment Admin Modal -->
+<div class="modal modal-blur fade" id="modal-add-admin" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add Payment Admin</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="add-admin-form">
+                    <div class="mb-3">
+                        <label class="form-label required">User ID</label>
+                        <input type="number" class="form-control" name="user_id" placeholder="Telegram user ID" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Bank Cards</label>
+                        <div id="add-admin-cards-container">
+                            <div class="alert alert-info">
+                                Loading bank cards...
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" name="is_active" checked>
+                            <span class="form-check-label">Active</span>
+                        </label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-link link-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="btn-save-admin">Add Admin</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Payment Admin Modal -->
+<div class="modal modal-blur fade" id="modal-edit-admin" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Payment Admin</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="edit-admin-form">
+                    <input type="hidden" name="user_id">
+                    <div class="mb-3">
+                        <label class="form-label">User ID</label>
+                        <input type="text" class="form-control" name="user_id_display" disabled>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Bank Cards</label>
+                        <div id="edit-admin-cards-container">
+                            <div class="alert alert-info">
+                                Loading bank cards...
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" name="is_active">
+                            <span class="form-check-label">Active</span>
+                        </label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-link link-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="btn-update-admin">Update Admin</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- View Performance Modal -->
+<div class="modal modal-blur fade" id="modal-view-performance" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Admin Performance</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Filter by Date Range</label>
+                        <div class="input-group">
+                            <input type="date" class="form-control" id="performance-start-date">
+                            <span class="input-group-text">to</span>
+                            <input type="date" class="form-control" id="performance-end-date">
+                            <button class="btn btn-outline-secondary" type="button" id="btn-apply-date-filter">Apply</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="admin-performance-container">
+                    <div class="alert alert-info">
+                        Loading performance data...
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-link link-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal modal-blur fade" id="modal-delete-admin" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-sm modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-body">
+                <div class="modal-title">Are you sure?</div>
+                <div>This action will remove the user from payment admin role.</div>
+                <input type="hidden" id="delete-admin-id">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-link link-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="btn-confirm-delete">Yes, remove admin</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Alert for notifications -->
+<div class="alert-container position-fixed top-0 end-0 p-3" style="z-index: 5">
+    <div id="alert-toast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-header">
+            <strong class="me-auto" id="alert-title">Notification</strong>
+            <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+        <div class="toast-body" id="alert-message">
+            Message here
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // DOM Elements
+    const paymentAdminsTableBody = document.getElementById('payment-admins-table-body');
+    const btnAddAdmin = document.getElementById('btn-add-admin');
+    const btnSaveAdmin = document.getElementById('btn-save-admin');
+    const btnUpdateAdmin = document.getElementById('btn-update-admin');
+    const btnConfirmDelete = document.getElementById('btn-confirm-delete');
+    const btnApplyDateFilter = document.getElementById('btn-apply-date-filter');
+    const addAdminModal = new bootstrap.Modal(document.getElementById('modal-add-admin'));
+    const editAdminModal = new bootstrap.Modal(document.getElementById('modal-edit-admin'));
+    const viewPerformanceModal = new bootstrap.Modal(document.getElementById('modal-view-performance'));
+    const deleteAdminModal = new bootstrap.Modal(document.getElementById('modal-delete-admin'));
+    const alertToast = new bootstrap.Toast(document.getElementById('alert-toast'));
+    const alertTitle = document.getElementById('alert-title');
+    const alertMessage = document.getElementById('alert-message');
+
+    // Current admin for performance view
+    let currentAdminId = null;
+
+    // Show notification
+    function showNotification(title, message, type = 'success') {
+        alertTitle.textContent = title;
+        alertMessage.textContent = message;
+        alertToast.show();
+    }
+
+    // Load payment admins from API
+    async function loadPaymentAdmins() {
+        try {
+            const token = localStorage.getItem('accessToken');
+            if (!token) {
+                window.location.href = '/login';
+                return;
+            }
+
+            const response = await fetch('/api/v1/payment-admins', {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to load payment admins: ${response.statusText}`);
+            }
+
+            const admins = await response.json();
+            
+            // Clear loading message
+            paymentAdminsTableBody.innerHTML = '';
+            
+            if (admins.length === 0) {
+                paymentAdminsTableBody.innerHTML = '<tr><td colspan="6" class="text-center">No payment admins found. Add your first admin.</td></tr>';
+                return;
+            }
+
+            // Populate table
+            for (const admin of admins) {
+                // Get detailed user info
+                const userInfo = await getUserInfo(admin.user_id);
+                
+                const row = document.createElement('tr');
+                
+                // Status badge color
+                const statusBadgeClass = admin.is_active ? 'bg-success' : 'bg-danger';
+                const statusText = admin.is_active ? 'Active' : 'Inactive';
+                
+                // Assigned cards
+                const assignedCardsText = admin.assigned_cards && admin.assigned_cards.length > 0 
+                    ? `${admin.assigned_cards.length} card(s) assigned`
+                    : 'No cards assigned';
+                
+                row.innerHTML = `
+                    <td>
+                        <div class="d-flex align-items-center">
+                            <span class="avatar me-2" style="background-color: #3498db;">${userInfo?.name?.substring(0, 2) || '??'}</span>
+                            <div>${userInfo?.name || 'Unknown User'}</div>
+                        </div>
+                    </td>
+                    <td>${admin.user_id}</td>
+                    <td>${assignedCardsText}</td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-primary btn-view-performance" data-id="${admin.user_id}">
+                            View Performance
+                        </button>
+                    </td>
+                    <td><span class="badge ${statusBadgeClass}">${statusText}</span></td>
+                    <td>
+                        <div class="btn-list flex-nowrap">
+                            <button class="btn btn-sm btn-primary btn-edit" data-id="${admin.user_id}">
+                                Edit
+                            </button>
+                            <button class="btn btn-sm btn-danger btn-delete" data-id="${admin.user_id}">
+                                Remove
+                            </button>
+                            <button class="btn btn-sm btn-outline-${admin.is_active ? 'warning' : 'success'} btn-toggle-status" data-id="${admin.user_id}">
+                                ${admin.is_active ? 'Deactivate' : 'Activate'}
+                            </button>
+                        </div>
+                    </td>
+                `;
+                
+                paymentAdminsTableBody.appendChild(row);
+            }
+            
+            // Add event listeners to the newly created buttons
+            attachButtonEventListeners();
+            
+        } catch (error) {
+            console.error('Error loading payment admins:', error);
+            paymentAdminsTableBody.innerHTML = `<tr><td colspan="6" class="text-center text-danger">Error loading payment admins: ${error.message}</td></tr>`;
+        }
+    }
+
+    // Get user info from API
+    async function getUserInfo(userId) {
+        try {
+            const token = localStorage.getItem('accessToken');
+            const response = await fetch(`/api/v1/users/${userId}`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                return null;
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error(`Error loading user info for ${userId}:`, error);
+            return null;
+        }
+    }
+
+    // Load bank cards from API
+    async function loadBankCards() {
+        try {
+            const token = localStorage.getItem('accessToken');
+            const response = await fetch('/api/v1/bank-cards', {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to load bank cards: ${response.statusText}`);
+            }
+
+            const cards = await response.json();
+            return cards;
+        } catch (error) {
+            console.error('Error loading bank cards:', error);
+            showNotification('Error', `Failed to load bank cards: ${error.message}`, 'danger');
+            return [];
+        }
+    }
+
+    // Populate bank card checkboxes in the form
+    async function populateBankCardCheckboxes(containerId, selectedCardIds = []) {
+        const container = document.getElementById(containerId);
+        container.innerHTML = '<div class="alert alert-info">Loading bank cards...</div>';
+        
+        try {
+            const cards = await loadBankCards();
+            
+            if (cards.length === 0) {
+                container.innerHTML = '<div class="alert alert-warning">No bank cards found. Please add bank cards first.</div>';
+                return;
+            }
+            
+            // Sort cards by priority
+            cards.sort((a, b) => a.priority - b.priority);
+            
+            // Create checkboxes
+            container.innerHTML = '';
+            cards.forEach(card => {
+                // Format card number to show only last 4 digits
+                const maskedCardNumber = card.card_number.substring(0, 12).replace(/\d/g, '*') + card.card_number.substring(12);
+                
+                const isChecked = selectedCardIds.includes(card.id);
+                const checkboxDiv = document.createElement('div');
+                checkboxDiv.className = 'form-check mb-2';
+                checkboxDiv.innerHTML = `
+                    <input class="form-check-input card-checkbox" type="checkbox" name="card_ids" value="${card.id}" id="card-${card.id}" ${isChecked ? 'checked' : ''}>
+                    <label class="form-check-label" for="card-${card.id}">
+                        ${card.bank_name} - ${maskedCardNumber} - ${card.card_holder_name} ${!card.is_active ? '(Inactive)' : ''}
+                    </label>
+                `;
+                container.appendChild(checkboxDiv);
+            });
+            
+        } catch (error) {
+            container.innerHTML = `<div class="alert alert-danger">Error loading bank cards: ${error.message}</div>`;
+        }
+    }
+
+    // Attach event listeners to the action buttons in the table
+    function attachButtonEventListeners() {
+        // Edit buttons
+        document.querySelectorAll('.btn-edit').forEach(button => {
+            button.addEventListener('click', async () => {
+                const userId = button.getAttribute('data-id');
+                await loadAdminDetails(userId);
+            });
+        });
+        
+        // Delete buttons
+        document.querySelectorAll('.btn-delete').forEach(button => {
+            button.addEventListener('click', () => {
+                const userId = button.getAttribute('data-id');
+                document.getElementById('delete-admin-id').value = userId;
+                deleteAdminModal.show();
+            });
+        });
+        
+        // Toggle status buttons
+        document.querySelectorAll('.btn-toggle-status').forEach(button => {
+            button.addEventListener('click', async () => {
+                const userId = button.getAttribute('data-id');
+                await toggleAdminStatus(userId);
+            });
+        });
+        
+        // View performance buttons
+        document.querySelectorAll('.btn-view-performance').forEach(button => {
+            button.addEventListener('click', async () => {
+                const userId = button.getAttribute('data-id');
+                currentAdminId = userId;
+                document.getElementById('performance-start-date').value = '';
+                document.getElementById('performance-end-date').value = '';
+                viewPerformanceModal.show();
+                await loadAdminPerformance(userId);
+            });
+        });
+    }
+
+    // Load admin details for editing
+    async function loadAdminDetails(userId) {
+        try {
+            const token = localStorage.getItem('accessToken');
+            const response = await fetch(`/api/v1/payment-admins/${userId}`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to load admin details: ${response.statusText}`);
+            }
+
+            const admin = await response.json();
+            
+            // Populate the edit form
+            const form = document.getElementById('edit-admin-form');
+            form.elements.user_id.value = admin.user_id;
+            form.elements.user_id_display.value = admin.user_id;
+            form.elements.is_active.checked = admin.is_active;
+            
+            // Load and select assigned cards
+            const assignedCardIds = admin.assigned_cards ? admin.assigned_cards.map(card => card.id) : [];
+            await populateBankCardCheckboxes('edit-admin-cards-container', assignedCardIds);
+            
+            // Show the modal
+            editAdminModal.show();
+            
+        } catch (error) {
+            console.error('Error loading admin details:', error);
+            showNotification('Error', `Failed to load admin details: ${error.message}`, 'danger');
+        }
+    }
+
+    // Toggle admin active status
+    async function toggleAdminStatus(userId) {
+        try {
+            const token = localStorage.getItem('accessToken');
+            const response = await fetch(`/api/v1/payment-admins/${userId}/toggle-status`, {
+                method: 'PATCH',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to toggle admin status: ${response.statusText}`);
+            }
+
+            const result = await response.json();
+            
+            // Reload the admins to reflect the change
+            await loadPaymentAdmins();
+            
+            // Show success notification
+            const statusText = result.is_active ? 'activated' : 'deactivated';
+            showNotification('Success', `Payment admin has been ${statusText}.`);
+            
+        } catch (error) {
+            console.error('Error toggling admin status:', error);
+            showNotification('Error', `Failed to toggle admin status: ${error.message}`, 'danger');
+        }
+    }
+
+    // Load admin performance
+    async function loadAdminPerformance(userId, startDate = null, endDate = null) {
+        const performanceContainer = document.getElementById('admin-performance-container');
+        performanceContainer.innerHTML = '<div class="alert alert-info">Loading performance data...</div>';
+        
+        try {
+            const token = localStorage.getItem('accessToken');
+            
+            // Build URL with query params if provided
+            let url = `/api/v1/payment-admins/reports?admin_id=${userId}`;
+            if (startDate) url += `&start_date=${startDate}`;
+            if (endDate) url += `&end_date=${endDate}`;
+            
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to load performance data: ${response.statusText}`);
+            }
+
+            const result = await response.json();
+            
+            if (!result.success || !result.data || !result.data.admin_metrics || result.data.admin_metrics.length === 0) {
+                performanceContainer.innerHTML = '<div class="alert alert-warning">No performance data available for this admin.</div>';
+                return;
+            }
+            
+            // Get the admin data (should be the first and only one in the array since we filtered by admin_id)
+            const adminData = result.data.admin_metrics[0];
+            
+            // Build the HTML for the performance metrics
+            let html = `
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h3 class="card-title">Summary</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="row text-center">
+                            <div class="col-md-3 mb-3">
+                                <div class="h1 m-0">${adminData.total_processed}</div>
+                                <div class="text-muted">Total Processed</div>
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <div class="h1 m-0">${adminData.total_approved}</div>
+                                <div class="text-muted">Approved</div>
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <div class="h1 m-0">${adminData.total_rejected}</div>
+                                <div class="text-muted">Rejected</div>
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <div class="h1 m-0">${(adminData.avg_approval_rate * 100).toFixed(1)}%</div>
+                                <div class="text-muted">Approval Rate</div>
+                            </div>
+                        </div>
+                        
+                        <div class="row mt-3">
+                            <div class="col-md-4 mb-3">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h4 class="card-title">Response Time</h4>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="d-flex align-items-center">
+                                            <div class="subheader">Average response time</div>
+                                        </div>
+                                        <div class="h1 mb-3">${formatTime(adminData.avg_response_time_seconds)}</div>
+                                        <div class="d-flex mb-2">
+                                            <div>Fastest response</div>
+                                            <div class="ms-auto">
+                                                <span class="text-green">${formatTime(adminData.min_response_time_seconds)}</span>
+                                            </div>
+                                        </div>
+                                        <div class="d-flex">
+                                            <div>Slowest response</div>
+                                            <div class="ms-auto">
+                                                <span class="text-red">${formatTime(adminData.max_response_time_seconds)}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-4 mb-3">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h4 class="card-title">Recent Activity</h4>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="d-flex align-items-center">
+                                            <div class="subheader">Processed today</div>
+                                            <div class="ms-auto lh-1">
+                                                ${adminData.total_processed_today} payments
+                                            </div>
+                                        </div>
+                                        <div class="d-flex align-items-center mt-3">
+                                            <div class="subheader">This week</div>
+                                            <div class="ms-auto lh-1">
+                                                ${adminData.total_processed_week} payments
+                                            </div>
+                                        </div>
+                                        <div class="d-flex align-items-center mt-3">
+                                            <div class="subheader">This month</div>
+                                            <div class="ms-auto lh-1">
+                                                ${adminData.total_processed_month} payments
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-4 mb-3">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h4 class="card-title">Rejection Reasons</h4>
+                                    </div>
+                                    <div class="card-body p-2">
+                                        <div class="list-group list-group-flush">
+            `;
+            
+            // Add rejection reasons if any
+            if (Object.keys(adminData.rejection_reasons).length === 0) {
+                html += `<div class="list-group-item">No rejection data available</div>`;
+            } else {
+                // Sort rejection reasons by count (descending)
+                const sortedReasons = Object.entries(adminData.rejection_reasons)
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 5); // Show top 5 reasons
+                
+                for (const [reason, count] of sortedReasons) {
+                    html += `
+                        <div class="list-group-item">
+                            <div class="row align-items-center">
+                                <div class="col">${reason || 'Unknown'}</div>
+                                <div class="col-auto">
+                                    <span class="badge bg-red">${count}</span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+            
+            html += `
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h4 class="card-title">Bank Card Distribution</h4>
+                                    </div>
+                                    <div class="card-body p-2">
+                                        <div class="list-group list-group-flush">
+            `;
+            
+            // Add bank card distribution if any
+            if (Object.keys(adminData.bank_card_distribution).length === 0) {
+                html += `<div class="list-group-item">No bank card data available</div>`;
+            } else {
+                // Sort bank cards by count (descending)
+                const sortedCards = Object.entries(adminData.bank_card_distribution)
+                    .sort((a, b) => b[1] - a[1]);
+                
+                for (const [cardInfo, count] of sortedCards) {
+                    html += `
+                        <div class="list-group-item">
+                            <div class="row align-items-center">
+                                <div class="col">${cardInfo}</div>
+                                <div class="col-auto">
+                                    <span class="badge bg-blue">${count}</span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+            
+            html += `
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            performanceContainer.innerHTML = html;
+            
+        } catch (error) {
+            console.error('Error loading admin performance:', error);
+            performanceContainer.innerHTML = `<div class="alert alert-danger">Error loading performance data: ${error.message}</div>`;
+        }
+    }
+
+    // Format time in seconds to a human-readable format
+    function formatTime(seconds) {
+        if (!seconds) return 'N/A';
+        
+        // Format as minutes:seconds if less than an hour
+        if (seconds < 3600) {
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}m ${secs}s`;
+        }
+        
+        // Format as hours:minutes:seconds
+        const hours = Math.floor(seconds / 3600);
+        const mins = Math.floor((seconds % 3600) / 60);
+        const secs = Math.floor(seconds % 60);
+        return `${hours}h ${mins}m ${secs}s`;
+    }
+
+    // Create a new payment admin
+    async function createAdmin(formData) {
+        try {
+            const token = localStorage.getItem('accessToken');
+            const userId = parseInt(formData.get('user_id'));
+            
+            // Get selected card IDs
+            const cardCheckboxes = document.querySelectorAll('#add-admin-cards-container input[name="card_ids"]:checked');
+            const cardIds = Array.from(cardCheckboxes).map(checkbox => parseInt(checkbox.value));
+            
+            const payload = {
+                user_id: userId,
+                card_ids: cardIds,
+                is_active: formData.get('is_active') ? true : false
+            };
+            
+            const response = await fetch('/api/v1/payment-admins', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || `Failed to create admin: ${response.statusText}`);
+            }
+
+            // Close the modal and reset the form
+            addAdminModal.hide();
+            document.getElementById('add-admin-form').reset();
+            
+            // Reload the admins to include the new one
+            await loadPaymentAdmins();
+            
+            // Show success notification
+            showNotification('Success', 'Payment admin created successfully.');
+            
+        } catch (error) {
+            console.error('Error creating admin:', error);
+            showNotification('Error', `Failed to create admin: ${error.message}`, 'danger');
+        }
+    }
+
+    // Update an existing payment admin
+    async function updateAdmin(formData) {
+        try {
+            const token = localStorage.getItem('accessToken');
+            const userId = parseInt(formData.get('user_id'));
+            
+            // Get selected card IDs
+            const cardCheckboxes = document.querySelectorAll('#edit-admin-cards-container input[name="card_ids"]:checked');
+            const cardIds = Array.from(cardCheckboxes).map(checkbox => parseInt(checkbox.value));
+            
+            const payload = {
+                card_ids: cardIds,
+                is_active: formData.get('is_active') ? true : false
+            };
+            
+            const response = await fetch(`/api/v1/payment-admins/${userId}`, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || `Failed to update admin: ${response.statusText}`);
+            }
+
+            // Close the modal
+            editAdminModal.hide();
+            
+            // Reload the admins to reflect changes
+            await loadPaymentAdmins();
+            
+            // Show success notification
+            showNotification('Success', 'Payment admin updated successfully.');
+            
+        } catch (error) {
+            console.error('Error updating admin:', error);
+            showNotification('Error', `Failed to update admin: ${error.message}`, 'danger');
+        }
+    }
+
+    // Delete a payment admin
+    async function deleteAdmin(userId) {
+        try {
+            const token = localStorage.getItem('accessToken');
+            const response = await fetch(`/api/v1/payment-admins/${userId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || `Failed to delete admin: ${response.statusText}`);
+            }
+
+            // Close the modal
+            deleteAdminModal.hide();
+            
+            // Reload the admins to reflect the deletion
+            await loadPaymentAdmins();
+            
+            // Show success notification
+            showNotification('Success', 'Payment admin removed successfully.');
+            
+        } catch (error) {
+            console.error('Error deleting admin:', error);
+            showNotification('Error', `Failed to delete admin: ${error.message}`, 'danger');
+        }
+    }
+
+    // Event Listeners
+    document.addEventListener('DOMContentLoaded', () => {
+        // Load admins when page loads
+        loadPaymentAdmins();
+        
+        // Add admin button
+        btnAddAdmin.addEventListener('click', async () => {
+            document.getElementById('add-admin-form').reset();
+            await populateBankCardCheckboxes('add-admin-cards-container');
+            addAdminModal.show();
+        });
+        
+        // Save admin button
+        btnSaveAdmin.addEventListener('click', () => {
+            const form = document.getElementById('add-admin-form');
+            if (form.checkValidity()) {
+                const formData = new FormData(form);
+                createAdmin(formData);
+            } else {
+                form.reportValidity();
+            }
+        });
+        
+        // Update admin button
+        btnUpdateAdmin.addEventListener('click', () => {
+            const form = document.getElementById('edit-admin-form');
+            if (form.checkValidity()) {
+                const formData = new FormData(form);
+                updateAdmin(formData);
+            } else {
+                form.reportValidity();
+            }
+        });
+        
+        // Confirm delete button
+        btnConfirmDelete.addEventListener('click', () => {
+            const userId = document.getElementById('delete-admin-id').value;
+            deleteAdmin(userId);
+        });
+        
+        // Apply date filter for performance view
+        btnApplyDateFilter.addEventListener('click', () => {
+            if (!currentAdminId) return;
+            
+            const startDate = document.getElementById('performance-start-date').value;
+            const endDate = document.getElementById('performance-end-date').value;
+            
+            loadAdminPerformance(currentAdminId, startDate, endDate);
+        });
+    });
+</script>
+{% endblock %}

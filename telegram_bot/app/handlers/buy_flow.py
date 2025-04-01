@@ -101,103 +101,124 @@ async def handle_buy_plan_callback(update: Update, context: ContextTypes.DEFAULT
     return SELECTING_PAYMENT_METHOD
 
 async def handle_payment_method_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Handle callback when user selects a payment method."""
+    """Handle selected payment method"""
     query = update.callback_query
+    user = update.effective_user
+    
+    # Answer callback query to remove the loading state
     await query.answer()
     
-    user = update.effective_user
-    chat_id = update.effective_chat.id
-    
-    # If user cancels
-    if query.data == CANCEL_ORDER_CALLBACK:
-        await query.edit_message_text("🚫 فرایند خرید لغو شد.")
+    # Check for cancellation
+    if query.data == "cancel_payment":
+        # Delete active order from memory
+        if user.id in active_orders:
+            del active_orders[user.id]
+        
+        await query.edit_message_text(
+            "❌ خرید لغو شد.",
+            reply_markup=None
+        )
         return ConversationHandler.END
     
-    # Extract payment method from callback data
-    callback_data = query.data
-    if not callback_data.startswith(PAYMENT_METHOD_CALLBACK_PREFIX):
-        logger.error(f"Invalid callback data in payment method: {callback_data}")
-        await query.edit_message_text("❌ خطایی رخ داد، لطفاً دوباره تلاش کنید.")
+    # Extract selected payment method from callback data
+    try:
+        payment_method = query.data.replace("payment_method_", "")
+    except Exception as e:
+        logger.error(f"Error extracting payment method: {str(e)}")
+        await query.edit_message_text(
+            "❌ خطایی رخ داد. لطفاً دوباره تلاش کنید.",
+            reply_markup=None
+        )
         return ConversationHandler.END
     
-    payment_method = callback_data[len(PAYMENT_METHOD_CALLBACK_PREFIX):]
+    # Get plan data from memory
+    plan_id = context.user_data.get('selected_plan_id')
+    if not plan_id:
+        logger.error(f"No selected plan found for user {user.id}")
+        await query.edit_message_text(
+            "❌ اطلاعات پلن یافت نشد. لطفاً دوباره از منوی خرید اقدام کنید.",
+            reply_markup=None
+        )
+        return ConversationHandler.END
     
-    # Store payment method in context
-    context.user_data["payment_method"] = payment_method
-    
-    # Now create the order
-    plan_id = context.user_data.get("selected_plan_id")
-    user_id = context.user_data.get("user_id")
-    
-    if not plan_id or not user_id:
-        logger.error(f"Missing plan_id or user_id in context")
-        await query.edit_message_text("❌ خطایی رخ داد، لطفاً دوباره تلاش کنید.")
+    # Get user data
+    user_data = await api_client.get_user_by_telegram_id(user.id)
+    if not user_data:
+        logger.error(f"User data not found for Telegram ID {user.id}")
+        await query.edit_message_text(
+            "❌ اطلاعات کاربری شما یافت نشد. لطفاً با پشتیبانی تماس بگیرید.",
+            reply_markup=None
+        )
         return ConversationHandler.END
     
     # Create order
-    order = await api_client.create_order(
-        user_id=user_id,
-        plan_id=str(plan_id),
-        payment_method_id=payment_method
-    )
-    
-    if not order or "id" not in order:
-        logger.error(f"Failed to create order for user {user_id}, plan {plan_id}")
-        await query.edit_message_text("❌ خطا در ثبت سفارش. لطفاً دوباره تلاش کنید.")
-        return ConversationHandler.END
-    
-    # Store order info in memory
-    order_id = order["id"]
-    active_orders[user.id] = {
-        "order_id": order_id,
-        "payment_method": payment_method,
-        "created_at": datetime.now()
-    }
-    
-    # Get the final amount from the order
-    final_amount = order.get("final_amount", "نامشخص")
-    
-    # For card-to-card payment method
-    if payment_method == "card_to_card":
-        # Get card information (this would be from the API in a real implementation)
-        # For demo, we'll use hardcoded data
-        bank_name = "بانک ملت"
-        card_number = "6104-3377-7006-2952"
-        card_holder = "محمد رضا محمدی"
-        
-        message = (
-            f"🧾 *سفارش شما با موفقیت ثبت شد*\n\n"
-            f"📌 شماره سفارش: `{order_id}`\n"
-            f"💰 مبلغ قابل پرداخت: *{final_amount:,} تومان*\n\n"
-            f"🏦 *اطلاعات کارت:*\n"
-            f"🔹 بانک: {bank_name}\n"
-            f"🔹 شماره کارت: `{card_number}`\n"
-            f"🔹 به نام: {card_holder}\n\n"
-            f"⚠️ *نکات مهم:*\n"
-            f"- لطفاً دقیقاً مبلغ {final_amount:,} تومان واریز کنید.\n"
-            f"- تصویر رسید پرداخت را حتماً ارسال کنید.\n"
-            f"- تا 15 دقیقه فرصت پرداخت دارید.\n\n"
-            f"👇 *پس از پرداخت، تصویر رسید را ارسال کنید:*"
+    try:
+        order = await api_client.create_order(
+            user_id=user_data["id"],
+            plan_id=plan_id,
+            payment_method=payment_method
         )
         
-        # Send card information and request payment proof
-        await query.edit_message_text(
-            message,
-            parse_mode="Markdown",
-            reply_markup=InlineKeyboardMarkup([[
-                InlineKeyboardButton("❌ انصراف از خرید", callback_data=CANCEL_ORDER_CALLBACK)
-            ]])
-        )
+        if not order:
+            logger.error(f"Failed to create order for user {user_data['id']}, plan {plan_id}")
+            await query.edit_message_text(
+                "❌ خطا در ایجاد سفارش. لطفاً دوباره تلاش کنید یا با پشتیبانی تماس بگیرید.",
+                reply_markup=None
+            )
+            return ConversationHandler.END
+            
+        logger.info(f"Order created: {order}")
         
-        return WAITING_FOR_PAYMENT_PROOF
-    
-    else:
-        # Handle other payment methods (e.g., online gateway)
+        # Store order_id and amount in context for the payment proof submission
+        context.user_data["order_id"] = order["id"]
+        context.user_data["amount"] = order["total_price"]
+        
+        # Handle different payment methods
+        if payment_method == "card_to_card":
+            # For card-to-card payment, redirect to payment proof handler
+            # Store the active order for reference
+            active_orders[user.id] = {
+                "order_id": order["id"],
+                "plan_id": plan_id,
+                "amount": order["total_price"]
+            }
+            
+            # Redirect to card-to-card payment flow
+            from app.handlers.payment_proof_handlers import show_bank_cards
+            return await show_bank_cards(update, context)
+            
+        elif payment_method == "crypto":
+            # Handle crypto payment method
+            message = (
+                f"💰 *پرداخت ارز دیجیتال*\n\n"
+                f"📌 شماره سفارش: `{order['id']}`\n"
+                f"💰 مبلغ قابل پرداخت: *{order['total_price']:,} تومان*\n\n"
+                f"لطفاً با پشتیبانی تماس بگیرید تا اطلاعات پرداخت ارز دیجیتال به شما ارائه شود."
+            )
+            
+            await query.edit_message_text(
+                message,
+                reply_markup=InlineKeyboardMarkup([[
+                    InlineKeyboardButton("🏠 بازگشت به منوی اصلی", callback_data="back_to_main")
+                ]]),
+                parse_mode="Markdown"
+            )
+            return ConversationHandler.END
+            
+        else:
+            # Unsupported payment method
+            logger.warning(f"Unsupported payment method: {payment_method}")
+            await query.edit_message_text(
+                "❌ روش پرداخت انتخابی فعلاً پشتیبانی نمی‌شود.",
+                reply_markup=None
+            )
+            return ConversationHandler.END
+            
+    except Exception as e:
+        logger.error(f"Error handling payment method: {str(e)}")
         await query.edit_message_text(
-            f"⚠️ روش پرداخت {payment_method} فعلاً پشتیبانی نمی‌شود.",
-            reply_markup=InlineKeyboardMarkup([[
-                InlineKeyboardButton("🔙 بازگشت", callback_data=CANCEL_ORDER_CALLBACK)
-            ]])
+            f"❌ خطایی رخ داد: {str(e)}",
+            reply_markup=None
         )
         return ConversationHandler.END
 

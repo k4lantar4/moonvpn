@@ -1,0 +1,797 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Bank Card Management{% endblock %}
+
+{% block content %}
+<div class="container-xl">
+  <!-- Page title -->
+  <div class="page-header d-print-none">
+    <div class="row align-items-center">
+      <div class="col">
+        <h2 class="page-title">
+          Bank Card Management
+        </h2>
+        <div class="text-muted mt-1">
+          Manage payment bank cards for card-to-card transactions
+        </div>
+      </div>
+      <div class="col-auto ms-auto">
+        <div class="btn-list">
+          <a href="#" class="btn btn-primary d-none d-sm-inline-block" data-bs-toggle="modal" data-bs-target="#add-card-modal">
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 5l0 14" /><path d="M5 12l14 0" /></svg>
+            Add Card
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filter and stats row -->
+  <div class="row mt-3">
+    <div class="col-12 col-md-4">
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">Filters</h3>
+        </div>
+        <div class="card-body">
+          <form id="filter-form">
+            <div class="mb-3">
+              <label class="form-label">Status</label>
+              <select class="form-select" id="status-filter">
+                <option value="all" selected>All Cards</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Bank</label>
+              <select class="form-select" id="bank-filter">
+                <option value="all" selected>All Banks</option>
+                <!-- Will be populated dynamically -->
+              </select>
+            </div>
+            <div class="mb-3">
+              <button type="submit" class="btn btn-primary w-100">
+                Apply Filters
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Card Stats -->
+      <div class="card mt-3">
+        <div class="card-header">
+          <h3 class="card-title">Statistics</h3>
+        </div>
+        <div class="card-body">
+          <div class="d-flex mb-2">
+            <div>Total Cards</div>
+            <div class="ms-auto">
+              <span class="text-blue" id="total-cards">0</span>
+            </div>
+          </div>
+          <div class="d-flex mb-2">
+            <div>Active Cards</div>
+            <div class="ms-auto">
+              <span class="text-green" id="active-cards">0</span>
+            </div>
+          </div>
+          <div class="d-flex mb-2">
+            <div>Inactive Cards</div>
+            <div class="ms-auto">
+              <span class="text-muted" id="inactive-cards">0</span>
+            </div>
+          </div>
+          <div class="d-flex">
+            <div>Assigned to Admins</div>
+            <div class="ms-auto">
+              <span class="text-yellow" id="assigned-cards">0</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Cards Grid -->
+    <div class="col-12 col-md-8">
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">Bank Cards</h3>
+          <div class="card-actions">
+            <button class="btn btn-outline-primary btn-sm" id="refresh-btn">
+              <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4" /><path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4" /></svg>
+              Refresh
+            </button>
+          </div>
+        </div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-vcenter card-table">
+              <thead>
+                <tr>
+                  <th>Card Number</th>
+                  <th>Bank</th>
+                  <th>Owner</th>
+                  <th>Usage</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="bank-cards-table">
+                <!-- Bank cards will be populated dynamically -->
+                <tr class="placeholder-loading" id="cards-loading">
+                  <td colspan="6" class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <p class="mt-2">Loading bank cards...</p>
+                  </td>
+                </tr>
+                <tr class="d-none" id="cards-empty">
+                  <td colspan="6" class="text-center py-4">
+                    <div class="empty">
+                      <div class="empty-img">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-credit-card" width="40" height="40" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                          <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                          <path d="M3 5m0 3a3 3 0 0 1 3 -3h12a3 3 0 0 1 3 3v8a3 3 0 0 1 -3 3h-12a3 3 0 0 1 -3 -3z"></path>
+                          <path d="M3 10l18 0"></path>
+                          <path d="M7 15l.01 0"></path>
+                          <path d="M11 15l2 0"></path>
+                        </svg>
+                      </div>
+                      <p class="empty-title">No bank cards found</p>
+                      <p class="empty-subtitle text-muted">
+                        Add your first bank card to get started with card-to-card payments.
+                      </p>
+                      <div class="empty-action">
+                        <a href="#" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#add-card-modal">
+                          Add Bank Card
+                        </a>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Card Usage Chart -->
+  <div class="row mt-3">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">Card Usage Statistics</h3>
+        </div>
+        <div class="card-body">
+          <div id="card-usage-chart" style="height: 300px;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Card Modal -->
+  <div class="modal modal-blur fade" id="add-card-modal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Add New Bank Card</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <form id="add-card-form">
+          <div class="modal-body">
+            <div class="mb-3">
+              <label class="form-label required">Bank Name</label>
+              <input type="text" class="form-control" id="bank-name" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label required">Card Number</label>
+              <input type="text" class="form-control" id="card-number" required pattern="[0-9]{16}" placeholder="Enter 16-digit card number">
+              <small class="form-hint">Enter the 16-digit card number without spaces</small>
+            </div>
+            <div class="mb-3">
+              <label class="form-label required">Card Owner</label>
+              <input type="text" class="form-control" id="card-owner" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Description</label>
+              <textarea class="form-control" id="card-description" rows="3"></textarea>
+            </div>
+            <div class="mb-3">
+              <label class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="card-is-active" checked>
+                <span class="form-check-label">Active</span>
+              </label>
+              <small class="form-hint">Active cards will be available for payment selection</small>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Priority (1-100)</label>
+              <input type="number" class="form-control" id="card-priority" min="1" max="100" value="50">
+              <small class="form-hint">Higher priority cards are selected first for payments</small>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-link link-secondary" data-bs-dismiss="modal">
+              Cancel
+            </button>
+            <button type="submit" class="btn btn-primary ms-auto" id="add-card-btn">
+              Add Card
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Card Modal -->
+  <div class="modal modal-blur fade" id="edit-card-modal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Edit Bank Card</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <form id="edit-card-form">
+          <div class="modal-body">
+            <input type="hidden" id="edit-card-id">
+            <div class="mb-3">
+              <label class="form-label required">Bank Name</label>
+              <input type="text" class="form-control" id="edit-bank-name" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label required">Card Number</label>
+              <input type="text" class="form-control" id="edit-card-number" required pattern="[0-9]{16}" placeholder="Enter 16-digit card number">
+              <small class="form-hint">Enter the 16-digit card number without spaces</small>
+            </div>
+            <div class="mb-3">
+              <label class="form-label required">Card Owner</label>
+              <input type="text" class="form-control" id="edit-card-owner" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Description</label>
+              <textarea class="form-control" id="edit-card-description" rows="3"></textarea>
+            </div>
+            <div class="mb-3">
+              <label class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="edit-card-is-active">
+                <span class="form-check-label">Active</span>
+              </label>
+              <small class="form-hint">Active cards will be available for payment selection</small>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Priority (1-100)</label>
+              <input type="number" class="form-control" id="edit-card-priority" min="1" max="100" value="50">
+              <small class="form-hint">Higher priority cards are selected first for payments</small>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-danger me-auto" id="delete-card-btn">
+              Delete Card
+            </button>
+            <button type="button" class="btn btn-link link-secondary" data-bs-dismiss="modal">
+              Cancel
+            </button>
+            <button type="submit" class="btn btn-primary" id="update-card-btn">
+              Update Card
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Delete Confirmation Modal -->
+  <div class="modal modal-blur fade" id="delete-confirm-modal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-sm modal-dialog-centered" role="document">
+      <div class="modal-content">
+        <div class="modal-body">
+          <div class="modal-title">Are you sure?</div>
+          <div>This action will permanently delete the bank card. This cannot be undone.</div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-link link-secondary me-auto" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-danger" id="confirm-delete-btn">Yes, delete</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+<script>
+  // Define current filters
+  let currentFilters = {
+    status: 'all',
+    bank: 'all'
+  };
+  
+  // Define cards data
+  let bankCards = [];
+  let cardToDelete = null;
+  
+  // Initialize page
+  document.addEventListener('DOMContentLoaded', function() {
+    // Load bank cards
+    loadBankCards();
+    
+    // Load statistics
+    loadStatistics();
+    
+    // Setup event listeners
+    setupEventListeners();
+  });
+  
+  // Load bank cards
+  function loadBankCards() {
+    // Show loading indicator
+    document.getElementById('cards-loading').classList.remove('d-none');
+    document.getElementById('cards-empty').classList.add('d-none');
+    
+    // Build query parameters
+    const params = new URLSearchParams();
+    if (currentFilters.status !== 'all') {
+      params.append('is_active', currentFilters.status === 'active' ? 'true' : 'false');
+    }
+    if (currentFilters.bank !== 'all') {
+      params.append('bank_name', currentFilters.bank);
+    }
+    
+    fetch(`/api/v1/bank-cards?${params.toString()}`)
+      .then(response => response.json())
+      .then(data => {
+        // Hide loading indicator
+        document.getElementById('cards-loading').classList.add('d-none');
+        
+        if (data.success) {
+          bankCards = data.data;
+          
+          if (bankCards.length === 0) {
+            document.getElementById('cards-empty').classList.remove('d-none');
+          } else {
+            renderBankCards(bankCards);
+            updateBankFilter(bankCards);
+            renderCardUsageChart(bankCards);
+          }
+        } else {
+          showError('Failed to load bank cards: ' + data.detail);
+        }
+      })
+      .catch(error => {
+        console.error('Error loading bank cards:', error);
+        document.getElementById('cards-loading').classList.add('d-none');
+        document.getElementById('cards-empty').classList.remove('d-none');
+        showError('Failed to load bank cards. Please try again.');
+      });
+  }
+  
+  // Render bank cards table
+  function renderBankCards(cards) {
+    const tbody = document.getElementById('bank-cards-table');
+    // Clear existing content except for loading and empty placeholders
+    Array.from(tbody.querySelectorAll('tr:not(.placeholder-loading):not(#cards-empty)')).forEach(row => row.remove());
+    
+    cards.forEach(card => {
+      const row = document.createElement('tr');
+      
+      // Calculate usage percentage
+      const usagePercentage = card.total_payments > 0 
+        ? (card.usage_count / card.total_payments * 100).toFixed(1) 
+        : 0;
+      
+      row.innerHTML = `
+        <td>${maskCardNumber(card.card_number)}</td>
+        <td>${card.bank_name}</td>
+        <td>${card.owner_name}</td>
+        <td>
+          <div class="d-flex align-items-center">
+            <span class="me-2">${card.usage_count} (${usagePercentage}%)</span>
+            <div class="progress" style="width: 100px">
+              <div class="progress-bar ${usagePercentage > 75 ? 'bg-red' : usagePercentage > 50 ? 'bg-yellow' : 'bg-green'}"
+                   style="width: ${usagePercentage}%" role="progressbar"
+                   aria-valuenow="${usagePercentage}" aria-valuemin="0" aria-valuemax="100">
+              </div>
+            </div>
+          </div>
+        </td>
+        <td>
+          <span class="badge ${card.is_active ? 'bg-success' : 'bg-muted'}">
+            ${card.is_active ? 'Active' : 'Inactive'}
+          </span>
+        </td>
+        <td>
+          <div class="btn-list">
+            <button class="btn btn-sm btn-primary edit-card-btn" data-card-id="${card.id}">
+              Edit
+            </button>
+            <button class="btn btn-sm ${card.is_active ? 'btn-danger' : 'btn-success'} toggle-card-btn" data-card-id="${card.id}" data-is-active="${card.is_active}">
+              ${card.is_active ? 'Deactivate' : 'Activate'}
+            </button>
+          </div>
+        </td>
+      `;
+      
+      tbody.appendChild(row);
+    });
+    
+    // Add event listeners for action buttons
+    document.querySelectorAll('.edit-card-btn').forEach(button => {
+      button.addEventListener('click', function() {
+        const cardId = this.getAttribute('data-card-id');
+        openEditCardModal(cardId);
+      });
+    });
+    
+    document.querySelectorAll('.toggle-card-btn').forEach(button => {
+      button.addEventListener('click', function() {
+        const cardId = this.getAttribute('data-card-id');
+        const isActive = this.getAttribute('data-is-active') === 'true';
+        toggleCardStatus(cardId, !isActive);
+      });
+    });
+  }
+  
+  // Mask card number for display
+  function maskCardNumber(cardNumber) {
+    if (!cardNumber) return 'Unknown';
+    return cardNumber.slice(0, 4) + ' **** **** ' + cardNumber.slice(-4);
+  }
+  
+  // Update bank filter dropdown
+  function updateBankFilter(cards) {
+    const bankSelect = document.getElementById('bank-filter');
+    // Get existing value
+    const currentValue = bankSelect.value;
+    
+    // Get unique bank names
+    const banks = [...new Set(cards.map(card => card.bank_name))].sort();
+    
+    // Clear existing options except "All Banks"
+    bankSelect.innerHTML = '<option value="all" selected>All Banks</option>';
+    
+    // Add bank options
+    banks.forEach(bank => {
+      const option = document.createElement('option');
+      option.value = bank;
+      option.textContent = bank;
+      if (bank === currentValue) {
+        option.selected = true;
+      }
+      bankSelect.appendChild(option);
+    });
+  }
+  
+  // Load statistics
+  function loadStatistics() {
+    fetch('/api/v1/bank-cards/statistics')
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          const stats = data.data;
+          document.getElementById('total-cards').textContent = stats.total_cards;
+          document.getElementById('active-cards').textContent = stats.active_cards;
+          document.getElementById('inactive-cards').textContent = stats.inactive_cards;
+          document.getElementById('assigned-cards').textContent = stats.assigned_cards;
+        }
+      })
+      .catch(error => {
+        console.error('Error loading statistics:', error);
+      });
+  }
+  
+  // Render card usage chart
+  function renderCardUsageChart(cards) {
+    // Sort cards by usage count
+    const sortedCards = [...cards].sort((a, b) => b.usage_count - a.usage_count);
+    
+    // Take top 10 cards
+    const topCards = sortedCards.slice(0, 10);
+    
+    // Prepare chart data
+    const labels = topCards.map(card => `${card.bank_name} (${card.card_number.slice(-4)})`);
+    const usageData = topCards.map(card => card.usage_count);
+    
+    // Destroy existing chart if it exists
+    if (window.cardUsageChart) {
+      window.cardUsageChart.destroy();
+    }
+    
+    // Create new chart
+    const options = {
+      series: [{
+        name: 'Usage Count',
+        data: usageData
+      }],
+      chart: {
+        type: 'bar',
+        height: 300,
+        toolbar: {
+          show: false
+        }
+      },
+      plotOptions: {
+        bar: {
+          horizontal: true,
+          dataLabels: {
+            position: 'top',
+          },
+        }
+      },
+      dataLabels: {
+        enabled: true,
+        offsetX: 6,
+        style: {
+          fontSize: '12px',
+          colors: ['#fff']
+        }
+      },
+      stroke: {
+        show: true,
+        width: 1,
+        colors: ['#fff']
+      },
+      tooltip: {
+        shared: true,
+        intersect: false
+      },
+      xaxis: {
+        categories: labels,
+      },
+      yaxis: {
+        title: {
+          text: 'Card Usage'
+        }
+      },
+      fill: {
+        opacity: 1
+      },
+      legend: {
+        position: 'top',
+        horizontalAlign: 'left',
+        offsetX: 40
+      },
+      colors: ['#206bc4']
+    };
+    
+    window.cardUsageChart = new ApexCharts(document.getElementById("card-usage-chart"), options);
+    window.cardUsageChart.render();
+  }
+  
+  // Open edit card modal
+  function openEditCardModal(cardId) {
+    const card = bankCards.find(c => c.id === parseInt(cardId));
+    if (!card) return;
+    
+    // Populate form fields
+    document.getElementById('edit-card-id').value = card.id;
+    document.getElementById('edit-bank-name').value = card.bank_name;
+    document.getElementById('edit-card-number').value = card.card_number;
+    document.getElementById('edit-card-owner').value = card.owner_name;
+    document.getElementById('edit-card-description').value = card.description || '';
+    document.getElementById('edit-card-is-active').checked = card.is_active;
+    document.getElementById('edit-card-priority').value = card.priority || 50;
+    
+    // Show modal
+    const modal = new bootstrap.Modal(document.getElementById('edit-card-modal'));
+    modal.show();
+  }
+  
+  // Toggle card active status
+  function toggleCardStatus(cardId, active) {
+    fetch(`/api/v1/bank-cards/${cardId}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        is_active: active
+      })
+    })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          // Show success notification
+          showNotification(`Card ${active ? 'activated' : 'deactivated'} successfully.`);
+          
+          // Reload bank cards and statistics
+          loadBankCards();
+          loadStatistics();
+        } else {
+          showError(`Failed to ${active ? 'activate' : 'deactivate'} card: ${data.detail}`);
+        }
+      })
+      .catch(error => {
+        console.error(`Error ${active ? 'activating' : 'deactivating'} card:`, error);
+        showError(`Failed to ${active ? 'activate' : 'deactivate'} card. Please try again.`);
+      });
+  }
+  
+  // Create new bank card
+  function createBankCard(formData) {
+    fetch('/api/v1/bank-cards', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(formData)
+    })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          // Hide modal
+          bootstrap.Modal.getInstance(document.getElementById('add-card-modal')).hide();
+          
+          // Show success notification
+          showNotification('Bank card added successfully.');
+          
+          // Reload bank cards and statistics
+          loadBankCards();
+          loadStatistics();
+          
+          // Reset form
+          document.getElementById('add-card-form').reset();
+        } else {
+          showError('Failed to add bank card: ' + data.detail);
+        }
+      })
+      .catch(error => {
+        console.error('Error adding bank card:', error);
+        showError('Failed to add bank card. Please try again.');
+      });
+  }
+  
+  // Update bank card
+  function updateBankCard(cardId, formData) {
+    fetch(`/api/v1/bank-cards/${cardId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(formData)
+    })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          // Hide modal
+          bootstrap.Modal.getInstance(document.getElementById('edit-card-modal')).hide();
+          
+          // Show success notification
+          showNotification('Bank card updated successfully.');
+          
+          // Reload bank cards and statistics
+          loadBankCards();
+          loadStatistics();
+        } else {
+          showError('Failed to update bank card: ' + data.detail);
+        }
+      })
+      .catch(error => {
+        console.error('Error updating bank card:', error);
+        showError('Failed to update bank card. Please try again.');
+      });
+  }
+  
+  // Delete bank card
+  function deleteBankCard(cardId) {
+    fetch(`/api/v1/bank-cards/${cardId}`, {
+      method: 'DELETE'
+    })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          // Hide modals
+          bootstrap.Modal.getInstance(document.getElementById('delete-confirm-modal')).hide();
+          
+          // Show success notification
+          showNotification('Bank card deleted successfully.');
+          
+          // Reload bank cards and statistics
+          loadBankCards();
+          loadStatistics();
+        } else {
+          showError('Failed to delete bank card: ' + data.detail);
+        }
+      })
+      .catch(error => {
+        console.error('Error deleting bank card:', error);
+        showError('Failed to delete bank card. Please try again.');
+      });
+  }
+  
+  // Show notification
+  function showNotification(message, type = 'success') {
+    // Use the dashboard's notification system
+    if (window.showToast) {
+      window.showToast(message, type);
+    } else {
+      alert(message);
+    }
+  }
+  
+  // Show error
+  function showError(message) {
+    showNotification(message, 'error');
+  }
+  
+  // Setup event listeners
+  function setupEventListeners() {
+    // Filter form submission
+    document.getElementById('filter-form').addEventListener('submit', function(e) {
+      e.preventDefault();
+      
+      // Update filter values
+      currentFilters.status = document.getElementById('status-filter').value;
+      currentFilters.bank = document.getElementById('bank-filter').value;
+      
+      // Reload bank cards
+      loadBankCards();
+    });
+    
+    // Refresh button
+    document.getElementById('refresh-btn').addEventListener('click', function() {
+      loadBankCards();
+      loadStatistics();
+    });
+    
+    // Add card form submission
+    document.getElementById('add-card-form').addEventListener('submit', function(e) {
+      e.preventDefault();
+      
+      // Get form data
+      const formData = {
+        bank_name: document.getElementById('bank-name').value,
+        card_number: document.getElementById('card-number').value,
+        owner_name: document.getElementById('card-owner').value,
+        description: document.getElementById('card-description').value,
+        is_active: document.getElementById('card-is-active').checked,
+        priority: parseInt(document.getElementById('card-priority').value)
+      };
+      
+      // Create bank card
+      createBankCard(formData);
+    });
+    
+    // Edit card form submission
+    document.getElementById('edit-card-form').addEventListener('submit', function(e) {
+      e.preventDefault();
+      
+      // Get card ID and form data
+      const cardId = document.getElementById('edit-card-id').value;
+      const formData = {
+        bank_name: document.getElementById('edit-bank-name').value,
+        card_number: document.getElementById('edit-card-number').value,
+        owner_name: document.getElementById('edit-card-owner').value,
+        description: document.getElementById('edit-card-description').value,
+        is_active: document.getElementById('edit-card-is-active').checked,
+        priority: parseInt(document.getElementById('edit-card-priority').value)
+      };
+      
+      // Update bank card
+      updateBankCard(cardId, formData);
+    });
+    
+    // Delete card button
+    document.getElementById('delete-card-btn').addEventListener('click', function() {
+      cardToDelete = document.getElementById('edit-card-id').value;
+      
+      // Hide edit modal
+      bootstrap.Modal.getInstance(document.getElementById('edit-card-modal')).hide();
+      
+      // Show confirmation modal
+      const confirmModal = new bootstrap.Modal(document.getElementById('delete-confirm-modal'));
+      confirmModal.show();
+    });
+    
+    // Confirm delete button
+    document.getElementById('confirm-delete-btn').addEventListener('click', function() {
+      if (cardToDelete) {
+        deleteBankCard(cardToDelete);
+        cardToDelete = null;
+      }
+    });
+  }
+</script>
+{% endblock %} 

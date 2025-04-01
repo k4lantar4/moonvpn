@@ -16,6 +16,7 @@ class OrderStatus(enum.Enum):
     EXPIRED = "expired"  # Order expired (payment not received in time)
     CANCELED = "canceled"  # Order canceled by user or admin
     FAILED = "failed"  # Account creation failed
+    VERIFICATION_PENDING = "verification_pending"  # Payment proof submitted, waiting for admin verification
 
 
 class PaymentMethod(enum.Enum):
@@ -49,7 +50,15 @@ class Order(Base):
     status = Column(Enum(OrderStatus), default=OrderStatus.PENDING, nullable=False)
     payment_method = Column(Enum(PaymentMethod), nullable=True)
     payment_reference = Column(String(100), nullable=True)  # Reference number, transaction ID, etc.
-    payment_proof = Column(String(255), nullable=True)  # Path to payment proof image
+    payment_proof = Column(String(255), nullable=True)  # Path to payment proof image (legacy field)
+    
+    # Enhanced payment proof fields
+    payment_proof_img_url = Column(String(255), nullable=True)  # URL to the uploaded proof image
+    payment_proof_submitted_at = Column(DateTime, nullable=True)  # When the proof was submitted
+    payment_verified_at = Column(DateTime, nullable=True, index=True)  # When the proof was verified
+    payment_verification_admin_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)  # Admin who verified the proof
+    payment_rejection_reason = Column(Text, nullable=True)  # Reason for rejection if applicable
+    payment_proof_telegram_msg_id = Column(String(50), nullable=True)  # Telegram message ID containing the proof
     
     # Financial information
     amount = Column(Float, nullable=False)  # Original price
@@ -78,6 +87,7 @@ class Order(Base):
     plan = relationship("Plan", back_populates="orders")
     panel = relationship("Panel", back_populates="orders")
     admin = relationship("User", foreign_keys=[admin_id])
+    payment_verification_admin = relationship("User", foreign_keys=[payment_verification_admin_id])
     transactions = relationship("Transaction", back_populates="order")
     subscription = relationship("Subscription", back_populates="order", uselist=False, foreign_keys="Subscription.order_id")
     

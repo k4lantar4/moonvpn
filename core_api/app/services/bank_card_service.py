@@ -37,6 +37,39 @@ class BankCardService:
             )
     
     @staticmethod
+    def get_next_bank_card_for_payment(db: Session, last_used_id: Optional[int] = None) -> Optional[models.BankCard]:
+        """
+        Get the next bank card for payment using rotation logic.
+        
+        This method implements a card rotation strategy to distribute payments
+        across multiple bank cards based on priority and fair rotation within
+        the same priority level.
+        
+        Args:
+            db: Database session
+            last_used_id: ID of the last bank card used (to avoid consecutive use)
+            
+        Returns:
+            The next BankCard model to use, or None if no active cards available
+        """
+        try:
+            # Use the CRUD layer's rotation logic
+            next_card = crud.bank_card.get_next_active_card(db=db, last_used_id=last_used_id)
+            
+            if next_card is None:
+                logger.warning("No active bank cards available for rotation")
+            else:
+                logger.info(f"Selected next bank card for payment: ID={next_card.id}, Bank={next_card.bank_name}")
+            
+            return next_card
+        except Exception as e:
+            logger.error(f"Error getting next bank card for payment: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Error retrieving next bank card for payment"
+            )
+    
+    @staticmethod
     def get_bank_card_details(db: Session, bank_card_id: int) -> schemas.BankCardDetail:
         """
         Get detailed information about a bank card.

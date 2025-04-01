@@ -13,12 +13,16 @@ load_dotenv(dotenv_path=dotenv_path)
 
 from app.core.config import TELEGRAM_BOT_TOKEN
 # --- Import Handlers ---
-from app.handlers.start import handle_start, handle_contact
-from app.handlers.main_menu import handle_buy_service, handle_wallet
-from app.handlers.buy_flow import get_buy_flow_handlers  # Added import for buy flow handlers
-from app.handlers.admin_handlers import admin_command_handler
+from app.handlers import (
+    start_handler, main_menu_handler, admin_command_handler, 
+    admin_card_handler, get_buy_flow_handlers, get_my_accounts_handlers, get_payment_handlers
+)
 from app.handlers.error import error_handler
-from app.handlers.my_accounts import get_my_accounts_handler
+from app.handlers.payment_notification_handlers import get_payment_notification_handlers
+from app.handlers.payment_proof_handlers import get_payment_proof_handlers
+from app.handlers.payment_verification_handlers import get_payment_verification_handlers
+from app.handlers.admin_report_handlers import get_admin_report_handlers
+from app.handlers.payment_admin_handlers import get_payment_admin_handlers, register_payment_admin_handlers
 # Import other handlers later
 
 # Enable logging
@@ -45,33 +49,40 @@ def main() -> None:
     # Create the Application and pass it your bot's token.
     application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 
-    # --- Register Handlers ---
-    # Register the start command handler
-    application.add_handler(CommandHandler("start", handle_start))
-
-    # Register the contact handler (triggered when user shares contact)
-    # Note: We are not using ConversationHandler yet for simplicity.
-    # If complex flows are needed later, ConversationHandler is recommended.
-    application.add_handler(MessageHandler(filters.CONTACT, handle_contact))
-
-    # Register handler for the 'Buy Service' button
-    # This uses a MessageHandler filtering on the exact button text
-    application.add_handler(MessageHandler(filters.Text([BTN_BUY_SERVICE]), handle_buy_service))
-
-    # Register admin handler
+    # Register handlers
+    application.add_handler(start_handler)
+    application.add_handler(main_menu_handler)
     application.add_handler(admin_command_handler)
+    application.add_handler(admin_card_handler)
 
-    # >>> REGISTER WALLET HANDLER
-    application.add_handler(MessageHandler(filters.Text([BTN_WALLET]), handle_wallet))
-
-    # Register buy flow handlers
+    # Register flow handlers
     for handler in get_buy_flow_handlers():
         application.add_handler(handler)
 
-    # My accounts handler
-    application.add_handler(get_my_accounts_handler())
+    # Register my accounts handlers
+    for handler in get_my_accounts_handlers():
+        application.add_handler(handler)
+        
+    # Register payment proof handlers
+    for handler in get_payment_proof_handlers():
+        application.add_handler(handler)
+        
+    # Register payment verification handlers
+    for handler in get_payment_verification_handlers():
+        application.add_handler(handler)
+        
+    # Register payment notification handlers
+    for handler in get_payment_notification_handlers():
+        application.add_handler(handler)
 
-    # Add other handlers here (CallbackQueryHandler, MessageHandler for text, etc.)
+    # Register admin report handlers
+    for handler in get_admin_report_handlers():
+        application.add_handler(handler)
+        
+    # Register payment admin handlers
+    register_payment_admin_handlers(application)
+    for handler in get_payment_admin_handlers():
+        application.add_handler(handler)
 
     # Register the error handler
     application.add_error_handler(error_handler)
