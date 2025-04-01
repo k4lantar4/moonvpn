@@ -44,13 +44,8 @@ class PermissionInDBBase(PermissionBase):
     # The unique identifier for the permission in the database.
     id: int
     
-    if TYPE_CHECKING:
-        # For type checking only
-        from .role import Role
-        roles: List[Role] = []
-    else:
-        # For runtime
-        roles: List[Any] = []
+    # Using string type hints to avoid circular imports
+    roles: List["Role"] = []
 
     # Pydantic configuration settings.
     model_config = ConfigDict(
@@ -73,4 +68,18 @@ class PermissionInDB(PermissionInDBBase):
     This schema can be extended later to include relationships if needed.
     """
     # No additional fields needed beyond what's inherited from PermissionInDBBase for now.
+    pass
+
+# Additional schemas that might be needed for API responses
+class PermissionList(BaseModel):
+    """
+    List of permissions for API response
+    """
+    items: List[Permission] = []
+    total: int = 0
+
+class PermissionDetail(Permission):
+    """
+    Detailed permission information 
+    """
     pass

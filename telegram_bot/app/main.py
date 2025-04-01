@@ -15,8 +15,10 @@ from app.core.config import TELEGRAM_BOT_TOKEN
 # --- Import Handlers ---
 from app.handlers.start import handle_start, handle_contact
 from app.handlers.main_menu import handle_buy_service, handle_wallet
-from app.keyboards.main_menu import BTN_BUY_SERVICE, BTN_WALLET
+from app.handlers.buy_flow import get_buy_flow_handlers  # Added import for buy flow handlers
 from app.handlers.admin_handlers import admin_command_handler
+from app.handlers.error import error_handler
+from app.handlers.my_accounts import get_my_accounts_handler
 # Import other handlers later
 
 # Enable logging
@@ -61,6 +63,13 @@ def main() -> None:
 
     # >>> REGISTER WALLET HANDLER
     application.add_handler(MessageHandler(filters.Text([BTN_WALLET]), handle_wallet))
+
+    # Register buy flow handlers
+    for handler in get_buy_flow_handlers():
+        application.add_handler(handler)
+
+    # My accounts handler
+    application.add_handler(get_my_accounts_handler())
 
     # Add other handlers here (CallbackQueryHandler, MessageHandler for text, etc.)
 

@@ -1,5 +1,5 @@
-from pydantic import BaseModel, Field
-from typing import Optional, List
+from pydantic import BaseModel, Field, ConfigDict
+from typing import Optional, List, Any
 from datetime import datetime
 
 # Import related schemas if needed (e.g., Role)
@@ -37,6 +37,16 @@ class UserUpdate(BaseModel):
     is_superuser: Optional[bool] = None
     role_id: Optional[int] = None # Allow updating the assigned role
 
+# Additional schema for admin users to update users
+class AdminUserUpdate(UserUpdate):
+    """Additional fields that only admins can update"""
+    is_superuser: Optional[bool] = None
+
+# Schema for updating user's password
+class UserPasswordUpdate(BaseModel):
+    current_password: str
+    new_password: str
+
 # --- Schema for Reading/Response --- #
 # Properties to return via API, excluding sensitive data
 # Redefine User fully here
@@ -44,12 +54,35 @@ class User(UserBase):
     id: int
     created_at: datetime
     updated_at: datetime
-    role: Optional[Role] = None # Include role information
-    # referrals: List['User'] = [] # Add referrals relationship (recursive) # Temporarily removed
+    role: Optional["Role"] = None # Use string type hint to avoid circular imports
+    # referrals: List["User"] = [] # Add referrals relationship (recursive) if needed later
     # wallet_balance: float = 0.0 # Maybe add wallet later
 
-    class Config:
-        from_attributes = True # Enable ORM mode (formerly orm_mode)
+    model_config = ConfigDict(
+        from_attributes=True # Enable creating models from ORM objects
+    )
+
+# Schema for database representation (including any sensitive fields)
+class UserInDB(User):
+    hashed_password: Optional[str] = None
+
+# Additional schemas for specific API responses
+class UserList(BaseModel):
+    """List of users for API response"""
+    items: List[User] = []
+    total: int = 0
+
+class UserDetail(User):
+    """Detailed user information"""
+    pass
+
+class UserIds(BaseModel):
+    """Simple model for user IDs list"""
+    ids: List[int] = []
+
+class UserWithRole(User):
+    """User model with expanded role information"""
+    role: Optional["Role"] = None
 
 # Update the forward reference
 # User.model_rebuild() # Use this in newer Pydantic v2

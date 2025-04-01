@@ -89,17 +89,33 @@ moonvpn/
 ### PHASE-2: Basic Purchase, Account Management & User Features (CURRENT PHASE)
 **Goal:** Implement account creation, basic user management, and user-facing subscription features (Freeze, Notes, Auto-Renew).
 **Tasks:**
-- [ ] [P2-T001] Core API: 3x-ui panel API integration (login, add user, get info, *modify user for protocol/location?*, *enable/disable user for freeze*). Status: [ ] Priority: High
+- [X] [P2-T001] Core API: 3x-ui panel API integration (login, add user, get info, *modify user for protocol/location?*, *enable/disable user for freeze*). Status: [X] Priority: High
   Progress Notes:
   - [v0.1.7] Need to fix circular imports in schema modules before implementing this functionality.
-- [ ] [P2-T002] Core API: Order creation logic (link user, plan). Status: [ ] Priority: Medium
-- [ ] [P2-T003] Core API: Endpoint to trigger account creation on panel. Status: [ ] Priority: High
-- [ ] [P2-T004] Core API: Endpoints for fetching account details (link/QR, usage) from panel. Status: [ ] Priority: Medium
-- [ ] [P2-T005] Core API: Logic for Freeze/Unfreeze, User Notes, Auto-Renew setting on Subscription. Status: [ ] Priority: Medium
-- [ ] [P2-T006] Core API: Logic for Change Protocol/Location (if feasible via 3x-ui API or needs alternative). Status: [ ] Priority: Medium
-- [ ] [P2-T007] Telegram Bot: Purchase flow (select plan, create order via API). Status: [ ] Priority: High
-- [ ] [P2-T008] Telegram Bot: "My Account" section (list accounts, get details, Freeze/Unfreeze, Add Note, Toggle Auto-Renew, Change Protocol/Location options via API). Status: [ ] Priority: High
-- [ ] [P2-T009] Telegram Bot: Simulate payment confirmation to trigger account creation. Status: [ ] Priority: Medium
+- [X] [P2-T002] Core API: Order creation logic (link user, plan). Status: [X] Priority: Medium
+  Progress Notes:
+  - [v0.4.2] Implemented order creation logic using OrderService to properly validate inputs and use plan defaults when needed. Enhanced the OrderCreate schema and endpoint to better handle discount calculations. Updated the create_order endpoint to use the service for better validation.
+- [X] [P2-T003] Core API: Endpoint to trigger account creation on panel. Status: [X] Priority: High
+  Progress Notes:
+  - [v0.4.2] Implemented comprehensive client creation on panel via the order service. Enhanced the OrderService.create_client_on_panel method to create a subscription after successful client creation on the panel, linking the order, subscription, and panel client together. Added proper fields to models and schemas, including subscription_id in Order model, client details in Subscription model, and appropriate relationships. Added error handling to ensure failures during subscription creation don't prevent client creation.
+- [X] [P2-T004] Core API: Endpoints for fetching account details (link/QR, usage) from panel. Status: [X] Priority: Medium
+  Progress Notes:
+  - [v0.4.1] Implemented endpoints to retrieve client configuration and QR codes through the subscription service. Created three new endpoints:
+    - GET /subscriptions/{id}/config - Returns detailed connection information
+    - GET /subscriptions/{id}/qrcode - Returns QR code for easy mobile setup
+    - GET /subscriptions/{id}/traffic - Returns traffic usage statistics
+    These endpoints integrate with the PanelService to fetch real-time data from the VPN panel while ensuring proper authorization checks (users can only access their own configurations).
+- [X] [P2-T005] Core API: Logic for Freeze/Unfreeze, User Notes, Auto-Renew setting on Subscription. Status: [X] Priority: Medium
+- [X] [P2-T006] Core API: Logic for Change Protocol/Location (if feasible via 3x-ui API or needs alternative). Status: [X] Priority: Medium
+- [X] [P2-T007] Telegram Bot: Purchase flow (select plan, create order via API). Status: [X] Priority: High
+  Progress Notes:
+  - [v0.4.5] Implemented purchase flow including selecting plans, choosing payment methods, creating orders, handling card-to-card payments with receipt upload, and simulating admin approval flow for payments.
+- [X] [P2-T008] Telegram Bot: "My Account" section (list accounts, get details, Freeze/Unfreeze, Add Note, Toggle Auto-Renew, Change Protocol/Location options via API). Status: [X] Priority: High
+  Progress Notes:
+  - [v0.4.6] Implemented comprehensive "My Accounts" section in the Telegram bot with functionality to list and manage user subscriptions. Created API client functions for all subscription operations including get_user_subscriptions, get_subscription_details, get_subscription_qrcode, get_subscription_traffic, and various management functions. Added account listing and detailed view showing subscription status, expiry date, protocol, and other details. Implemented traffic usage visualization with text-based progress bar. Added management features including freeze/unfreeze, note addition, auto-renewal toggling, and protocol/location changing. Used ConversationHandler pattern with clear state management for complex user flow.
+- [X] [P2-T009] Telegram Bot: Simulate payment confirmation to trigger account creation. Status: [X] Priority: Medium
+  Progress Notes:
+  - [v0.4.7] Implemented integration between payment confirmation in Telegram bot and the backend API for automatic account creation. Enhanced the payment confirmation process by adding API functions confirm_order_payment and reject_order_payment that invoke the core API's create-client endpoint. Updated the admin payment confirmation handler to handle both successful and failed API responses, showing detailed subscription information to users upon successful account creation and providing appropriate error notifications when issues occur. The implementation ensures that order status tracking is maintained throughout the process and orders can be manually processed if automatic creation fails.
 - [X] [P2-T010] Dashboard: Display user's V2Ray accounts and details (including new features). Status: [X] Priority: Medium
 - [X] [P2-T011] Install Script: Add database setup steps. Status: [X] Priority: Low
 
@@ -161,3 +177,96 @@ moonvpn/
 - [ ] [P6-T005] Write basic project documentation (README, setup guide). Status: [ ] Priority: Medium
 - [ ] [P6-T006] Consider future feature: Reseller-specific bots. Status: [ ] Priority: Low
 - [ ] [P6-T007] Consider future feature: Auto Card Payment (if feasible/secure API found). Status: [ ] Priority: Low
+
+# MoonVPN Core API Development Scratchpad
+
+## Current Phase: P2 - VPN Panel Integration & API Development
+
+### P2-T005: Implement Subscription Management (Freeze/Unfreeze, Notes, Auto-Renew)
+**Status: [X] Complete**
+
+This task focused on implementing a subscription management system with:
+1. Freeze/unfreeze functionality (with date tracking)
+2. User notes 
+3. Auto-renewal settings
+
+#### Completed Implementation:
+- Created `Subscription` model with:
+  - Freeze-related fields: `is_frozen`, `freeze_start_date`, `freeze_end_date`, `freeze_reason`
+  - Notes field for admin and user notes
+  - Auto-renew fields: `auto_renew`, `auto_renew_payment_method`
+  
+- Implemented `SubscriptionService` with methods:
+  - `get_subscription` & `get_user_subscriptions` for retrieving subscription data
+  - `create_subscription` for setting up new subscriptions
+  - `freeze_subscription` & `unfreeze_subscription` for managing freeze state
+  - `add_note` for adding notes to subscriptions
+  - `toggle_auto_renew` for managing auto-renewal settings
+  - `check_expired_subscriptions` for handling subscription expiration
+
+- Created RESTful API endpoints:
+  - GET `/subscriptions/` - List user's subscriptions
+  - GET `/subscriptions/{id}` - Get specific subscription details
+  - POST `/subscriptions/` - Create a new subscription (admin only)
+  - POST `/subscriptions/{id}/freeze` - Freeze a subscription
+  - POST `/subscriptions/{id}/unfreeze` - Unfreeze a subscription
+  - POST `/subscriptions/{id}/notes` - Add a note
+  - POST `/subscriptions/{id}/auto-renew` - Toggle auto-renewal
+
+- Added relationships to:
+  - `User` model for linking users to subscriptions
+  - `Plan` model for connecting plans to subscriptions
+
+- Developed comprehensive unit tests for:
+  - Service methods - Testing all subscription operations
+  - API endpoints - Ensuring proper HTTP interactions
+  
+- Integrated with `PanelService` to automatically:
+  - Disable clients when subscriptions are frozen
+  - Enable clients when subscriptions are unfrozen
+  - Handle expired subscriptions
+
+### Next Tasks:
+1. P2-T006: Implement subscription renewal process
+2. P2-T007: Create admin subscription management dashboard
+3. P2-T008: Implement user subscription history tracking
+
+[P2-T005] Add subscription management features (freeze, add notes, auto-renew toggle)
+Status: [X] Priority: [Medium]
+Dependencies: [P2-T003]
+Progress Notes:
+- [v0.4.3] Implemented subscription management features including freeze/unfreeze functionality with panel synchronization, note addition, and auto-renew toggle capabilities.
+
+[P2-T006] Add protocol/location change feature for subscriptions
+Status: [X] Priority: [Medium]
+Dependencies: [P2-T003]
+Progress Notes:
+- [v0.4.4] Implemented protocol and location change functionality for active subscriptions. This allows users to change their VPN protocol or server location by moving to different inbounds or panels. Added comprehensive error handling with automatic rollback in case of failures, and ensured proper validation to prevent changes to expired or frozen subscriptions.
+
+#### P2-T007: ✅ Purchase flow in the Telegram bot (Done)
+- Implemented the flow for purchasing VPN subscriptions in the Telegram bot
+- Added functionality for users to select plans, payment methods, and submit payments
+- Created a system for admins to approve or reject payments
+- Implemented proper error handling and user notifications
+
+#### P2-T008: ✅ "My Account" section for listing accounts (Done)
+- Created a new section in the Telegram bot for users to view and manage their VPN accounts
+- Implemented functionality to list all user subscriptions with their status
+- Added detailed view for each subscription showing expiry date, remaining days, protocol, and location
+- Implemented QR code display for easy connection to VPN services
+- Added traffic usage statistics with visual progress bar
+- Implemented account management features:
+  - Freeze/unfreeze subscription
+  - Add notes to subscriptions
+  - Toggle auto-renewal
+  - Change protocol or location
+
+#### P2-T009: ✅ Payment confirmation with automatic account creation (Done)
+- Implemented a complete payment confirmation flow in the Telegram bot that triggers automatic account creation
+- Added API functions for confirming and rejecting order payments:
+  - `confirm_order_payment`: Calls the core API's create-client endpoint to create a VPN account
+  - `reject_order_payment`: Updates the order status to rejected with detailed reason
+- Enhanced the admin payment confirmation handler to display detailed subscription information
+- Added robust error handling with appropriate messages for both users and admins
+- Implemented a fallback mechanism for manual processing when automatic account creation fails
+- Ensured proper cleanup of in-memory order data after successful processing

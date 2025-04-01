@@ -72,8 +72,11 @@ class Plan(Base):
     # Relationship to PlanCategory
     category = relationship("PlanCategory", back_populates="plans")
 
-    # Relationship to Orders/Subscriptions to be added later
-    # orders = relationship("Order", back_populates="plan")
+    # Relationship to Orders
+    orders = relationship("Order", back_populates="plan")
+
+    # Relationship to Subscriptions
+    subscriptions = relationship("Subscription", back_populates="plan")
 
     # Representation method for easy debugging
     def __repr__(self) -> str:

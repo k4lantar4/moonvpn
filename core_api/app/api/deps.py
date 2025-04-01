@@ -11,6 +11,7 @@ from app.db.session import SessionLocal # Assuming session management is here
 from app import crud
 from app.models.user import User  # Import User model directly
 from app import schemas # Need TokenPayload schema
+from app.models import User as models  # Import User model from models
 
 # --- Database Dependency --- #
 def get_db() -> Generator:
@@ -91,4 +92,27 @@ async def get_current_active_superuser(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="The user doesn't have enough privileges"
         )
-    return current_user 
+    return current_user
+
+def check_user_permission(user: models.User, permission_name: str) -> bool:
+    """
+    Check if a user has a specific permission.
+    
+    Args:
+        user: The user to check permissions for
+        permission_name: The name of the permission to check
+        
+    Returns:
+        True if the user has the permission, False otherwise
+    """
+    # Superusers have all permissions
+    if user.is_superuser:
+        return True
+    
+    # Check user roles for the permission
+    for role in user.roles:
+        for permission in role.permissions:
+            if permission.permission_name == permission_name:
+                return True
+    
+    return False 

@@ -72,8 +72,11 @@ class Panel(Base):
     # Relationship to Server
     server = relationship("Server", back_populates="panels")
 
-    # Relationship to Accounts to be added later
-    # accounts = relationship("Account", back_populates="panel")
+    # Relationship to Orders
+    orders = relationship("Order", back_populates="panel")
+    
+    # Relationship to Subscriptions
+    subscriptions = relationship("Subscription", back_populates="panel")
 
     # Representation method for easy debugging
     def __repr__(self) -> str:

@@ -1,6 +1,8 @@
 # Import necessary types from typing and pydantic
-from typing import Optional
-from pydantic import BaseModel, ConfigDict, Field
+from typing import Optional, List, Dict, Any, Union
+from pydantic import BaseModel, ConfigDict, Field, UUID4
+from datetime import datetime, timedelta
+import uuid
 
 # --- Panel Schemas ---
 
@@ -79,4 +81,106 @@ class PanelInDB(PanelInDBBase):
     # that doesn't use PanelCreate/Update, but it's generally safer to handle
     # password separately during create/update operations.
     password: str # Re-include password for internal representation if needed
-    pass 
+    pass
+
+# --- Base Models --- #
+
+class PanelClientBase(BaseModel):
+    email: str = Field(..., description="Email/remark for the client")
+    total_gb: Optional[int] = Field(0, description="Total GB limit for the client (0 for unlimited)")
+    expire_days: Optional[int] = Field(0, description="Expiry in days from now (0 for never)")
+    limit_ip: Optional[int] = Field(0, description="IP limit for the client (0 for unlimited)")
+
+class PanelInboundBase(BaseModel):
+    id: int = Field(..., description="Inbound ID")
+    protocol: str = Field(..., description="Protocol type (vmess, vless, trojan, etc.)")
+    enable: bool = Field(..., description="Whether the inbound is enabled")
+    remark: Optional[str] = Field(None, description="Remark/description for the inbound")
+    port: int = Field(..., description="Port number")
+
+# --- Request Models --- #
+
+class PanelClientCreate(PanelClientBase):
+    client_uuid: Optional[str] = Field(
+        None, 
+        description="UUID for the client (auto-generated if not provided)"
+    )
+
+    def __init__(self, **data):
+        super().__init__(**data)
+        if not self.client_uuid:
+            self.client_uuid = str(uuid.uuid4())
+
+class PanelClientUpdate(BaseModel):
+    total_gb: Optional[int] = Field(None, description="Total GB limit (0 for unlimited)")
+    expire_days: Optional[int] = Field(None, description="Expiry in days from now (0 for never)")
+    limit_ip: Optional[int] = Field(None, description="IP limit (0 for unlimited)")
+
+# --- Response Models --- #
+
+class PanelClientResponse(PanelClientBase):
+    id: Optional[str] = Field(None, description="Client ID within the inbound")
+    uuid: str = Field(..., description="UUID of the client")
+    enable: bool = Field(..., description="Whether the client is enabled")
+    created_at: Optional[datetime] = None
+    total_used_traffic: Optional[int] = Field(0, description="Used traffic in bytes")
+    up: Optional[int] = Field(0, description="Upload traffic in bytes")
+    down: Optional[int] = Field(0, description="Download traffic in bytes")
+    expiry_time: Optional[int] = Field(None, description="Expiry timestamp")
+    inbound_id: Optional[int] = Field(None, description="ID of the inbound this client belongs to")
+
+    class Config:
+        from_attributes = True
+
+class PanelInboundResponse(PanelInboundBase):
+    up: Optional[int] = Field(0, description="Upload traffic in bytes")
+    down: Optional[int] = Field(0, description="Download traffic in bytes")
+    total: Optional[int] = Field(0, description="Total traffic in bytes")
+    tag: Optional[str] = Field(None, description="Tag for the inbound")
+    settings: Optional[Dict[str, Any]] = Field(None, description="Inbound settings")
+    stream_settings: Optional[Dict[str, Any]] = Field(None, description="Stream settings")
+    sniffing: Optional[Dict[str, Any]] = Field(None, description="Sniffing settings")
+    client_count: Optional[int] = Field(0, description="Number of clients in this inbound")
+    
+    class Config:
+        from_attributes = True
+
+class PanelTrafficResponse(BaseModel):
+    up: int = Field(..., description="Upload traffic in bytes")
+    down: int = Field(..., description="Download traffic in bytes")
+    total: int = Field(..., description="Total traffic in bytes")
+    enable: bool = Field(..., description="Whether the client is enabled")
+    expiry_time: Optional[int] = Field(None, description="Expiry timestamp")
+    expiry_status: Optional[bool] = Field(True, description="Whether the client is expired")
+    
+    class Config:
+        from_attributes = True
+
+class PanelClientConfigResponse(BaseModel):
+    client_id: Optional[str] = Field(None, description="Client ID within the inbound")
+    uuid: str = Field(..., description="UUID of the client")
+    email: str = Field(..., description="Email/remark of the client")
+    protocol: str = Field(..., description="Protocol type (vmess, vless, trojan, etc.)")
+    port: int = Field(..., description="Port number")
+    address: str = Field(..., description="Server address")
+    network: str = Field("tcp", description="Network type (tcp, ws, etc.)")
+    security: str = Field("none", description="Security type (none, tls, etc.)")
+    enabled: bool = Field(..., description="Whether the client is enabled")
+    inbound_id: int = Field(..., description="ID of the inbound this client belongs to")
+    created_at: Optional[datetime] = None
+    expire_time: Optional[int] = Field(None, description="Expiry timestamp")
+    total_traffic: Optional[int] = Field(0, description="Total traffic limit in bytes")
+    used_traffic: Optional[int] = Field(0, description="Used traffic in bytes")
+    link: str = Field(..., description="Connection link for the client")
+    
+    class Config:
+        from_attributes = True
+
+class PanelClientQRCodeResponse(BaseModel):
+    email: str = Field(..., description="Email/remark of the client")
+    protocol: str = Field(..., description="Protocol type (vmess, vless, trojan, etc.)")
+    qrcode: str = Field(..., description="Base64 encoded QR code image")
+    link: str = Field(..., description="Connection link for the client")
+    
+    class Config:
+        from_attributes = True 

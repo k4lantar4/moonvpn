@@ -34,13 +34,8 @@ class RoleInDBBase(RoleBase):
     """
     id: int
     
-    if TYPE_CHECKING:
-        # For type checking only
-        from .permission import Permission
-        permissions: List[Permission] = []
-    else:
-        # For runtime
-        permissions: List[Any] = []
+    # Using string type hints to avoid circular imports
+    permissions: List["Permission"] = []
 
     model_config = ConfigDict(
         from_attributes=True
@@ -57,5 +52,25 @@ class Role(RoleInDBBase):
 class RoleInDB(RoleInDBBase):
     """
     Properties of a role as fully represented in the database.
+    """
+    pass
+
+# Additional schemas that might be needed for API responses
+class RoleList(BaseModel):
+    """
+    List of roles for API response
+    """
+    items: List[Role] = []
+    total: int = 0
+
+class RoleDetail(Role):
+    """
+    Detailed role information including permissions
+    """
+    pass
+
+class RoleWithPermissions(Role):
+    """
+    Role with expanded permissions list
     """
     pass 
