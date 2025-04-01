@@ -2,7 +2,7 @@ from sqlalchemy import Column, Integer, String, Text, DateTime, Boolean, BigInte
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 
-from app.db.session import Base
+from app.db.base import Base
 
 class User(Base):
     __tablename__ = "users"
@@ -26,7 +26,7 @@ class User(Base):
     role = relationship("Role", back_populates="users")
 
     # Relationship (One-to-Many: User to Referrals)
-    referrals = relationship("User", backref="referrer", remote_side=[id]) # Relationship to users referred by this user
+    # referrals = relationship("User", backref="referrer", remote_side=[id]) # Relationship to users referred by this user
 
     # Add relationships to other tables like Orders, Subscriptions, etc. later
     # orders = relationship("Order", back_populates="user")

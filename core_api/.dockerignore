@@ -1,0 +1,33 @@
+# Git files
+.git
+.gitignore
+
+# Virtual environment
+venv/
+.venv/
+*/venv/
+*/.venv/
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# IDE files
+.vscode/
+.idea/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Environment variables file
+.env
+*.env.*
+!*.env.example
+!*.env.template
+
+# Build artifacts
+dist/
+build/
+*.egg-info/ 

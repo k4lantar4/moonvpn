@@ -1,0 +1,529 @@
+{% extends "base.html" %}
+
+{% block title %}Roles Management - MoonVPN Dashboard{% endblock %}
+
+{% block page_title %}Roles Management{% endblock %}
+
+{% block content %}
+<div class="page-wrapper">
+    <!-- Page header -->
+    <div class="page-header d-print-none">
+        <div class="container-xl">
+            <div class="row g-2 align-items-center">
+                <div class="col">
+                    <h2 class="page-title">
+                        Manage Roles and Permissions
+                    </h2>
+                </div>
+                 <!-- Page title actions -->
+                 <div class="col-auto ms-auto d-print-none">
+                    <div class="btn-list">
+                      <button id="create-role-button" class="btn btn-primary">
+                        <!-- Icon: Plus -->
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+                        Create New Role
+                      </button>
+                    </div>
+                  </div>
+            </div>
+        </div>
+    </div>
+    <!-- Page body -->
+    <div class="page-body">
+        <div class="container-xl">
+            <div class="row row-deck row-cards">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Roles List</h3>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table card-table table-vcenter text-nowrap datatable" id="roles-table">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Name</th>
+                                        <th>Description</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- Table body will be populated by JavaScript -->
+                                    <tr>
+                                        <td colspan="4" class="text-center text-muted">Loading roles...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <!-- Optional: Add pagination controls here if needed -->
+                    </div>
+                </div>
+                <!-- Placeholder for Create/Edit Role Modal -->
+                <div id="role-modal-placeholder">
+                    <!-- Modal HTML will be injected here or defined below -->
+                    <div class="modal modal-blur fade" id="modal-role-form" tabindex="-1" role="dialog" aria-hidden="true">
+                        <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+                            <div class="modal-content">
+                                <form id="role-form">
+                                    <input type="hidden" id="role-id" value="">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title" id="modal-role-title">New Role</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <div class="mb-3">
+                                            <label class="form-label">Role Name</label>
+                                            <input type="text" class="form-control" id="role-name" name="name" placeholder="Enter role name (e.g., admin, support)" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Description</label>
+                                            <textarea class="form-control" id="role-description" name="description" rows="3" placeholder="Enter a brief description of the role"></textarea>
+                                        </div>
+                                        <div id="modal-role-alert" class="alert" style="display: none;" role="alert"></div>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn me-auto" data-bs-dismiss="modal">Cancel</button>
+                                        <button type="submit" class="btn btn-primary">Save Role</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Placeholder for Manage Permissions Modal -->
+                <div id="permissions-modal-placeholder">
+                    <div class="modal modal-blur fade" id="modal-manage-permissions" tabindex="-1" role="dialog" aria-hidden="true">
+                        <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+                            <div class="modal-content">
+                                <input type="hidden" id="manage-perms-role-id" value="">
+                                <div class="modal-header">
+                                    <h5 class="modal-title" id="modal-permissions-title">Manage Permissions for Role: </h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <p>Select the permissions for this role:</p>
+                                    <div id="permissions-list" class="divide-y">
+                                        <!-- Permissions checkboxes will be loaded here -->
+                                        <div class="text-center text-muted">Loading permissions...</div>
+                                    </div>
+                                    <div id="modal-permissions-alert" class="alert mt-3" style="display: none;" role="alert"></div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn me-auto" data-bs-dismiss="modal">Cancel</button>
+                                    <button type="button" id="save-permissions-button" class="btn btn-primary">Save Permissions</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                 <div class="col-12">
+                    <div id="alert-message-roles" class="alert" style="display: none;" role="alert"></div>
+                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const rolesTableBody = document.querySelector('#roles-table tbody');
+    const createRoleButton = document.getElementById('create-role-button');
+    const alertMessageDiv = document.getElementById('alert-message-roles');
+    // Placeholders for modals
+    const roleModalPlaceholder = document.getElementById('role-modal-placeholder');
+    const permissionsModalPlaceholder = document.getElementById('permissions-modal-placeholder');
+    const roleModalElement = document.getElementById('modal-role-form');
+    const roleModal = new bootstrap.Modal(roleModalElement);
+    const roleForm = document.getElementById('role-form');
+    const roleModalTitle = document.getElementById('modal-role-title');
+    const roleIdInput = document.getElementById('role-id');
+    const roleNameInput = document.getElementById('role-name');
+    const roleDescriptionInput = document.getElementById('role-description');
+    const modalRoleAlert = document.getElementById('modal-role-alert');
+    const permissionsModalElement = document.getElementById('modal-manage-permissions');
+    const permissionsModal = new bootstrap.Modal(permissionsModalElement);
+    const permissionsModalTitle = document.getElementById('modal-permissions-title');
+    const permissionsListDiv = document.getElementById('permissions-list');
+    const managePermsRoleIdInput = document.getElementById('manage-perms-role-id');
+    const modalPermissionsAlert = document.getElementById('modal-permissions-alert');
+    const savePermissionsButton = document.getElementById('save-permissions-button');
+
+    function showAlert(message, type = 'danger') {
+        alertMessageDiv.className = `alert alert-${type}`;
+        alertMessageDiv.textContent = message;
+        alertMessageDiv.style.display = 'block';
+    }
+
+    function hideAlert() {
+        alertMessageDiv.style.display = 'none';
+    }
+
+    function showModalAlert(message, type = 'danger') {
+        modalRoleAlert.className = `alert alert-${type}`;
+        modalRoleAlert.textContent = message;
+        modalRoleAlert.style.display = 'block';
+    }
+
+    function hideModalAlert() {
+        modalRoleAlert.style.display = 'none';
+    }
+
+    function showPermissionsModalAlert(message, type = 'danger') {
+        modalPermissionsAlert.className = `alert alert-${type}`;
+        modalPermissionsAlert.textContent = message;
+        modalPermissionsAlert.style.display = 'block';
+    }
+
+    function hidePermissionsModalAlert() {
+        modalPermissionsAlert.style.display = 'none';
+    }
+
+    async function fetchRoles() {
+        const token = localStorage.getItem('accessToken');
+        const tokenType = localStorage.getItem('tokenType') || 'Bearer';
+        rolesTableBody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Loading roles...</td></tr>'; // Clear table
+        hideAlert();
+
+        if (!token) {
+            window.location.href = '/login';
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/v1/roles', {
+                method: 'GET',
+                headers: {
+                    'Authorization': `${tokenType} ${token}`
+                }
+            });
+
+            if (response.ok) {
+                const roles = await response.json();
+                rolesTableBody.innerHTML = ''; // Clear loading message
+                if (roles.length === 0) {
+                     rolesTableBody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">No roles found.</td></tr>';
+                } else {
+                    roles.forEach(role => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>${role.id}</td>
+                            <td>${role.name}</td>
+                            <td>${role.description || '-'}</td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-primary me-1 edit-role-btn" data-role-id="${role.id}">Edit</button>
+                                <button class="btn btn-sm btn-outline-info me-1 manage-perms-btn" data-role-id="${role.id}" data-role-name="${role.name}">Permissions</button>
+                                <button class="btn btn-sm btn-outline-danger delete-role-btn" data-role-id="${role.id}">Delete</button>
+                            </td>
+                        `;
+                        rolesTableBody.appendChild(row);
+                    });
+                    // Add event listeners after rows are added
+                    addTableButtonListeners();
+                }
+            } else if (response.status === 401 || response.status === 403) {
+                localStorage.removeItem('accessToken');
+                localStorage.removeItem('tokenType');
+                showAlert('Your session is invalid. Please log in again.', 'warning');
+                setTimeout(() => { window.location.href = '/login'; }, 2000);
+            } else {
+                const errorData = await response.json();
+                showAlert(`Error fetching roles: ${errorData.detail || response.statusText}`);
+                rolesTableBody.innerHTML = '<tr><td colspan="4" class="text-center text-danger">Error loading roles.</td></tr>';
+            }
+        } catch (error) {
+            console.error('Error fetching roles:', error);
+            showAlert('An network error occurred while fetching roles.');
+            rolesTableBody.innerHTML = '<tr><td colspan="4" class="text-center text-danger">Network error loading roles.</td></tr>';
+        }
+    }
+
+    function addTableButtonListeners() {
+        document.querySelectorAll('.edit-role-btn').forEach(button => {
+            button.addEventListener('click', async (e) => {
+                const roleId = e.target.dataset.roleId;
+                console.log(`Edit role ${roleId}`);
+                // Fetch role details to pre-fill the form
+                const token = localStorage.getItem('accessToken');
+                const tokenType = localStorage.getItem('tokenType') || 'Bearer';
+                if (!token) { window.location.href = '/login'; return; }
+                try {
+                    const response = await fetch(`/api/v1/roles/${roleId}`, { headers: { 'Authorization': `${tokenType} ${token}` } });
+                    if (response.ok) {
+                        const role = await response.json();
+                        openRoleModal(role);
+                    } else {
+                        showAlert('Failed to fetch role details for editing.');
+                    }
+                } catch (error) {
+                    showAlert('Error fetching role details.');
+                }
+            });
+        });
+
+        document.querySelectorAll('.manage-perms-btn').forEach(button => {
+            button.addEventListener('click', (e) => {
+                const roleId = e.target.dataset.roleId;
+                const roleName = e.target.dataset.roleName;
+                console.log(`Manage permissions for role ${roleId} (${roleName})`);
+                openPermissionsModal(roleId, roleName);
+            });
+        });
+
+        document.querySelectorAll('.delete-role-btn').forEach(button => {
+            button.addEventListener('click', async (e) => {
+                const roleId = e.target.dataset.roleId;
+                console.log(`Delete role ${roleId}`);
+                if (confirm(`Are you sure you want to delete role ID ${roleId}? This action cannot be undone.`)) {
+                    // --- Implement delete API call --- //
+                    const token = localStorage.getItem('accessToken');
+                    const tokenType = localStorage.getItem('tokenType') || 'Bearer';
+                    if (!token) { window.location.href = '/login'; return; }
+
+                    try {
+                        const response = await fetch(`/api/v1/roles/${roleId}`, {
+                            method: 'DELETE',
+                            headers: {
+                                'Authorization': `${tokenType} ${token}`
+                            }
+                        });
+
+                        if (response.ok) {
+                            showAlert(`Role ${roleId} deleted successfully.`, 'success');
+                            fetchRoles(); // Refresh the table
+                        } else {
+                            // Attempt to parse error detail
+                            let errorDetail = `Failed to delete role ${roleId}.`;
+                            try {
+                                const errorData = await response.json();
+                                errorDetail = errorData.detail || errorDetail;
+                            } catch (parseError) {
+                                // Ignore if response is not JSON
+                            }
+                            showAlert(errorDetail, 'danger');
+                        }
+                    } catch (error) {
+                        console.error('Error deleting role:', error);
+                        showAlert('An network error occurred while deleting the role.', 'danger');
+                    }
+                }
+            });
+        });
+    }
+
+    function openRoleModal(role = null) {
+        roleForm.reset(); // Clear previous data
+        roleIdInput.value = role ? role.id : ''; // Set hidden ID for updates
+        roleNameInput.value = role ? role.name : '';
+        roleDescriptionInput.value = role ? (role.description || '') : '';
+        roleModalTitle.textContent = role ? `Edit Role (ID: ${role.id})` : 'Create New Role';
+        hideModalAlert();
+        roleModal.show();
+    }
+
+    async function saveRole(event) {
+        event.preventDefault();
+        hideModalAlert();
+        const token = localStorage.getItem('accessToken');
+        const tokenType = localStorage.getItem('tokenType') || 'Bearer';
+
+        if (!token) {
+            showAlert('Authentication error. Please login again.', 'danger');
+            return;
+        }
+
+        const roleId = roleIdInput.value;
+        const isUpdate = !!roleId;
+        const url = isUpdate ? `/api/v1/roles/${roleId}` : '/api/v1/roles';
+        const method = isUpdate ? 'PUT' : 'POST';
+
+        const roleData = {
+            name: roleNameInput.value.trim(),
+            description: roleDescriptionInput.value.trim() || null // Send null if empty
+        };
+
+        if (!roleData.name) {
+            showModalAlert('Role Name is required.');
+            return;
+        }
+
+        try {
+            const response = await fetch(url, {
+                method: method,
+                headers: {
+                    'Authorization': `${tokenType} ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(roleData)
+            });
+
+            const result = await response.json();
+
+            if (response.ok) {
+                showModalAlert(`Role ${isUpdate ? 'updated' : 'created'} successfully!`, 'success');
+                roleModal.hide();
+                fetchRoles(); // Refresh the table
+            } else {
+                showModalAlert(result.detail || `Failed to ${isUpdate ? 'update' : 'create'} role.`);
+            }
+        } catch (error) {
+            console.error('Error saving role:', error);
+            showModalAlert('An error occurred while saving the role.');
+        }
+    }
+
+    createRoleButton.addEventListener('click', () => {
+        openRoleModal(); // Open modal without pre-filled data
+    });
+
+    roleForm.addEventListener('submit', saveRole);
+
+    async function openPermissionsModal(roleId, roleName) {
+        permissionsModalTitle.textContent = `Manage Permissions for Role: ${roleName}`;
+        managePermsRoleIdInput.value = roleId;
+        permissionsListDiv.innerHTML = '<div class="text-center text-muted">Loading permissions...</div>';
+        hidePermissionsModalAlert();
+        permissionsModal.show();
+
+        const token = localStorage.getItem('accessToken');
+        const tokenType = localStorage.getItem('tokenType') || 'Bearer';
+        if (!token) { window.location.href = '/login'; return; }
+
+        try {
+            // Fetch all available permissions and current role's permissions concurrently
+            const [allPermsResponse, roleResponse] = await Promise.all([
+                fetch('/api/v1/permissions', { headers: { 'Authorization': `${tokenType} ${token}` } }),
+                fetch(`/api/v1/roles/${roleId}`, { headers: { 'Authorization': `${tokenType} ${token}` } })
+            ]);
+
+            if (!allPermsResponse.ok) {
+                throw new Error(`Failed to fetch all permissions: ${allPermsResponse.statusText}`);
+            }
+            if (!roleResponse.ok) {
+                throw new Error(`Failed to fetch role details: ${roleResponse.statusText}`);
+            }
+
+            const allPermissions = await allPermsResponse.json();
+            const currentRole = await roleResponse.json();
+            const rolePermissionIds = new Set(currentRole.permissions.map(p => p.id));
+
+            renderPermissions(allPermissions, rolePermissionIds);
+
+        } catch (error) {
+            console.error("Error loading permissions:", error);
+            permissionsListDiv.innerHTML = '<div class="text-center text-danger">Error loading permissions.</div>';
+            showPermissionsModalAlert(error.message || 'Error loading permissions.', 'danger');
+        }
+    }
+
+    function renderPermissions(allPermissions, rolePermissionIds) {
+        permissionsListDiv.innerHTML = ''; // Clear loading message
+        if (!allPermissions || allPermissions.length === 0) {
+            permissionsListDiv.innerHTML = '<div class="text-center text-muted">No permissions available.</div>';
+            return;
+        }
+
+        allPermissions.forEach(perm => {
+            const isChecked = rolePermissionIds.has(perm.id);
+            const div = document.createElement('div');
+            div.classList.add('row', 'py-2'); // Add some padding
+            div.innerHTML = `
+                <div class="col">
+                    <label class="form-check">
+                        <input class="form-check-input permission-checkbox" type="checkbox" value="${perm.id}" ${isChecked ? 'checked' : ''}>
+                        <span class="form-check-label">
+                            ${perm.name}
+                            ${perm.description ? `<span class="form-check-description">${perm.description}</span>` : ''}
+                        </span>
+                    </label>
+                </div>
+            `;
+            permissionsListDiv.appendChild(div);
+        });
+    }
+
+    async function savePermissions() {
+        const roleId = managePermsRoleIdInput.value;
+        if (!roleId) return;
+
+        hidePermissionsModalAlert();
+        savePermissionsButton.disabled = true; // Prevent double clicks
+
+        const token = localStorage.getItem('accessToken');
+        const tokenType = localStorage.getItem('tokenType') || 'Bearer';
+        if (!token) { window.location.href = '/login'; return; }
+
+        // Get current permissions from API again to compare
+        let currentPermissionIds = new Set();
+        try {
+            const roleResponse = await fetch(`/api/v1/roles/${roleId}`, { headers: { 'Authorization': `${tokenType} ${token}` } });
+            if (!roleResponse.ok) throw new Error('Failed to fetch current permissions.');
+            const currentRole = await roleResponse.json();
+            currentPermissionIds = new Set(currentRole.permissions.map(p => p.id));
+        } catch (error) {
+            showPermissionsModalAlert(error.message || 'Error fetching current permissions before saving.', 'danger');
+            savePermissionsButton.disabled = false;
+            return;
+        }
+
+        const selectedPermissionIds = new Set();
+        document.querySelectorAll('.permission-checkbox:checked').forEach(checkbox => {
+            selectedPermissionIds.add(parseInt(checkbox.value));
+        });
+
+        const permissionsToAdd = [...selectedPermissionIds].filter(id => !currentPermissionIds.has(id));
+        const permissionsToRemove = [...currentPermissionIds].filter(id => !selectedPermissionIds.has(id));
+
+        const apiCalls = [];
+
+        permissionsToAdd.forEach(permId => {
+            apiCalls.push(
+                fetch(`/api/v1/roles/${roleId}/permissions/${permId}`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `${tokenType} ${token}` }
+                })
+            );
+        });
+
+        permissionsToRemove.forEach(permId => {
+            apiCalls.push(
+                fetch(`/api/v1/roles/${roleId}/permissions/${permId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `${tokenType} ${token}` }
+                })
+            );
+        });
+
+        try {
+            const results = await Promise.all(apiCalls);
+            const errors = results.filter(res => !res.ok);
+
+            if (errors.length > 0) {
+                // Handle partial success/failure if needed
+                let errorMsg = `Failed to update ${errors.length} permission(s).`;
+                try { // Try to get more details from the first error
+                    const errData = await errors[0].json();
+                    errorMsg += ` First error: ${errData.detail || errors[0].statusText}`;
+                } catch { /* ignore */ }
+                showPermissionsModalAlert(errorMsg, 'warning');
+            } else {
+                showPermissionsModalAlert('Permissions updated successfully!', 'success');
+                // Optionally close modal after a delay
+                setTimeout(() => { permissionsModal.hide(); }, 1500);
+                // No need to refresh roles table here unless permissions affect display
+            }
+        } catch (networkError) {
+            console.error("Network error saving permissions:", networkError);
+            showPermissionsModalAlert('A network error occurred while saving permissions.', 'danger');
+        } finally {
+            savePermissionsButton.disabled = false;
+        }
+    }
+
+    savePermissionsButton.addEventListener('click', savePermissions);
+
+    // Fetch roles when the page loads
+    document.addEventListener('DOMContentLoaded', fetchRoles);
+
+</script>
+{% endblock %} 

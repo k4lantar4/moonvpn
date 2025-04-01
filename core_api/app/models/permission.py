@@ -2,11 +2,17 @@
 from sqlalchemy import Column, Integer, String, Text
 # Import relationship for defining model relations
 from sqlalchemy.orm import relationship
+from typing import List, TYPE_CHECKING
 
 # Import the Base class from the database configuration
-from app.db.base_class import Base
+from app.db.base import Base
 # Import the association table
 from .associations import role_permissions_table
+# Remove direct import of Role model
+# from .role import Role
+
+if TYPE_CHECKING:
+    from .role import Role
 
 # Define the Permission model class, inheriting from Base
 class Permission(Base):
@@ -16,6 +22,7 @@ class Permission(Base):
     """
     # Define the table name explicitly (optional, SQLAlchemy can infer it)
     __tablename__ = "permissions"
+    __allow_unmapped__ = True
 
     # Define the primary key column: 'id'
     # - Integer type
@@ -37,10 +44,8 @@ class Permission(Base):
     description = Column(Text, nullable=True)
 
     # Define the many-to-many relationship with Role
-    # - 'roles' attribute will hold a list of Role objects associated with this Permission
-    # - 'secondary' specifies the association table used for this relationship
-    # - 'back_populates' creates a bidirectional relationship, linking back to the 'permissions' attribute in the Role model
-    roles = relationship(
+    # Type hint uses string forward reference
+    roles: "List[Role]" = relationship(
         "Role",
         secondary=role_permissions_table,
         back_populates="permissions"

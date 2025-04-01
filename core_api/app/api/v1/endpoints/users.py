@@ -3,8 +3,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List, Any
 from sqlalchemy.orm import Session
 
-# Import CRUD functions, schemas, models, and dependencies
-from app import crud
+# Import CRUD instance, schemas, models, and dependencies
+from app import crud # crud.user will be available now
 from app import schemas
 from app import models
 from app.api import deps # Dependency injection for DB session and potentially authentication
@@ -25,15 +25,15 @@ def create_user(
     Validates input using UserCreate schema.
     Handles potential duplicate Telegram IDs.
     """
-    # Check if a user with the same Telegram ID already exists
-    existing_user = crud.user.get_user_by_telegram_id(db, telegram_id=user_in.telegram_id)
+    # Use the specific method from CRUDUser
+    existing_user = crud.user.get_by_telegram_id(db, telegram_id=user_in.telegram_id)
     if existing_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="A user with this Telegram ID already exists.",
         )
-    # Create the user using the CRUD function
-    user = crud.user.create_user(db=db, obj_in=user_in)
+    # Use the create method from CRUDBase (inherited by CRUDUser)
+    user = crud.user.create(db=db, obj_in=user_in)
     return user
 
 @router.get("/", response_model=List[schemas.User])
@@ -48,7 +48,8 @@ def read_users(
     Includes pagination (skip, limit).
     (Example shows how to add authorization for superusers only)
     """
-    users = crud.user.get_users(db, skip=skip, limit=limit)
+    # Use the get_multi method from CRUDBase
+    users = crud.user.get_multi(db, skip=skip, limit=limit)
     return users
 
 @router.get("/{user_id}", response_model=schemas.User)
@@ -63,7 +64,8 @@ def read_user(
     Handles the case where the user is not found.
     (Example shows potential authorization)
     """
-    user = crud.user.get_user(db, user_id=user_id)
+    # Use the get method from CRUDBase
+    user = crud.user.get(db, id=user_id)
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     # Add authorization check here if needed, e.g.:
@@ -84,15 +86,12 @@ def update_user(
     Validates input using UserUpdate schema.
     Handles not found errors and potential authorization.
     """
-    user = crud.user.get_user(db, user_id=user_id)
+    # First, get the existing user object
+    user = crud.user.get(db, id=user_id)
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-    # Add authorization check here, e.g., only user can update themselves or superuser
-    # if user.id != current_user.id and not crud.user.is_superuser(current_user):
-    #     raise HTTPException(status_code=403, detail="Not authorized to update this user")
-
-    # Perform the update using the CRUD function
-    user = crud.user.update_user(db=db, db_obj=user, obj_in=user_in)
+    # Then, update it using the update method from CRUDBase
+    user = crud.user.update(db=db, db_obj=user, obj_in=user_in)
     return user
 
 @router.delete("/{user_id}", response_model=schemas.User)
@@ -107,12 +106,20 @@ def delete_user(
     Handles not found errors.
     (Example shows potential superuser authorization)
     """
-    user = crud.user.get_user(db, user_id=user_id)
-    if not user:
+    # Use the remove method from CRUDBase
+    deleted_user = crud.user.remove(db=db, id=user_id)
+    if not deleted_user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    # CRUDBase.remove returns the deleted object
+    return deleted_user # Return the data of the user that was deleted
 
-    # Perform the deletion using the CRUD function
-    deleted_user = crud.user.remove_user(db=db, user_id=user_id)
-    # Note: remove_user returns the deleted object or None, but we already checked existence.
-    # We return the object data before deletion as confirmation.
-    return deleted_user # Return the data of the user that was deleted 
+# --- Endpoint for Current User --- #
+@router.get("/me", response_model=schemas.User)
+async def read_users_me(
+    current_user: models.User = Depends(deps.get_current_active_user)
+) -> Any:
+    """
+    Get current logged-in active user's profile.
+    """
+    # The dependency provides the 'current_user' object
+    return current_user 

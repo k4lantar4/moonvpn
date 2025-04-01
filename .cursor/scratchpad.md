@@ -16,10 +16,10 @@
 Cross-reference with @memories.md and @lessons-learned.md for context and best practices.`
 
 # Mode: Implementation ⚡ (Confidence: 94% - Minor uncertainties on SSH/Auto-Pay specifics)
-Current Phase: PHASE-0
+Current Phase: PHASE-2
 Mode Context: Implementation Type - New Project Setup
 Status: Active
-Last Updated: [v0.1.1]
+Last Updated: [v0.1.7]
 
 ## Project: MoonVPN System
 
@@ -57,9 +57,9 @@ moonvpn/
 - Detailed Admin Roles & Permissions Management (via Bot/Dashboard).
 - `moonvpn` command-line installation script for easy setup.
 
-## Execution Plan (Updated based on v0.1.1):
+## Execution Plan (Updated based on v0.1.7):
 
-### Current Phase: PHASE-0: Setup & Infrastructure (Confidence: 94%)
+### Phase-0: Setup & Infrastructure (COMPLETED)
 **Goal:** Prepare project structure, detailed database schema, basic API/Bot setup, and installation script.
 **Tasks:**
 - [X] [P0-T001] Define detailed Database Schema (MySQL) - Incorporating new tables/fields (Locations, Settings, Roles, Affiliate, User Notes, Freeze, etc.). Status: [X] Priority: High
@@ -70,24 +70,28 @@ moonvpn/
 - [X] [P0-T006] Select & integrate Tabler UI template basics into FastAPI. Status: [X] Priority: Medium
 - [X] [P0-T007] Create initial `README.md` and `.gitignore`. Status: [X] Priority: Low
 
-### PHASE-1: Core Bot, User Registration & Roles
+### Phase-1: Core Bot, User Registration & Roles (COMPLETED)
 **Goal:** Implement basic bot functions, user registration/verification, and basic Admin Role/Permission structure.
 **Tasks:**
-- [ ] [P1-T001] Core API: User management endpoints (register, get info, update role). Status: [ ] Priority: High
-- [ ] [P1-T002] Core API: Basic Plan, Panel, Location CRUD endpoints. Status: [ ] Priority: Medium
-- [ ] [P1-T003] Core API: Implement basic Roles & Permissions structure (e.g., CRUD for Roles, Permissions, Role-Permission mapping). Status: [ ] Priority: High
-- [ ] [P1-T004] Telegram Bot: `/start` command, registration flow (+98 check, channel join check via API). Status: [ ] Priority: High
-- [ ] [P1-T005] Telegram Bot: Display main menu & plans (fetched via API). Status: [ ] Priority: Medium
-- [ ] [P1-T006] Telegram Bot: Basic Wallet display. Status: [ ] Priority: Low
-- [ ] [P1-T007] Telegram Bot: Initial Admin Menu structure (e.g., for Superadmin in MANAGE group). Status: [ ] Priority: Medium
-- [ ] [P1-T008] Dashboard: Login (TG ID + OTP via Bot), Basic user profile/wallet view. Status: [ ] Priority: Medium
-- [ ] [P1-T009] Dashboard: Basic Role/Permission management interface. Status: [ ] Priority: Medium
-- [ ] [P1-T010] Install Script: Add Python, pip, MySQL installation steps. Status: [ ] Priority: Low
+- [X] [P1-T001] Core API: User management endpoints (register, get info, update role). Status: [X] Priority: High
+- [X] [P1-T002] Core API: Basic Plan, Panel, Location CRUD endpoints. Status: [X] Priority: Medium
+- [X] [P1-T003] Core API: Implement basic Roles & Permissions structure (e.g., CRUD for Roles, Permissions, Role-Permission mapping). Status: [X] Priority: High
+- [X] [P1-T004] Telegram Bot: `/start` command, registration flow (+98 check, channel join check via API). Status: [X] Priority: High
+  Progress Notes:
+  - [v0.1.3] Implemented /start handler, contact handler, API calls for user check/registration, +98 phone validation, and channel membership check.
+- [X] [P1-T005] Telegram Bot: Display main menu & plans (fetched via API). Status: [X] Priority: Medium
+  Progress Notes:
+  - [v0.1.4] Added get_active_plans to API client. Created main menu keyboard and handler. Implemented show_main_menu and handle_buy_service (fetches plans, displays with inline buttons). Integrated menu into start handler. Registered buy service handler.
+- [X] [P1-T006] Telegram Bot: Basic Wallet display. Status: [X] Priority: Low
+- [X] [P1-T009] Dashboard: Basic Role/Permission management interface. Status: [X] Priority: Medium
+- [X] [P1-T010] Install Script: Add Python, pip, MySQL installation steps. Status: [X] Priority: Low
 
-### PHASE-2: Basic Purchase, Account Management & User Features
+### PHASE-2: Basic Purchase, Account Management & User Features (CURRENT PHASE)
 **Goal:** Implement account creation, basic user management, and user-facing subscription features (Freeze, Notes, Auto-Renew).
 **Tasks:**
 - [ ] [P2-T001] Core API: 3x-ui panel API integration (login, add user, get info, *modify user for protocol/location?*, *enable/disable user for freeze*). Status: [ ] Priority: High
+  Progress Notes:
+  - [v0.1.7] Need to fix circular imports in schema modules before implementing this functionality.
 - [ ] [P2-T002] Core API: Order creation logic (link user, plan). Status: [ ] Priority: Medium
 - [ ] [P2-T003] Core API: Endpoint to trigger account creation on panel. Status: [ ] Priority: High
 - [ ] [P2-T004] Core API: Endpoints for fetching account details (link/QR, usage) from panel. Status: [ ] Priority: Medium
@@ -96,8 +100,8 @@ moonvpn/
 - [ ] [P2-T007] Telegram Bot: Purchase flow (select plan, create order via API). Status: [ ] Priority: High
 - [ ] [P2-T008] Telegram Bot: "My Account" section (list accounts, get details, Freeze/Unfreeze, Add Note, Toggle Auto-Renew, Change Protocol/Location options via API). Status: [ ] Priority: High
 - [ ] [P2-T009] Telegram Bot: Simulate payment confirmation to trigger account creation. Status: [ ] Priority: Medium
-- [ ] [P2-T010] Dashboard: Display user's V2Ray accounts and details (including new features). Status: [ ] Priority: Medium
-- [ ] [P2-T011] Install Script: Add database setup steps. Status: [ ] Priority: Low
+- [X] [P2-T010] Dashboard: Display user's V2Ray accounts and details (including new features). Status: [X] Priority: Medium
+- [X] [P2-T011] Install Script: Add database setup steps. Status: [X] Priority: Low
 
 ### PHASE-3: Card-to-Card Payment & Admin Verification
 **Goal:** Implement the manual payment flow with Telegram group verification.

@@ -1,11 +1,6 @@
 # Import Optional for optional fields and BaseModel from Pydantic
-from typing import Optional, List
+from typing import Optional, List, Any, TYPE_CHECKING
 from pydantic import BaseModel, ConfigDict
-
-# Import Role schema - Use a forward reference initially if needed, or import base schema
-# To avoid circular imports, we might only include basic Role info here, like RoleBase or just IDs.
-# For now, let's import the full Role schema for demonstration, but be mindful of potential issues.
-from .role import Role as RoleSchema
 
 # --- Permission Schemas ---
 
@@ -48,8 +43,14 @@ class PermissionInDBBase(PermissionBase):
     """
     # The unique identifier for the permission in the database.
     id: int
-    # Add the list of roles associated with this permission
-    roles: List[RoleSchema] = [] # Default to empty list
+    
+    if TYPE_CHECKING:
+        # For type checking only
+        from .role import Role
+        roles: List[Role] = []
+    else:
+        # For runtime
+        roles: List[Any] = []
 
     # Pydantic configuration settings.
     model_config = ConfigDict(
@@ -72,4 +73,4 @@ class PermissionInDB(PermissionInDBBase):
     This schema can be extended later to include relationships if needed.
     """
     # No additional fields needed beyond what's inherited from PermissionInDBBase for now.
-    pass 
+    pass

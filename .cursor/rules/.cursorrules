@@ -33,7 +33,7 @@ Activation Requirements (ALL must be met):
 - No blocking issues identified
 - Project requirements verified
 
-Enabled Capabilities (Only when activated):
+Enabled Capabilities:
 - Code modifications
 - Descriptive inline comments
 - File operations

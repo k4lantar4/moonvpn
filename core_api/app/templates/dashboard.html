@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - MoonVPN{% endblock %}
+
+{% block content %}
+<div class="page-wrapper">
+    <!-- Page header -->
+    <div class="page-header d-print-none">
+        <div class="container-xl">
+            <div class="row g-2 align-items-center">
+                <div class="col">
+                    <h2 class="page-title">
+                        Dashboard
+                    </h2>
+                    <div class="text-muted mt-1" id="user-greeting">Loading user info...</div>
+                </div>
+                 <!-- Optional Page title actions -->
+                 <div class="col-auto ms-auto d-print-none">
+                    <div class="btn-list">
+                      <button id="logout-button" class="btn btn-danger">
+                        Logout
+                      </button>
+                    </div>
+                  </div>
+            </div>
+        </div>
+    </div>
+    <!-- Page body -->
+    <div class="page-body">
+        <div class="container-xl">
+            <div class="row row-deck row-cards">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-body">
+                            <h3 class="card-title">Account Information</h3>
+                            <p id="user-telegram-id">Telegram ID: Loading...</p>
+                            <p id="user-wallet-balance">Wallet Balance: Loading...</p>
+                            <!-- Add more user info here as needed -->
+                        </div>
+                    </div>
+                </div>
+                <!-- Add more cards/widgets for the dashboard here -->
+                 <div class="col-12">
+                    <div id="alert-message-dash" class="alert" style="display: none;" role="alert"></div>
+                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const userGreeting = document.getElementById('user-greeting');
+    const userTelegramId = document.getElementById('user-telegram-id');
+    const userWalletBalance = document.getElementById('user-wallet-balance');
+    const logoutButton = document.getElementById('logout-button');
+    const alertMessageDiv = document.getElementById('alert-message-dash');
+
+    function showAlert(message, type = 'danger') {
+        alertMessageDiv.className = `alert alert-${type}`;
+        alertMessageDiv.textContent = message;
+        alertMessageDiv.style.display = 'block';
+    }
+
+    function formatCurrency(value) {
+        try {
+            return parseFloat(value).toLocaleString('fa-IR', { style: 'currency', currency: 'IRR', minimumFractionDigits: 0 }).replace('ریال', 'تومان');
+        } catch (e) {
+            return value + " تومان"; // Fallback
+        }
+    }
+
+    async function fetchUserInfo() {
+        const token = localStorage.getItem('accessToken');
+        const tokenType = localStorage.getItem('tokenType') || 'Bearer'; // Default to Bearer
+
+        if (!token) {
+            // No token found, redirect to login
+            window.location.href = '/login'; // Adjust path if needed
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/v1/users/me', {
+                method: 'GET',
+                headers: {
+                    'Authorization': `${tokenType} ${token}`
+                }
+            });
+
+            if (response.ok) {
+                const user = await response.json();
+                userGreeting.textContent = `Welcome, ${user.first_name || 'User'}!`;
+                userTelegramId.textContent = `Telegram ID: ${user.telegram_id}`;
+                userWalletBalance.textContent = `Wallet Balance: ${formatCurrency(user.wallet_balance)}`;
+                // Populate other user info fields here
+            } else if (response.status === 401 || response.status === 403) {
+                // Unauthorized or Forbidden - token might be invalid/expired
+                localStorage.removeItem('accessToken');
+                localStorage.removeItem('tokenType');
+                showAlert('Your session has expired or is invalid. Please log in again.', 'warning');
+                setTimeout(() => { window.location.href = '/login'; }, 2000);
+            } else {
+                // Other errors
+                const errorData = await response.json();
+                showAlert(`Error fetching user info: ${errorData.detail || response.statusText}`);
+                userGreeting.textContent = "Error loading user info.";
+            }
+        } catch (error) {
+            console.error('Error fetching user info:', error);
+            showAlert('An error occurred while fetching your information.');
+            userGreeting.textContent = "Error loading user info.";
+            // Maybe redirect to login after a few seconds on network error?
+            // setTimeout(() => { window.location.href = '/login'; }, 3000);
+        }
+    }
+
+    logoutButton.addEventListener('click', () => {
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('tokenType');
+        showAlert('You have been logged out.', 'info');
+        setTimeout(() => { window.location.href = '/login'; }, 1000);
+    });
+
+    // Fetch user info when the page loads
+    document.addEventListener('DOMContentLoaded', fetchUserInfo);
+
+</script>
+{% endblock %} 

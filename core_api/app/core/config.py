@@ -1,38 +1,43 @@
 import os
-from pydantic_settings import BaseSettings
-from dotenv import load_dotenv
+from pydantic_settings import BaseSettings, SettingsConfigDict
+from typing import Optional
 
-# Load .env file at the project root (moonvpn/.env)
-# Adjust path if your .env is elsewhere
-load_dotenv(dotenv_path=os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), '.env'))
+# No need to manually define .env path if docker-compose env_file is used
+# Let BaseSettings read directly from environment variables passed by docker-compose
 
 class Settings(BaseSettings):
-    """Application settings loaded from environment variables."""
     PROJECT_NAME: str = "MoonVPN Core API"
     API_V1_STR: str = "/api/v1"
 
-    # Database Configuration
-    DB_HOST: str = os.getenv("DB_HOST", "localhost")
-    DB_PORT: str = os.getenv("DB_PORT", "3306")
-    DB_USER: str = os.getenv("DB_USER", "moonvpn_user")
-    DB_PASSWORD: str = os.getenv("DB_PASSWORD", "your_strong_password")
-    DB_NAME: str = os.getenv("DB_NAME", "moonvpn_db")
+    # --- Database Configuration --- #
+    # BaseSettings will read this from environment variables passed by docker-compose
+    # Default is only a fallback if the env var is somehow not set.
+    SQLALCHEMY_DATABASE_URI: str = "mysql+pymysql://fallback_user:fallback_pass@localhost/fallback_db?charset=utf8mb4"
 
-    # Construct SQLAlchemy Database URL
-    @property
-    def SQLALCHEMY_DATABASE_URI(self) -> str:
-        """Construct the database URI for SQLAlchemy."""
-        # Using pymysql driver
-        return f"mysql+pymysql://{self.DB_USER}:{self.DB_PASSWORD}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
+    # --- Security Settings --- #
+    SECRET_KEY: str = "fallback_secret_key"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7
+    ALGORITHM: str = "HS256"
 
-    # Security Settings (Example - To be used later)
-    # SECRET_KEY: str = os.getenv("SECRET_KEY", "a_very_secret_key_change_this")
-    # ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8 # 8 days
-    # ALGORITHM: str = "HS256"
+    # --- OTP Settings --- #
+    OTP_EXPIRE_SECONDS: int = 3 * 60
 
-    class Config:
-        case_sensitive = True
-        # env_file = ".env" # Already handled by load_dotenv
+    # --- Redis Configuration --- #
+    REDIS_HOST: str = "localhost"
+    REDIS_PORT: int = 6379
+    REDIS_DB: int = 0
+
+    # Pydantic-Settings configuration
+    # Remove env_file, rely on docker-compose to set environment variables
+    # For Pydantic V2:
+    model_config = SettingsConfigDict(extra='ignore', case_sensitive=True)
+    # For Pydantic V1:
+    # class Config:
+    #     case_sensitive = True
 
 
+# Create a single instance of the settings
 settings = Settings()
+
+# Optional: Print loaded DB URI for debugging
+# print(f"Loaded SQLALCHEMY_DATABASE_URI: {settings.SQLALCHEMY_DATABASE_URI}")

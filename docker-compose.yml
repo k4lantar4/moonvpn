@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  core_api:
+    build:
+      context: ./core_api
+      dockerfile: Dockerfile
+    ports:
+      - "8888:8888" # Map host port 8888 to container port 8888
+    volumes:
+      # Mount the core_api directory for live code changes
+      - ./core_api:/app
+    # Use environment_file to load DB credentials from .env
+    env_file:
+      - .env
+    # Ensure API waits for DB to be ready
+    depends_on:
+      - db
+    # Environment variables can be defined here or in a .env file
+    # environment:
+      # - DATABASE_URL=postgresql://user:password@db:5432/appdb
+      # Add other environment variables as needed
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8888 --reload # Use --reload for development
+
+  db:
+    image: mysql:8.0 # Use an official MySQL image
+    # platform: linux/amd64 # Uncomment if on ARM architecture like M1/M2 Mac
+    ports:
+      # Optionally expose MySQL port to host (for debugging/connecting with DB client)
+      # Be cautious exposing DB ports in production
+      - "3307:3306" # Map host 3307 to container 3306 to avoid conflict if MySQL runs on host
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-supersecretrootpassword} # Use root password from .env or default
+      MYSQL_DATABASE: ${DB_NAME:-moonvpn_db} # Use DB name from .env or default
+      MYSQL_USER: ${DB_USER:-moonvpn_user} # Use user from .env or default
+      MYSQL_PASSWORD: ${DB_PASSWORD:-your_strong_password} # Use password from .env or default
+    volumes:
+      # Mount a volume for persistent data
+      - mysql_data:/var/lib/mysql
+      # Optional: Mount custom MySQL config file
+      # - ./mysql/my.cnf:/etc/mysql/conf.d/my.cnf
+
+# Define named volumes for persistent data
+# volumes:
+#   postgres_data: 
+volumes:
+  mysql_data: # Define the named volume 

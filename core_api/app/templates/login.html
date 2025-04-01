@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+
+{% block title %}Login - MoonVPN Dashboard{% endblock %}
+
+{% block content %}
+<div class="page page-center">
+    <div class="container container-tight py-4">
+        <div class="text-center mb-4">
+            <a href="." class="navbar-brand navbar-brand-autodark">
+                <img src="/static/logo.svg" height="36" alt="MoonVPN">
+                <!-- Make sure logo.svg exists in static -->
+            </a>
+        </div>
+        <div class="card card-md">
+            <div class="card-body">
+                <h2 class="h2 text-center mb-4">Login to your account</h2>
+                <div id="alert-message" class="alert" style="display: none;" role="alert"></div>
+
+                <!-- Step 1: Enter Telegram ID -->
+                <form id="request-otp-form" autocomplete="off" novalidate>
+                    <div class="mb-3">
+                        <label class="form-label">Telegram ID</label>
+                        <input type="number" class="form-control" id="telegram_id" placeholder="Enter your Telegram User ID" required>
+                        <div class="invalid-feedback">Please enter your Telegram ID.</div>
+                    </div>
+                    <div class="form-footer">
+                        <button type="submit" class="btn btn-primary w-100">Send OTP</button>
+                    </div>
+                </form>
+
+                <!-- Step 2: Enter OTP (Initially hidden) -->
+                <form id="verify-otp-form" autocomplete="off" novalidate style="display: none;">
+                    <input type="hidden" id="hidden_telegram_id">
+                    <div class="mb-3">
+                        <label class="form-label">OTP Code</label>
+                        <input type="text" class="form-control" id="otp" placeholder="Enter the 6-digit code from Telegram" required minlength="6" maxlength="6">
+                        <div class="invalid-feedback">Please enter the 6-digit OTP.</div>
+                    </div>
+                    <div class="form-footer">
+                        <button type="submit" class="btn btn-primary w-100">Login</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        <!-- Optional: Add links like "Forgot password?" or "Sign up" if needed later -->
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const requestOtpForm = document.getElementById('request-otp-form');
+    const verifyOtpForm = document.getElementById('verify-otp-form');
+    const telegramIdInput = document.getElementById('telegram_id');
+    const hiddenTelegramIdInput = document.getElementById('hidden_telegram_id');
+    const otpInput = document.getElementById('otp');
+    const alertMessageDiv = document.getElementById('alert-message');
+
+    function showAlert(message, type = 'danger') {
+        alertMessageDiv.className = `alert alert-${type}`;
+        alertMessageDiv.textContent = message;
+        alertMessageDiv.style.display = 'block';
+    }
+
+    function hideAlert() {
+        alertMessageDiv.style.display = 'none';
+    }
+
+    requestOtpForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        hideAlert();
+        const telegramId = telegramIdInput.value;
+
+        if (!telegramId) {
+            showAlert('Please enter your Telegram ID.');
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/v1/auth/request-otp', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ telegram_id: parseInt(telegramId) })
+            });
+
+            const result = await response.json();
+
+            if (response.ok) {
+                showAlert(result.message, 'success');
+                requestOtpForm.style.display = 'none'; // Hide first form
+                verifyOtpForm.style.display = 'block';  // Show second form
+                hiddenTelegramIdInput.value = telegramId; // Store telegram_id for verification
+            } else {
+                showAlert(result.detail || 'Failed to request OTP. Please try again.');
+            }
+        } catch (error) {
+            console.error('Error requesting OTP:', error);
+            showAlert('An error occurred. Please check the console and try again.');
+        }
+    });
+
+    verifyOtpForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        hideAlert();
+        const telegramId = hiddenTelegramIdInput.value;
+        const otp = otpInput.value;
+
+        if (!otp || otp.length !== 6) {
+            showAlert('Please enter the 6-digit OTP.');
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/v1/auth/verify-otp', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ telegram_id: parseInt(telegramId), otp: otp })
+            });
+
+            const result = await response.json();
+
+            if (response.ok) {
+                // --- Login Successful ---
+                showAlert('Login successful!', 'success');
+                // Store the token (e.g., in localStorage)
+                localStorage.setItem('accessToken', result.access_token);
+                localStorage.setItem('tokenType', result.token_type);
+
+                // Redirect to the dashboard (assuming '/dashboard' route)
+                // Use a small delay to let user see success message
+                setTimeout(() => {
+                    window.location.href = '/dashboard'; // Adjust the path if needed
+                }, 1000);
+
+            } else {
+                showAlert(result.detail || 'Invalid OTP or login failed.');
+            }
+        } catch (error) {
+            console.error('Error verifying OTP:', error);
+            showAlert('An error occurred during login. Please try again.');
+        }
+    });
+</script>
+{% endblock %} 
