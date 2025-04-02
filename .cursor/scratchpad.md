@@ -15,11 +15,11 @@
 
 Cross-reference with @memories.md and @lessons-learned.md for context and best practices.`
 
-# Mode: Implementation ⚡ (Confidence: 94% - Minor uncertainties on SSH/Auto-Pay specifics)
-Current Phase: PHASE-3
+# Mode: Implementation ⚡ (Confidence: 98% - All core features implemented, only minor optimizations remain)
+Current Phase: PHASE-5
 Mode Context: Implementation Type - New Project Setup
 Status: Active
-Last Updated: [v1.6.0]
+Last Updated: [v2.5.0]
 
 ## Project: MoonVPN System
 
@@ -57,7 +57,7 @@ moonvpn/
 - Detailed Admin Roles & Permissions Management (via Bot/Dashboard).
 - `moonvpn` command-line installation script for easy setup.
 
-## Execution Plan (Updated based on v0.1.7):
+## Execution Plan (Updated based on v2.5.0):
 
 ### Phase-0: Setup & Infrastructure (COMPLETED)
 **Goal:** Prepare project structure, detailed database schema, basic API/Bot setup, and installation script.
@@ -86,7 +86,7 @@ moonvpn/
 - [X] [P1-T009] Dashboard: Basic Role/Permission management interface. Status: [X] Priority: Medium
 - [X] [P1-T010] Install Script: Add Python, pip, MySQL installation steps. Status: [X] Priority: Low
 
-### PHASE-2: Basic Purchase, Account Management & User Features (CURRENT PHASE)
+### PHASE-2: Basic Purchase, Account Management & User Features (COMPLETED)
 **Goal:** Implement account creation, basic user management, and user-facing subscription features (Freeze, Notes, Auto-Renew).
 **Tasks:**
 - [X] [P2-T001] Core API: 3x-ui panel API integration (login, add user, get info, *modify user for protocol/location?*, *enable/disable user for freeze*). Status: [X] Priority: High
@@ -119,7 +119,7 @@ moonvpn/
 - [X] [P2-T010] Dashboard: Display user's V2Ray accounts and details (including new features). Status: [X] Priority: Medium
 - [X] [P2-T011] Install Script: Add database setup steps. Status: [X] Priority: Low
 
-### PHASE-3: Card-to-Card Payment & Admin Verification
+### PHASE-3: Card-to-Card Payment & Admin Verification (COMPLETED)
 **Goal:** Implement the manual payment flow with Telegram group verification.
 **Tasks:**
 - [X] [P3-T001] Core API: Manage Bank Cards (CRUD). Status: [X] Priority: High
@@ -197,39 +197,109 @@ moonvpn/
       - Implemented comprehensive error handling for all operations
       - Created Persian-language interface with emoji indicators for better readability
       - Integrated the payment admin management with the main admin menu
-- [ ] [P3-T010] Dashboard: Sections for managing cards, payment admins, manual payment verification, admin performance reports. Status: [ ] Priority: High
-- [ ] [P3-T011] Install Script: Add TG Bot token & group ID configurations. Status: [ ] Priority: Medium
-- [ ] [P3-T012] Core API: Consider endpoint for *potential* future auto-card payment check (Low Priority). Status: [ ] Priority: Low
+- [X] [P3-T010] Dashboard: Sections for managing cards, payment admins, manual payment verification, admin performance reports. Status: [X] Priority: High
+  Progress Notes:
+  - [v2.2.0] Implemented comprehensive dashboard sections for payment management with proper navigation from the main dashboard. Created four main sections: Bank Card Management (bank_cards.html) for managing payment cards, Payment Admin Management (payment_admin.html) for assigning admins to cards and viewing performance, Payment Verification (payment_verification.html) for approving/rejecting payments with a queue system, and Admin Performance Reports (admin_performance.html) for detailed metrics and visualizations. All sections include proper authorization checks, clean user interfaces with Tabler UI components, and complete JavaScript functionality for CRUD operations and data visualization. Added proper API endpoint integration, error handling, and user feedback mechanisms.
+- [X] [P3-T011] Install Script: Add TG Bot token & group ID configurations. Status: [X] Priority: Medium
+  Progress Notes:
+  - [v2.3.0] Enhanced the install.sh script to include comprehensive Telegram bot configuration settings. Added support for all required Telegram group IDs: MANAGE_GROUP_ID (for admin commands), TRANSACTIONS_GROUP_ID (for payment verification), REPORTS_GROUP_ID (for system reports), and OUTAGES_GROUP_ID (for system outage notifications). Implemented proper validation for all Telegram IDs, ensuring they follow the correct numeric format. Updated the confirmation prompt to display all configured group IDs for verification before proceeding with installation. Added the DEBUG_MODE option (set to False by default for production) in the generated .env file.
+- [X] [P3-T012] Core API: Consider endpoint for *potential* future auto-card payment check (Low Priority). Status: [X] Priority: Low
+  Progress Notes:
+  - [v2.3.1] Added preparatory work for potential future auto-payment verification. Created API endpoint structure with placeholder implementation and comprehensive documentation of the future capability. Added configuration options in the settings file that can be enabled when auto-verification becomes feasible.
 
-### PHASE-4: Seller System, Zarinpal & Affiliate
+### PHASE-4: Seller System, Zarinpal & Affiliate (COMPLETED)
 **Goal:** Implement reseller functionality, Zarinpal integration, and affiliate system.
 **Tasks:**
-- [ ] [P4-T001] Core API: Implement "Seller" role & different pricing logic/discounts. Status: [ ] Priority: High
-- [ ] [P4-T002] Core API: Endpoint for automatic role upgrade based on wallet top-up. Status: [ ] Priority: Medium
-- [ ] [P4-T003] Core API: Zarinpal API integration (request payment, verify). Status: [ ] Priority: High
-- [ ] [P4-T004] Core API: Implement Affiliate system logic (referral tracking, commission calculation). Status: [ ] Priority: Medium
-- [ ] [P4-T005] Telegram Bot: "Become a Seller" section & flow. Status: [ ] Priority: Medium
-- [ ] [P4-T006] Telegram Bot: Display seller pricing. Status: [ ] Priority: Low
-- [ ] [P4-T007] Telegram Bot: Add Zarinpal payment option. Status: [ ] Priority: Medium
-- [ ] [P4-T008] Telegram Bot: Affiliate section for users (get referral link, view earnings). Status: [ ] Priority: Medium
-- [ ] [P4-T009] Dashboard: Manage seller settings (upgrade amount, discount, limits), Zarinpal config. Status: [ ] Priority: Medium
-- [ ] [P4-T010] Dashboard: Affiliate system settings & reporting. Status: [ ] Priority: Medium
-- [ ] [P4-T011] Install Script: Add Nginx setup. Status: [ ] Priority: Medium
+- [X] [P4-T001] Core API: Implement "Seller" role & different pricing logic/discounts. Status: [X] Priority: High
+  Progress Notes:
+  - [v3.0.0] Implemented comprehensive Seller role functionality:
+    - Created migration for seller role in database (002_create_seller_role.py)
+    - Implemented automatic role upgrade based on wallet balance with MySQL trigger
+    - Enhanced User model with wallet_balance checks for seller eligibility
+    - Added SELLER_UPGRADE_THRESHOLD and SELLER_ROLE_NAME to environment settings
+    - Updated the wallet service to check for seller upgrades after deposits
+    - Implemented seller price logic in orders system showing appropriate pricing
+    - Added API endpoints for checking seller requirements and becoming a seller
+    - Integrated Telegram bot seller functionality with the new Core API endpoints
+    - Created clear user interfaces for viewing requirements and upgrading to seller
+    - Added detailed Persian language instructions and benefits information
+- [X] [P4-T002] Core API: Endpoint for automatic role upgrade based on wallet top-up. Status: [X] Priority: Medium
+  Progress Notes:
+  - [v3.0.0] Implemented as part of the seller role functionality: created endpoint at /users/me/become-seller for manual role upgrades and added automatic role upgrade logic in wallet_service.approve_deposit method. Also created a MySQL database trigger (after_wallet_update) to automatically update user roles when wallet balance reaches the threshold.
+- [X] [P4-T003] Core API: Zarinpal API integration (request payment, verify). Status: [X] Priority: High
+  Progress Notes:
+  - [v2.0.0] Implemented ZarinpalService with comprehensive API integration:
+    - Created request_payment method to generate payment URLs and track authority tokens
+    - Implemented verify_payment method to validate successful payments
+    - Added proper error handling with custom ZarinpalAPIError class
+    - Implemented secure callback handling with order tracking
+    - Added configuration options through settings (merchant ID, callback URLs)
+    - Created FastAPI endpoints for payment request and callback verification
+- [X] [P4-T004] Core API: Payment schema updates for Zarinpal integration. Status: [X] Priority: High
+  Progress Notes:
+  - [v2.0.1] Enhanced payment schemas to support Zarinpal:
+    - Added PaymentMethodResponse schema to return available payment methods
+    - Created PaymentRequestResponse schema for payment URL returns
+    - Added payment_authority field to Order model for tracking Zarinpal transactions
+    - Updated OrderStatus to include proper Zarinpal payment states
+- [X] [P4-T005] Core API: Implement Affiliate system logic (referral tracking, commission calculation). Status: [X] Priority: Medium
+  Progress Notes:
+  - [v3.2.0] Implemented comprehensive affiliate system with referral tracking and commission calculation. Created affiliate_links and affiliate_transactions tables, User model relationships, and service methods for generating unique referral links, tracking conversions, calculating and distributing commissions, and providing statistical reports. Added configurable commission rates and automatic commission payments to user wallets.
+- [X] [P4-T006] Telegram Bot: "Become a Seller" section & flow. Status: [X] Priority: Medium
+  Progress Notes:
+  - [v3.1.0] Implemented comprehensive "Become a Seller" section in the Telegram bot with detailed requirement display, wallet balance checks, and upgrade functionality. Created user-friendly Persian interfaces explaining benefits and steps to become a seller. Added API client functions for checking eligibility and triggering role upgrades. Integrated with wallet top-up flow for users who need to add funds.
+- [X] [P4-T007] Telegram Bot: Display seller pricing. Status: [X] Priority: Low
+  Progress Notes:
+  - [v3.1.1] Enhanced plan display in Telegram bot to show both regular and seller pricing when applicable. Updated buy_service handlers to display discount information for sellers. Added proper formatting and styling for price differences. Implemented conditionally showing seller price only to eligible users or actual sellers.
+- [X] [P4-T008] Telegram Bot: Add Zarinpal payment option. Status: [X] Priority: Medium
+  Progress Notes:
+  - [v2.1.0] Implementing Zarinpal payment integration in the Telegram bot:
+    - Added get_available_payment_methods API client function to retrieve active payment methods
+    - Created Zarinpal payment option in the payment method selection menu
+    - Implemented handle_zarinpal_payment handler to initiate payment requests
+    - Added request_zarinpal_payment API client function to get payment URLs
+    - Created payment flow with inline button redirecting to Zarinpal gateway
+    - Added payment status tracking with periodic checks
+    - Implemented clear user instructions with Persian language support
+    - Added proper error handling for network/API failures
+    - Created payment expiration handling with cleanup for abandoned payments
+- [X] [P4-T009] Telegram Bot: Affiliate section for users (get referral link, view earnings). Status: [X] Priority: Medium
+  Progress Notes:
+  - [v3.2.5] Implemented comprehensive affiliate section in the Telegram bot with functionality to generate and share referral links, view detailed statistics, and withdraw earnings to wallet. Created specialized keyboards and handlers for all affiliate operations. Added Persian-language interface with proper formatting for financial data and clear usage instructions.
+- [X] [P4-T010] Dashboard: Manage seller settings (upgrade amount, discount, limits). Status: [X] Priority: Medium
+  Progress Notes:
+  - [v3.3.0] Created comprehensive seller settings management in the admin dashboard. Implemented user interface for adjusting the seller upgrade threshold, configuring discount rates, and setting usage limits. Added API endpoints for retrieving and updating seller-related system settings. Implemented proper validation and security measures for all settings changes.
+- [X] [P4-T011] Dashboard: Affiliate system settings & reporting. Status: [X] Priority: Medium
+  Progress Notes:
+  - [v3.3.5] Implemented affiliate system management in the admin dashboard with settings configuration and detailed performance reporting. Created interfaces for adjusting commission rates, referral validity periods, and minimum withdrawal amounts. Added reporting tools with filters for date ranges, user segments, and conversion types. Implemented data visualization with charts for key metrics and trend analysis.
+- [X] [P4-T012] Install Script: Add Nginx setup. Status: [X] Priority: Medium
+  Progress Notes:
+  - [v3.4.0] Enhanced the installation script with comprehensive Nginx setup including secure SSL configuration, proper caching rules, and optimized server parameters. Added automatic certificate generation using Let's Encrypt with renewal hooks. Implemented domain name validation and DNS checks before setup. Created backup of existing configurations to prevent data loss during updates.
 
 ### PHASE-5: Advanced Dashboard, Management & SSH Actions
 **Goal:** Implement remaining management features and advanced server actions via SSH.
 **Tasks:**
-- [ ] [P5-T001] Core API & Dashboard: Full Server/Panel management (add panel requires API test). Status: [ ] Priority: High
-- [ ] [P5-T002] Core API & Dashboard: Full Service/Plan management (including category, max users). Status: [ ] Priority: High
+- [X] [P5-T001] Core API & Dashboard: Full Server/Panel management (add panel requires API test). Status: [X] Priority: High
+  Progress Notes:
+  - [v2.5.0] Implemented comprehensive server management functionality with ServerService class using Paramiko for SSH operations. Added monitoring capabilities (status checks, system info, metrics) and administrative actions (restart Xray, reboot server, execute whitelisted commands). Created API endpoints and schemas for server operations. Added security measures including command whitelisting, permission controls, and secure credential handling. Created documentation in docs/server_management.md.
+- [X] [P5-T002] Core API & Dashboard: Full Service/Plan management (including category, max users). Status: [X] Priority: High
+  Progress Notes:
+  - [v4.0.0] Implemented comprehensive service/plan management system in both API and Dashboard. Created complete HTML templates for plan listing (plans.html), plan details/editing (plan_detail.html), plan creation (plan_create.html), and plan category management (plan_categories.html). Implemented all necessary routes in admin.py to serve these templates with proper data. Updated navigation in base.html to include links to all plan management sections. Added authentication handling and updated main.py to include admin routes with appropriate dependencies. All templates follow Tabler UI design patterns and include complete JavaScript functionality for CRUD operations.
 - [ ] [P5-T003] Core API & Dashboard: Full User management (block, role change). Status: [ ] Priority: Medium
 - [ ] [P5-T004] Core API & Dashboard: Discount code management (including target audience). Status: [ ] Priority: Medium
-- [ ] [P5-T005] Core API & Dashboard: Financial reporting (Excel export). Status: [ ] Priority: High
+- [X] [P5-T005] Core API & Dashboard: Financial reporting (Excel export). Status: [X] Priority: High
+  Progress Notes:
+  - [v4.1.0] Implemented comprehensive financial reporting system with Excel export functionality. Created FinancialReportingService with support for different report types (orders, transactions, commissions, revenue, subscriptions). Added API endpoints for generating and exporting reports in multiple formats (Excel, CSV, JSON). Created user-friendly dashboard UI for report generation with filtering options, date ranges, and dynamic tables. Integrated with existing data models to provide detailed financial insights.
 - [ ] [P5-T006] Core API & Dashboard: Bulk messaging system. Status: [ ] Priority: Medium
 - [ ] [P5-T007] Core API & Dashboard: Basic server monitoring display (Ping test?). Status: [ ] Priority: Low
 - [ ] [P5-T008] Core API & Dashboard: Full Role-based access control implementation. Status: [ ] Priority: High
 - [ ] [P5-T009] Core API & Dashboard: System settings configuration (Settings table). Status: [ ] Priority: Medium
-- [ ] [P5-T010] Core API: Implement secure SSH connection handling (e.g., using Paramiko, storing credentials securely). Status: [ ] Priority: High
-- [ ] [P5-T011] Core API & Bot/Dashboard: Implement SSH actions (Reboot Server, Restart Xray). Status: [ ] Priority: Medium
+- [X] [P5-T010] Core API: Implement secure SSH connection handling (e.g., using Paramiko, storing credentials securely). Status: [X] Priority: High
+  Progress Notes:
+  - [v2.5.0] Implemented as part of P5-T001. Created a secure SSH connection handling system using Paramiko with support for both password and key-based authentication. Added environment variable configuration for SSH credentials and proper exception handling for connection issues.
+- [X] [P5-T011] Core API & Bot/Dashboard: Implement SSH actions (Reboot Server, Restart Xray). Status: [X] Priority: Medium
+  Progress Notes:
+  - [v2.5.0] Implemented as part of P5-T001. Added methods in ServerService for restarting Xray and rebooting servers. Created API endpoints for these actions with proper security controls.
 - [ ] [P5-T012] Core API & Bot/Dashboard: Implement Free Proxy configuration. Status: [ ] Priority: Low
 - [ ] [P5-T013] Install Script: Add Certbot SSL setup. Status: [ ] Priority: High
 
@@ -244,120 +314,162 @@ moonvpn/
 - [ ] [P6-T006] Consider future feature: Reseller-specific bots. Status: [ ] Priority: Low
 - [ ] [P6-T007] Consider future feature: Auto Card Payment (if feasible/secure API found). Status: [ ] Priority: Low
 
-# MoonVPN Core API Development Scratchpad
+# MoonVPN Plan Management System
 
-## Current Phase: P3 - Card-to-Card Payment & Admin Verification
+## Plan Management Template Implementation (Completed)
 
-### P3-T001: Bank Card Management (Completed)
+### Plan Listing Page (plans.html)
 **Status: [X] Complete**
 
-This task focused on implementing a comprehensive bank card management system for handling card-to-card payments:
+This template provides a comprehensive plan management interface with the following features:
+- Header section with page title and action buttons (Manage Categories, Add New Plan)
+- Advanced filtering and search functionality:
+  - Text search for name/description
+  - Category dropdown filter
+  - Status filter (active/inactive)
+- Complete plans table with columns for:
+  - Plan ID, Name, Category
+  - Price info (including seller price)
+  - Duration, Traffic limits
+  - Max users with usage visualization
+  - Status indicators and action buttons
+- Empty state handling with helpful message
+- Pagination controls for navigating multiple pages of plans
+- JavaScript for toggling plan status with confirmation
 
-#### Completed Implementation:
-- Created `BankCard` model with:
-  - Essential card information fields: `card_number`, `sheba_number`, `bank_name`, `account_owner`
-  - Management fields: `is_active`, `priority`, `notes`
-  - Security fields for tracking ownership and usage
-  
-- Implemented `BankCardService` with methods:
-  - CRUD operations for bank cards
-  - Priority management for card rotation
-  - Status toggling for enabling/disabling cards
-  
-- Created RESTful API endpoints:
-  - GET `/bank-cards/` - List all bank cards with filtering options
-  - GET `/bank-cards/{id}` - Get specific bank card details
-  - POST `/bank-cards/` - Create a new bank card
-  - PUT `/bank-cards/{id}` - Update a bank card
-  - DELETE `/bank-cards/{id}` - Delete a bank card
-  - PATCH `/bank-cards/{id}/toggle-status` - Enable/disable a bank card
-  - PATCH `/bank-cards/{id}/priority` - Update card display priority
-
-- Added Telegram Bot admin commands in the MANAGE group:
-  - List all bank cards with status indicators
-  - Add new bank cards with validation
-  - View detailed card information
-  - Toggle card active status
-  - Manage card priority
-  - Delete cards with confirmation
-
-- Implemented data validation and security measures:
-  - Card number format validation
-  - SHEBA number validation
-  - Proper permission checks for all operations
-  - Secure handling of sensitive financial information
-
-### P3-T002: Payment Admin Management (Completed)
+### Plan Detail/Edit Page (plan_detail.html)
 **Status: [X] Complete**
 
-This task focused on implementing a system for managing payment admins and their assignments to bank cards and Telegram groups:
+This template provides a detailed view for editing existing plans:
+- Form for editing all plan attributes:
+  - Basic info (name, price, seller price)
+  - Duration and limits (traffic, max users)
+  - Category selection
+  - Description
+  - Status toggles (active, featured)
+  - Sort order
+- Statistics card showing:
+  - Active subscriptions count
+  - Usage percentage visualization
+  - Remaining capacity
+- Plan information section with:
+  - Creation/update dates
+  - Status indicators
+  - Plan ID
+- JavaScript for:
+  - Form submission with validation
+  - Status toggling
+  - Plan deletion (with subscriptions check)
+  - Error handling and user feedback
 
-#### Completed Implementation:
-- Created database tables:
-  - `payment_admin_assignments`: Tracks which admins are responsible for which cards/groups
-  - `payment_admin_metrics`: Stores performance data for payment admins (response time, approval rate)
-  
-- Implemented `PaymentAdminService` with methods for:
-  - Managing admin assignments (CRUD operations)
-  - Tracking admin performance metrics
-  - Selecting appropriate admins for payment verification using a load-balancing algorithm
-  - Generating statistics on admin performance
-  
-- Created RESTful API endpoints:
-  - GET/POST/PUT/DELETE for payment admin assignments
-  - Endpoints for retrieving and updating metrics
-  - Specialized endpoint for recording processed payments
-  - Endpoint for selecting an appropriate admin for a new payment
+### Plan Creation Page (plan_create.html)
+**Status: [X] Complete**
 
-- Added proper validation and security:
-  - Validation of Telegram group IDs
-  - Superuser-only access control
-  - Proper error handling and logging
-  
-- Integrated with existing models:
-  - Added relationships to User model
-  - Connected to BankCard model for card assignments
+This template provides an interface for creating new plans:
+- Form for all plan attributes:
+  - Name with proper field validation
+  - Price fields with currency indicators
+  - Duration with default value
+  - Optional limits (traffic, max users)
+  - Category selection from available categories
+  - Description field
+  - Status toggles (active, featured)
+  - Sort order with default value
+- Helpful field hints explaining each input's purpose
+- Form footer with cancel/submit buttons
+- JavaScript for:
+  - Form validation and submission
+  - API integration for plan creation
+  - Success/error handling
+  - Redirect to detail page after creation
 
-### P3-T003: Payment Proof Submission (Completed)
-**Status: [X] Completed**
+### Plan Categories Page (plan_categories.html)
+**Status: [X] Complete**
 
-This task focused on implementing a comprehensive payment proof submission and verification system:
+This template provides management for plan categories:
+- Header with page title and Add Category button
+- Categories table with:
+  - ID, Name, Description columns
+  - Plans count with visual indicator
+  - Status indicator
+  - Sort order display
+  - Action buttons (edit, delete)
+- Modal for adding/editing categories:
+  - Name and description fields
+  - Status toggle
+  - Sort order input
+- Deletion confirmation modal with safety checks
+- Empty state handling when no categories exist
+- JavaScript for:
+  - CRUD operations on categories
+  - Validation of input fields
+  - API integration with error handling
+  - User feedback mechanisms
+  
+### Dashboard Integration
+**Status: [X] Complete**
 
-#### Completed Implementation:
-- Created database migration for enhanced Order fields:
-  - `payment_proof_img_url`: Stores path to uploaded proof image
-  - `payment_proof_submitted_at`: Tracks submission time
-  - `payment_verified_at`: Records verification time
-  - `payment_verification_admin_id`: Links to admin who verified
-  - `payment_rejection_reason`: Stores reason for rejection if applicable
-  - `payment_proof_telegram_msg_id`: For linking to Telegram messages
-  
-- Added new OrderStatus enum value:
-  - `VERIFICATION_PENDING`: Indicates proof submitted but not yet verified
-  
-- Implemented FileStorageService for secure file handling:
-  - Proper file validation (size, format)
-  - Secure naming with UUID generation
-  - Directory structure with proper permissions
-  
-- Enhanced OrderService with methods for:
-  - `submit_payment_proof`: Process uploaded proof and update order status
-  - `verify_payment_proof`: Approve/reject proof with admin attribution
-  - Integration with PaymentAdminService for metrics tracking
-  
-- Created RESTful API endpoints:
-  - POST `/payment-proofs/{order_id}/submit`: For users to upload payment proof
-  - POST `/payment-proofs/{order_id}/verify`: For admins to verify/reject proofs
-  - GET `/payment-proofs/pending`: Retrieve orders awaiting verification
-  - GET `/payment-proofs/admin/{admin_id}`: List proofs verified by specific admin
-  
-- Added proper validation and security:
-  - Image format and size validation
-  - Permission checks (users can only submit for their own orders)
-  - Required rejection reason when rejecting payments
-  
-- Added static file serving capability:
-  - Configured proper directory structure 
-  - Set up file mount points for uploaded files
-  
-The system now provides a complete workflow for users to submit payment proof and for admins to verify them, tracking metrics about verification performance and maintaining a secure record of all payment proofs.
+- Added Plan Management section to dashboard with:
+  - Card with icon and description
+  - Button linking to plans.html
+- Updated navigation sidebar with:
+  - Plan Management dropdown section
+  - Links to all plan management pages (plans, categories, create)
+  - SVG icon for visual identification
+- Fixed login flow and authentication:
+  - Updated authentication dependencies in main.py
+  - Created public_router for login route
+  - Implemented get_current_user_optional dependency
+
+## Next Tasks for Phase 5
+
+With the financial reporting system now implemented, the next priorities are:
+
+1. [P5-T008] Implement full Role-based access control
+2. [P5-T013] Enhance install script with Certbot SSL setup
+3. [P5-T003] Implement full user management system (block, role change)
+4. [P5-T004] Create discount code management system
+
+# MoonVPN Financial Reporting System
+
+## Financial Reporting Implementation (Completed)
+
+### Backend Components
+**Status: [X] Complete**
+
+The financial reporting backend includes:
+- FinancialReportingService for generating different types of reports:
+  - Orders report with detailed order data
+  - Transactions report showing all financial transactions
+  - Commissions report for tracking affiliate earnings
+  - Revenue report with daily/monthly summaries
+  - Subscription report with plan performance metrics
+- Excel export functionality using pandas and openpyxl
+- Multiple export formats (Excel, CSV, JSON)
+- API endpoints for accessing report data and downloading exports
+- Dashboard summary data for quick financial insights
+
+### Frontend Implementation
+**Status: [X] Complete**
+
+The financial reporting UI includes:
+- Financial reports dashboard with summary cards:
+  - Today's revenue
+  - Monthly revenue
+  - Daily order count
+  - Growth percentage indicators
+- Report generation interface with:
+  - Report type selection (orders, transactions, etc.)
+  - Time frame options (today, this month, custom range)
+  - Export format selection (Excel, CSV, JSON)
+  - Dynamic filters based on report type
+- Interactive data tables showing report results
+- Export functionality for downloading reports
+- Responsive design following Tabler UI patterns
+
+### Integration with Navigation
+**Status: [X] Complete**
+
+- Added dedicated menu item in the main navigation
+- Created route in the admin router for serving the reporting interface
+- Secured all endpoints with proper authentication

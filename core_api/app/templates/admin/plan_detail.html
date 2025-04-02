@@ -1,0 +1,368 @@
+{% extends "base.html" %}
+
+{% block title %}{{ plan.name }} - Plan Detail - MoonVPN Admin{% endblock %}
+
+{% block content %}
+
+<div class="page-wrapper">
+  <div class="container-xl">
+    <!-- Page title -->
+    <div class="page-header d-print-none">
+      <div class="row align-items-center">
+        <div class="col">
+          <h2 class="page-title">
+            Plan Details
+          </h2>
+          <div class="text-muted mt-1">Edit or view details for {{ plan.name }}</div>
+        </div>
+        <div class="col-auto ms-auto d-print-none">
+          <div class="btn-list">
+            <a href="/admin/plans" class="btn btn-outline-primary d-none d-sm-inline-block">
+              <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-chevron-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                <path d="M15 6l-6 6l6 6"></path>
+              </svg>
+              Back to Plans
+            </a>
+            <button 
+              class="btn btn-{{ 'warning' if plan.is_active else 'success' }} d-none d-sm-inline-block"
+              onclick="togglePlanStatus({{ plan.id }}, '{{ plan.name }}', {{ 'true' if plan.is_active else 'false' }})"
+            >
+              {% if plan.is_active %}
+              <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-eye-off" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                <path d="M10.585 10.587a2 2 0 0 0 2.829 2.828"></path>
+                <path d="M16.681 16.673a8.717 8.717 0 0 1 -4.681 1.327c-3.6 0 -6.6 -2 -9 -6c1.272 -2.12 2.712 -3.678 4.32 -4.674m2.86 -1.146a9.055 9.055 0 0 1 1.82 -.18c3.6 0 6.6 2 9 6c-.666 1.11 -1.379 2.067 -2.138 2.87"></path>
+                <path d="M3 3l18 18"></path>
+              </svg>
+              Deactivate Plan
+              {% else %}
+              <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-eye" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0"></path>
+                <path d="M21 12c-2.4 4 -5.4 6 -9 6c-3.6 0 -6.6 -2 -9 -6c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6"></path>
+              </svg>
+              Activate Plan
+              {% endif %}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row">
+      <!-- Plan form -->
+      <div class="col-md-8">
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Edit Plan</h3>
+          </div>
+          <div class="card-body">
+            <form id="plan-form">
+              <input type="hidden" id="plan-id" value="{{ plan.id }}">
+
+              <div class="mb-3">
+                <label class="form-label required">Plan Name</label>
+                <input type="text" class="form-control" id="plan-name" value="{{ plan.name }}" required>
+              </div>
+
+              <div class="row">
+                <div class="col-md-6 mb-3">
+                  <label class="form-label required">Price</label>
+                  <div class="input-group">
+                    <span class="input-group-text">$</span>
+                    <input type="number" class="form-control" id="plan-price" value="{{ plan.price }}" step="0.01" min="0" required>
+                  </div>
+                </div>
+                <div class="col-md-6 mb-3">
+                  <label class="form-label">Seller Price (Optional)</label>
+                  <div class="input-group">
+                    <span class="input-group-text">$</span>
+                    <input type="number" class="form-control" id="plan-seller-price" value="{{ plan.seller_price or '' }}" step="0.01" min="0">
+                  </div>
+                </div>
+              </div>
+
+              <div class="row">
+                <div class="col-md-6 mb-3">
+                  <label class="form-label required">Duration (Days)</label>
+                  <input type="number" class="form-control" id="plan-duration" value="{{ plan.duration_days }}" min="1" required>
+                </div>
+                <div class="col-md-6 mb-3">
+                  <label class="form-label">Traffic Limit (GB)</label>
+                  <div class="input-group">
+                    <input type="number" class="form-control" id="plan-traffic" value="{{ plan.traffic_limit_gb or '' }}" min="1">
+                    <span class="input-group-text">GB</span>
+                  </div>
+                  <small class="form-hint">Leave empty for unlimited traffic</small>
+                </div>
+              </div>
+
+              <div class="row">
+                <div class="col-md-6 mb-3">
+                  <label class="form-label">Max Users</label>
+                  <input type="number" class="form-control" id="plan-max-users" value="{{ plan.max_users or '' }}" min="1">
+                  <small class="form-hint">Leave empty for unlimited users</small>
+                </div>
+                <div class="col-md-6 mb-3">
+                  <label class="form-label">Category</label>
+                  <select class="form-select" id="plan-category">
+                    <option value="">None</option>
+                    {% for category in categories %}
+                    <option value="{{ category.id }}" {% if plan.category_id == category.id %}selected{% endif %}>{{ category.name }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label">Description</label>
+                <textarea class="form-control" id="plan-description" rows="4">{{ plan.description or '' }}</textarea>
+              </div>
+
+              <div class="row mb-3">
+                <div class="col-md-4">
+                  <label class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="plan-is-active" {% if plan.is_active %}checked{% endif %}>
+                    <span class="form-check-label">Active</span>
+                  </label>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="plan-is-featured" {% if plan.is_featured %}checked{% endif %}>
+                    <span class="form-check-label">Featured</span>
+                  </label>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label">Sort Order</label>
+                  <input type="number" class="form-control" id="plan-sort-order" value="{{ plan.sort_order or 100 }}" min="1">
+                </div>
+              </div>
+
+              <div class="form-footer">
+                <div class="d-flex">
+                  <a href="/admin/plans" class="btn btn-link">Cancel</a>
+                  <button type="submit" class="btn btn-primary ms-auto">Save Plan</button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <!-- Plan stats and info -->
+      <div class="col-md-4">
+        <!-- Statistics card -->
+        <div class="card mb-3">
+          <div class="card-header">
+            <h3 class="card-title">Plan Usage</h3>
+          </div>
+          <div class="card-body">
+            <div class="d-flex align-items-baseline">
+              <div class="h1 mb-0 me-2">{{ plan.active_subscriptions }}</div>
+              <div class="me-auto">
+                <span class="text-muted">Active Subscriptions</span>
+              </div>
+              {% if plan.max_users %}
+              <div class="ms-3 text-muted">{{ plan.max_users - plan.active_subscriptions }} left</div>
+              {% endif %}
+            </div>
+            {% if plan.max_users %}
+            <div class="d-flex align-items-baseline mt-2">
+              <div class="text-muted">Usage:</div>
+              <div class="ms-auto">
+                <span class="text-{{ 'danger' if plan.is_full else 'success' }}">
+                  {{ ((plan.active_subscriptions / plan.max_users) * 100) | round }}%
+                </span>
+              </div>
+            </div>
+            <div class="progress mt-2">
+              <div class="progress-bar bg-{{ 'danger' if plan.is_full else 'primary' }}" style="width: {{ (plan.active_subscriptions / plan.max_users * 100) | round }}%" role="progressbar" aria-valuenow="{{ plan.active_subscriptions }}" aria-valuemin="0" aria-valuemax="{{ plan.max_users }}">
+                <span class="visually-hidden">{{ (plan.active_subscriptions / plan.max_users * 100) | round }}% Complete</span>
+              </div>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- Plan details -->
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Plan Information</h3>
+          </div>
+          <div class="card-body">
+            <dl class="row">
+              <dt class="col-5">Status:</dt>
+              <dd class="col-7">
+                <span class="badge bg-{{ 'success' if plan.is_active else 'danger' }}">
+                  {{ 'Active' if plan.is_active else 'Inactive' }}
+                </span>
+              </dd>
+              <dt class="col-5">Featured:</dt>
+              <dd class="col-7">
+                <span class="badge bg-{{ 'yellow' if plan.is_featured else 'muted' }}">
+                  {{ 'Yes' if plan.is_featured else 'No' }}
+                </span>
+              </dd>
+              <dt class="col-5">Created:</dt>
+              <dd class="col-7">{{ plan.created_at.strftime('%Y-%m-%d %H:%M') }}</dd>
+              <dt class="col-5">Last Updated:</dt>
+              <dd class="col-7">{{ plan.updated_at.strftime('%Y-%m-%d %H:%M') if plan.updated_at else 'Never' }}</dd>
+              <dt class="col-5">ID:</dt>
+              <dd class="col-7">{{ plan.id }}</dd>
+            </dl>
+          </div>
+          {% if plan.active_subscriptions == 0 %}
+          <div class="card-footer">
+            <button 
+              onclick="deletePlan({{ plan.id }}, '{{ plan.name }}')" 
+              class="btn btn-outline-danger btn-block"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-trash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                <path d="M4 7l16 0"></path>
+                <path d="M10 11l0 6"></path>
+                <path d="M14 11l0 6"></path>
+                <path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12"></path>
+                <path d="M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3"></path>
+              </svg>
+              Delete Plan
+            </button>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- JavaScript for plan management -->
+<script>
+  // Handle form submission
+  document.getElementById('plan-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const planId = document.getElementById('plan-id').value;
+    const planData = {
+      name: document.getElementById('plan-name').value,
+      price: parseFloat(document.getElementById('plan-price').value),
+      duration_days: parseInt(document.getElementById('plan-duration').value),
+      is_active: document.getElementById('plan-is-active').checked,
+      is_featured: document.getElementById('plan-is-featured').checked,
+      sort_order: parseInt(document.getElementById('plan-sort-order').value || 100)
+    };
+    
+    // Optional fields
+    const sellerPrice = document.getElementById('plan-seller-price').value;
+    if (sellerPrice) {
+      planData.seller_price = parseFloat(sellerPrice);
+    }
+    
+    const trafficLimit = document.getElementById('plan-traffic').value;
+    if (trafficLimit) {
+      planData.traffic_limit_gb = parseInt(trafficLimit);
+    }
+    
+    const maxUsers = document.getElementById('plan-max-users').value;
+    if (maxUsers) {
+      planData.max_users = parseInt(maxUsers);
+    }
+    
+    const categoryId = document.getElementById('plan-category').value;
+    planData.category_id = categoryId ? parseInt(categoryId) : null;
+    
+    const description = document.getElementById('plan-description').value;
+    if (description) {
+      planData.description = description;
+    }
+    
+    // Submit the data via API
+    fetch(`/api/v1/plans/${planId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(planData),
+      credentials: 'same-origin'
+    })
+    .then(response => {
+      if (response.ok) {
+        return response.json();
+      }
+      return response.json().then(data => {
+        throw new Error(data.detail || 'Failed to update plan');
+      });
+    })
+    .then(data => {
+      // Show success notification
+      alert('Plan updated successfully');
+      // Refresh the page to show updated data
+      window.location.reload();
+    })
+    .catch(error => {
+      console.error('Error:', error);
+      alert(error.message || 'An error occurred while updating the plan');
+    });
+  });
+  
+  // Function to toggle plan status
+  function togglePlanStatus(planId, planName, isCurrentlyActive) {
+    if (confirm(`Are you sure you want to ${isCurrentlyActive ? 'deactivate' : 'activate'} plan "${planName}"?`)) {
+      fetch(`/api/v1/plans/${planId}/toggle`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'same-origin'
+      })
+      .then(response => {
+        if (response.ok) {
+          // Refresh the page to see the updated status
+          window.location.reload();
+        } else {
+          response.json().then(data => {
+            alert(`Error: ${data.detail || 'Failed to update plan status'}`);
+          }).catch(() => {
+            alert('An unknown error occurred');
+          });
+        }
+      })
+      .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred while processing your request');
+      });
+    }
+  }
+  
+  // Function to delete a plan
+  function deletePlan(planId, planName) {
+    if (confirm(`Are you sure you want to delete plan "${planName}"? This action cannot be undone!`)) {
+      fetch(`/api/v1/plans/${planId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'same-origin'
+      })
+      .then(response => {
+        if (response.ok) {
+          alert('Plan deleted successfully');
+          // Redirect to the plans list
+          window.location.href = '/admin/plans';
+        } else {
+          response.json().then(data => {
+            alert(`Error: ${data.detail || 'Failed to delete plan'}`);
+          }).catch(() => {
+            alert('An unknown error occurred');
+          });
+        }
+      })
+      .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred while processing your request');
+      });
+    }
+  }
+</script>
+
+{% endblock %} 

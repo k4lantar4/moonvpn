@@ -23,6 +23,11 @@ from app.models.panel import Panel
 from app.models.location import Location
 from app.models.server import Server
 from app.models.plan_category import PlanCategory
+from app.models.order import Order
+from app.models.subscription import Subscription
+from app.models.transaction import Transaction
+from app.models.bank_card import BankCard
+from app.models.payment_admin import PaymentAdminAssignment, PaymentAdminMetrics
 # Import association tables if they are defined separately
 from app.models.associations import *
 

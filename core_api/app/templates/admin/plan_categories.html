@@ -1,0 +1,406 @@
+{% extends "base.html" %}
+
+{% block title %}Plan Categories - MoonVPN Admin{% endblock %}
+
+{% block content %}
+
+<div class="page-wrapper">
+  <div class="container-xl">
+    <!-- Page title -->
+    <div class="page-header d-print-none">
+      <div class="row align-items-center">
+        <div class="col">
+          <h2 class="page-title">
+            Plan Categories
+          </h2>
+          <div class="text-muted mt-1">Manage categories for organizing service plans</div>
+        </div>
+        <div class="col-auto ms-auto d-print-none">
+          <div class="btn-list">
+            <a href="/admin/plans" class="btn btn-outline-primary d-none d-sm-inline-block">
+              <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-chevron-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                <path d="M15 6l-6 6l6 6"></path>
+              </svg>
+              Back to Plans
+            </a>
+            <button type="button" class="btn btn-primary d-none d-sm-inline-block" data-bs-toggle="modal" data-bs-target="#modal-new-category">
+              <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                <path d="M12 5l0 14"></path>
+                <path d="M5 12l14 0"></path>
+              </svg>
+              Add New Category
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Categories List -->
+    <div class="card">
+      <div class="card-header">
+        <h3 class="card-title">Plan Categories</h3>
+      </div>
+      <div class="card-body">
+        <div class="table-responsive">
+          <table class="table table-vcenter card-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Description</th>
+                <th>Plans</th>
+                <th>Status</th>
+                <th>Sort Order</th>
+                <th class="w-1">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% if categories %}
+                {% for category in categories %}
+                <tr>
+                  <td class="text-muted">{{ category.id }}</td>
+                  <td>{{ category.name }}</td>
+                  <td>
+                    {% if category.description %}
+                    <span class="text-muted text-truncate d-inline-block" style="max-width: 300px;">{{ category.description }}</span>
+                    {% else %}
+                    <span class="text-muted">-</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    {% if category.plans|length > 0 %}
+                    <span class="badge bg-primary">{{ category.plans|length }} plans</span>
+                    {% else %}
+                    <span class="badge bg-muted">0 plans</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    {% if category.is_active %}
+                    <span class="badge bg-success">Active</span>
+                    {% else %}
+                    <span class="badge bg-danger">Inactive</span>
+                    {% endif %}
+                  </td>
+                  <td>{{ category.sort_order }}</td>
+                  <td>
+                    <div class="btn-list flex-nowrap">
+                      <button type="button" class="btn btn-sm btn-outline-primary" 
+                        onclick="editCategory({{ category.id }}, '{{ category.name }}', '{{ category.description|replace('\n', ' ')|replace('\'', '\\\'')|default('') }}', {{ 'true' if category.is_active else 'false' }}, {{ category.sort_order }})">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-edit" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                          <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                          <path d="M7 7h-1a2 2 0 0 0 -2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2 -2v-1"></path>
+                          <path d="M20.385 6.585a2.1 2.1 0 0 0 -2.97 -2.97l-8.415 8.385v3h3l8.385 -8.415z"></path>
+                          <path d="M16 5l3 3"></path>
+                        </svg>
+                        Edit
+                      </button>
+                      {% if category.plans|length == 0 %}
+                      <button type="button" class="btn btn-sm btn-outline-danger" 
+                        onclick="deleteCategory({{ category.id }}, '{{ category.name }}')">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-trash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                          <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                          <path d="M4 7l16 0"></path>
+                          <path d="M10 11l0 6"></path>
+                          <path d="M14 11l0 6"></path>
+                          <path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12"></path>
+                          <path d="M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3"></path>
+                        </svg>
+                        Delete
+                      </button>
+                      {% else %}
+                      <button type="button" class="btn btn-sm btn-outline-danger" disabled title="Cannot delete category with plans">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-trash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                          <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                          <path d="M4 7l16 0"></path>
+                          <path d="M10 11l0 6"></path>
+                          <path d="M14 11l0 6"></path>
+                          <path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12"></path>
+                          <path d="M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3"></path>
+                        </svg>
+                        Delete
+                      </button>
+                      {% endif %}
+                    </div>
+                  </td>
+                </tr>
+                {% endfor %}
+              {% else %}
+                <tr>
+                  <td colspan="7" class="text-center py-4">
+                    <div class="empty">
+                      <div class="empty-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-category" width="40" height="40" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                          <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                          <path d="M4 4h6v6h-6z"></path>
+                          <path d="M14 4h6v6h-6z"></path>
+                          <path d="M4 14h6v6h-6z"></path>
+                          <path d="M17 17m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0"></path>
+                        </svg>
+                      </div>
+                      <p class="empty-title">No categories found</p>
+                      <p class="empty-subtitle text-muted">
+                        Start organizing your plans by creating categories.
+                      </p>
+                      <div class="empty-action">
+                        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modal-new-category">
+                          <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                            <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                            <path d="M12 5l0 14"></path>
+                            <path d="M5 12l14 0"></path>
+                          </svg>
+                          Add your first category
+                        </button>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- New Category Modal -->
+<div class="modal modal-blur fade" id="modal-new-category" tabindex="-1" role="dialog" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">New Category</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <form id="new-category-form">
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label required">Category Name</label>
+            <input type="text" class="form-control" id="new-category-name" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Description</label>
+            <textarea class="form-control" id="new-category-description" rows="3"></textarea>
+          </div>
+          <div class="row mb-3">
+            <div class="col-md-6">
+              <label class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="new-category-is-active" checked>
+                <span class="form-check-label">Active</span>
+              </label>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Sort Order</label>
+              <input type="number" class="form-control" id="new-category-sort-order" value="100" min="1">
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-link link-secondary" data-bs-dismiss="modal">
+            Cancel
+          </button>
+          <button type="submit" class="btn btn-primary ms-auto">
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+              <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+              <path d="M12 5l0 14"></path>
+              <path d="M5 12l14 0"></path>
+            </svg>
+            Create Category
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Category Modal -->
+<div class="modal modal-blur fade" id="modal-edit-category" tabindex="-1" role="dialog" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Edit Category</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <form id="edit-category-form">
+        <input type="hidden" id="edit-category-id">
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label required">Category Name</label>
+            <input type="text" class="form-control" id="edit-category-name" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Description</label>
+            <textarea class="form-control" id="edit-category-description" rows="3"></textarea>
+          </div>
+          <div class="row mb-3">
+            <div class="col-md-6">
+              <label class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="edit-category-is-active">
+                <span class="form-check-label">Active</span>
+              </label>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Sort Order</label>
+              <input type="number" class="form-control" id="edit-category-sort-order" min="1">
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-link link-secondary" data-bs-dismiss="modal">
+            Cancel
+          </button>
+          <button type="submit" class="btn btn-primary ms-auto">
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-check" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+              <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+              <path d="M5 12l5 5l10 -10"></path>
+            </svg>
+            Save Changes
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- JavaScript for category management -->
+<script>
+  // Edit Category
+  function editCategory(id, name, description, isActive, sortOrder) {
+    document.getElementById('edit-category-id').value = id;
+    document.getElementById('edit-category-name').value = name;
+    document.getElementById('edit-category-description').value = description;
+    document.getElementById('edit-category-is-active').checked = isActive;
+    document.getElementById('edit-category-sort-order').value = sortOrder;
+    
+    // Show the modal
+    new bootstrap.Modal(document.getElementById('modal-edit-category')).show();
+  }
+  
+  // Delete Category
+  function deleteCategory(id, name) {
+    if (confirm(`Are you sure you want to delete the category "${name}"? This action cannot be undone.`)) {
+      // Send DELETE request to API
+      fetch(`/api/v1/plans/categories/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'same-origin'
+      })
+      .then(response => {
+        if (response.ok) {
+          // Refresh the page to see the updated list
+          window.location.reload();
+        } else {
+          response.json().then(data => {
+            alert(`Error: ${data.detail || 'Failed to delete category'}`);
+          }).catch(() => {
+            alert('An unknown error occurred');
+          });
+        }
+      })
+      .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred while deleting the category');
+      });
+    }
+  }
+  
+  // New Category Form Submission
+  document.getElementById('new-category-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const categoryData = {
+      name: document.getElementById('new-category-name').value,
+      is_active: document.getElementById('new-category-is-active').checked,
+      sort_order: parseInt(document.getElementById('new-category-sort-order').value || 100)
+    };
+    
+    // Optional fields
+    const description = document.getElementById('new-category-description').value;
+    if (description) {
+      categoryData.description = description;
+    }
+    
+    // Send POST request to API
+    fetch('/api/v1/plans/categories/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(categoryData),
+      credentials: 'same-origin'
+    })
+    .then(response => {
+      if (response.ok) {
+        return response.json();
+      }
+      return response.json().then(data => {
+        throw new Error(data.detail || 'Failed to create category');
+      });
+    })
+    .then(data => {
+      // Close the modal
+      const modal = bootstrap.Modal.getInstance(document.getElementById('modal-new-category'));
+      modal.hide();
+      
+      // Refresh the page to see the new category
+      window.location.reload();
+    })
+    .catch(error => {
+      console.error('Error:', error);
+      alert(error.message || 'An error occurred while creating the category');
+    });
+  });
+  
+  // Edit Category Form Submission
+  document.getElementById('edit-category-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const categoryId = document.getElementById('edit-category-id').value;
+    const categoryData = {
+      name: document.getElementById('edit-category-name').value,
+      is_active: document.getElementById('edit-category-is-active').checked,
+      sort_order: parseInt(document.getElementById('edit-category-sort-order').value || 100)
+    };
+    
+    // Optional fields
+    const description = document.getElementById('edit-category-description').value;
+    if (description) {
+      categoryData.description = description;
+    }
+    
+    // Send PUT request to API
+    fetch(`/api/v1/plans/categories/${categoryId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(categoryData),
+      credentials: 'same-origin'
+    })
+    .then(response => {
+      if (response.ok) {
+        return response.json();
+      }
+      return response.json().then(data => {
+        throw new Error(data.detail || 'Failed to update category');
+      });
+    })
+    .then(data => {
+      // Close the modal
+      const modal = bootstrap.Modal.getInstance(document.getElementById('modal-edit-category'));
+      modal.hide();
+      
+      // Refresh the page to see the updated category
+      window.location.reload();
+    })
+    .catch(error => {
+      console.error('Error:', error);
+      alert(error.message || 'An error occurred while updating the category');
+    });
+  });
+</script>
+
+{% endblock %} 

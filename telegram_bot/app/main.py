@@ -23,6 +23,10 @@ from app.handlers.payment_proof_handlers import get_payment_proof_handlers
 from app.handlers.payment_verification_handlers import get_payment_verification_handlers
 from app.handlers.admin_report_handlers import get_admin_report_handlers
 from app.handlers.payment_admin_handlers import get_payment_admin_handlers, register_payment_admin_handlers
+from app.handlers.seller_handlers import get_seller_handlers
+from app.handlers.affiliate_handlers import get_affiliate_handlers
+from app.handlers.price_comparison_handlers import get_price_comparison_handlers
+from app.handlers.zarinpal_handler import zarinpal_conversation  # Import the Zarinpal handler
 # Import other handlers later
 
 # Enable logging
@@ -55,9 +59,13 @@ def main() -> None:
     application.add_handler(admin_command_handler)
     application.add_handler(admin_card_handler)
 
-    # Register flow handlers
+    # Register flow handlers - Buy flow handlers now returns a list
     for handler in get_buy_flow_handlers():
         application.add_handler(handler)
+        
+    # Register Zarinpal conversation handler directly
+    # This ensures it's registered even if buy_flow_handlers doesn't include it
+    application.add_handler(zarinpal_conversation)
 
     # Register my accounts handlers
     for handler in get_my_accounts_handlers():
@@ -82,6 +90,18 @@ def main() -> None:
     # Register payment admin handlers
     register_payment_admin_handlers(application)
     for handler in get_payment_admin_handlers():
+        application.add_handler(handler)
+    
+    # Register seller handlers
+    for handler in get_seller_handlers():
+        application.add_handler(handler)
+    
+    # Register affiliate handlers
+    for handler in get_affiliate_handlers():
+        application.add_handler(handler)
+    
+    # Register price comparison handlers
+    for handler in get_price_comparison_handlers():
         application.add_handler(handler)
 
     # Register the error handler

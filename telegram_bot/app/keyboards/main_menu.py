@@ -3,11 +3,14 @@ from telegram import ReplyKeyboardMarkup, KeyboardButton
 # Define button labels
 BTN_BUY_SERVICE = "🛒 خرید سرویس"
 BTN_MY_ACCOUNTS = "📱 اشتراک‌های من"
+BTN_MY_ORDERS = "📋 سفارشات من"
 BTN_WALLET = "👛 کیف پول"
 BTN_SUPPORT = "🆘 پشتیبانی"
 BTN_REFERRAL = "🔗 معرفی دوستان"
 BTN_FREE_TRIAL = "🎁 تست رایگان"
 BTN_ABOUT = "ℹ️ درباره ما"
+BTN_BECOME_SELLER = "🏪 فروشنده شوید"
+BTN_SELLER_PRICES = "💰 قیمت‌های ویژه"
 
 def get_main_menu_keyboard(include_contact_button: bool = False) -> ReplyKeyboardMarkup:
     """
@@ -22,8 +25,10 @@ def get_main_menu_keyboard(include_contact_button: bool = False) -> ReplyKeyboar
     # Define the keyboard layout
     keyboard = [
         [BTN_BUY_SERVICE, BTN_MY_ACCOUNTS],
-        [BTN_WALLET, BTN_SUPPORT],
-        [BTN_REFERRAL, BTN_ABOUT]
+        [BTN_MY_ORDERS, BTN_WALLET],
+        [BTN_SELLER_PRICES, BTN_REFERRAL],
+        [BTN_BECOME_SELLER, BTN_SUPPORT],
+        [BTN_ABOUT]
     ]
     
     # Add contact button if requested

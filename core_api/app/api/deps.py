@@ -1,6 +1,6 @@
 from typing import Generator, Optional
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt, JWTError
 from pydantic import BaseModel
@@ -28,12 +28,43 @@ def get_db() -> Generator:
 # tokenUrl should point to your login endpoint (where token is issued)
 # In our case, it's the OTP verification endpoint
 reusable_oauth2 = OAuth2PasswordBearer(
-    tokenUrl=f"{settings.API_V1_STR}/auth/verify-otp" # This might need adjustment based on frontend flow
+    tokenUrl=f"{settings.API_V1_STR}/auth/verify-otp", # This might need adjustment based on frontend flow
+    auto_error=False
 )
 
 # Pydantic model for token payload (data inside JWT)
 class TokenPayload(BaseModel):
     sub: Optional[int] = None # Subject of the token (user ID)
+
+async def get_current_user_optional(
+    request: Request,
+    db: Session = Depends(get_db),
+    token: Optional[str] = Depends(reusable_oauth2)
+) -> Optional[User]:
+    """
+    Dependency to optionally get the current user based on JWT token.
+    Returns None if no token is present or token is invalid.
+    """
+    if not token:
+        return None
+
+    try:
+        payload = jwt.decode(
+            token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
+        )
+        # Extract user ID (subject) from payload
+        user_id: Optional[int] = payload.get("sub")
+        if user_id is None:
+            return None
+            
+        # Fetch user from database
+        user = crud.user.get(db, id=user_id)
+        if not user or not user.is_active:
+            return None
+            
+        return user
+    except JWTError:
+        return None
 
 async def get_current_user(
     db: Session = Depends(get_db),
@@ -48,6 +79,9 @@ async def get_current_user(
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
+    if not token:
+        raise credentials_exception
+        
     try:
         payload = jwt.decode(
             token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
@@ -112,7 +146,66 @@ def check_user_permission(user: models.User, permission_name: str) -> bool:
     # Check user roles for the permission
     for role in user.roles:
         for permission in role.permissions:
-            if permission.permission_name == permission_name:
+            if permission.name == permission_name:
                 return True
     
-    return False 
+    # Also check the single-role relationship for backward compatibility
+    if user.role:
+        for permission in user.role.permissions:
+            if permission.name == permission_name:
+                return True
+    
+    return False
+
+def require_permissions(*permission_names: str):
+    """
+    Dependency factory that creates a dependency to check if the current user has the required permissions.
+    
+    Args:
+        *permission_names: One or more permission names to check
+        
+    Returns:
+        Dependency function that validates the user has at least one of the specified permissions
+    """
+    async def _require_permissions(
+        current_user: models.User = Depends(get_current_active_user),
+        db: Session = Depends(get_db)
+    ) -> models.User:
+        for permission_name in permission_names:
+            if check_user_permission(current_user, permission_name):
+                return current_user
+        
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not enough permissions"
+        )
+    
+    return _require_permissions
+
+def require_all_permissions(*permission_names: str):
+    """
+    Dependency factory that creates a dependency to check if the current user has ALL required permissions.
+    
+    Args:
+        *permission_names: One or more permission names that ALL must be present
+        
+    Returns:
+        Dependency function that validates the user has all of the specified permissions
+    """
+    async def _require_all_permissions(
+        current_user: models.User = Depends(get_current_active_user),
+        db: Session = Depends(get_db)
+    ) -> models.User:
+        if current_user.is_superuser:
+            return current_user
+            
+        for permission_name in permission_names:
+            if not check_user_permission(current_user, permission_name):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=f"Missing required permission: {permission_name}"
+                )
+        
+        return current_user
+    
+    return _require_all_permissions 

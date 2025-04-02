@@ -4,8 +4,8 @@ Permissions utilities for checking user roles and permissions.
 import logging
 from typing import List
 
-from app.api import api_client
-from app.utils.logger import get_logger
+from api import api_client
+from utils.logger import get_logger
 
 # Set up logging
 logger = get_logger(__name__)

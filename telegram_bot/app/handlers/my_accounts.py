@@ -5,15 +5,15 @@ from telegram.ext import (
 )
 from telegram.constants import ParseMode
 
-from app.api.api_client import (
+from api.api_client import (
     get_user_subscriptions, get_subscription_details,
     get_subscription_qrcode, get_subscription_traffic,
     freeze_subscription, unfreeze_subscription,
     add_subscription_note, toggle_subscription_auto_renew,
     change_subscription_protocol_location
 )
-from app.keyboards.main_menu import BTN_MY_ACCOUNTS
-from app.utils.logger import get_logger
+from keyboards.main_menu import BTN_MY_ACCOUNTS
+from utils.logger import get_logger
 
 # Set up logging
 logger = get_logger(__name__)

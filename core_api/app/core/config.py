@@ -1,6 +1,6 @@
 import os
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from typing import Optional
+from typing import Optional, Decimal
 
 # No need to manually define .env path if docker-compose env_file is used
 # Let BaseSettings read directly from environment variables passed by docker-compose
@@ -32,6 +32,32 @@ class Settings(BaseSettings):
     STATIC_FILES_URL_PATH: str = "/static"
     MAX_UPLOAD_SIZE_MB: int = 10  # Default max upload size in MB
 
+    # --- SSH Server Access Settings --- #
+    SSH_ENABLED: bool = False  # Enable/disable SSH functionality globally
+    SSH_USERNAME: Optional[str] = None  # SSH username for connecting to servers
+    SSH_PASSWORD: Optional[str] = None  # SSH password (if using password authentication)
+    SSH_KEY_PATH: Optional[str] = None  # Path to SSH private key (if using key-based authentication)
+    SSH_KEY_PASSPHRASE: Optional[str] = None  # Passphrase for SSH key (if protected)
+    SSH_CONNECTION_TIMEOUT: int = 10  # Seconds to wait for SSH connection
+
+    # --- Zarinpal Payment Gateway Settings --- #
+    ZARINPAL_ENABLED: bool = False # Enable/disable Zarinpal globally
+    ZARINPAL_MERCHANT_ID: Optional[str] = None
+    ZARINPAL_API_URL_REQUEST: str = "https://api.zarinpal.com/pg/v4/payment/request.json" 
+    ZARINPAL_API_URL_VERIFY: str = "https://api.zarinpal.com/pg/v4/payment/verify.json"
+    ZARINPAL_START_PAY_URL: str = "https://www.zarinpal.com/pg/StartPay/"
+    ZARINPAL_CALLBACK_URL_BASE: Optional[str] = None # e.g., "https://vpn.yourdomain.com" - must include scheme
+    ZARINPAL_CALLBACK_PATH: str = "api/v1/payments/zarinpal/callback" # Default path within the base URL
+
+    FRONTEND_PAYMENT_RESULT_URL: str = "/payment-result" # Relative or absolute URL on the frontend
+
+    # --- Seller Role Upgrade --- #
+    SELLER_UPGRADE_THRESHOLD: Optional[Decimal] = None # e.g., 1000000.00 for 1M Toman
+    SELLER_ROLE_NAME: str = 'seller'
+    
+    # Panel API Settings
+    PANEL_API_URL: Optional[str] = None
+    
     # Pydantic-Settings configuration
     # Remove env_file, rely on docker-compose to set environment variables
     # For Pydantic V2:

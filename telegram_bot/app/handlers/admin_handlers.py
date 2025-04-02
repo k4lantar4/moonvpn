@@ -2,7 +2,7 @@ import os
 from telegram import Update
 from telegram.ext import ContextTypes, CommandHandler
 
-from app.keyboards.admin_keyboards import get_admin_main_keyboard
+from keyboards.admin_keyboards import get_admin_main_keyboard
 
 # TODO: Load ADMIN_IDS from environment variables or a config file for security
 ADMIN_IDS = {int(admin_id) for admin_id in os.getenv("ADMIN_IDS", "123456789").split(',') if admin_id.isdigit()}

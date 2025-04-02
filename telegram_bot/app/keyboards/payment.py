@@ -5,43 +5,59 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMa
 # Callback data prefix for payment methods
 PAYMENT_METHOD_PREFIX = "payment_method_"
 
-def generate_payment_method_keyboard(payment_methods: List[Dict[str, Any]]) -> List[List[InlineKeyboardButton]]:
+# Assuming PaymentMethod enum is available here (e.g., copied or shared)
+from app.models.order import PaymentMethod 
+
+# Callback data patterns
+PAYMENT_METHOD_CALLBACK_PREFIX = "payment_method_"
+
+def generate_payment_method_keyboard(payment_methods: List[Dict[str, Any]]) -> InlineKeyboardMarkup:
     """
     Generate a keyboard with available payment methods.
     
     Args:
         payment_methods: List of payment method dictionaries from API
+        Each dictionary should have 'method' and 'active' keys
         
     Returns:
-        List of lists of InlineKeyboardButton
+        Keyboard markup with payment method buttons
     """
     keyboard = []
-    
-    # Add buttons for each payment method
-    for method in payment_methods:
-        method_id = method.get("id") or method.get("key")
-        method_name = method.get("name") or method.get("display_name")
-        
-        # Special case for card to card payment
-        if method_id == "card_to_card":
-            callback_data = f"{PAYMENT_METHOD_PREFIX}card_to_card"
-            button_text = "💳 پرداخت کارت به کارت"
-        elif method_id == "crypto":
-            callback_data = f"{PAYMENT_METHOD_PREFIX}crypto"
-            button_text = "🪙 پرداخت با ارز دیجیتال"
-        else:
-            callback_data = f"{PAYMENT_METHOD_PREFIX}{method_id}"
-            button_text = f"{method_name}"
-        
-        keyboard.append([
-            InlineKeyboardButton(button_text, callback_data=callback_data)
-        ])
-    
-    # Add cancel button
-    keyboard.append([
-        InlineKeyboardButton("❌ انصراف", callback_data="cancel_payment")
-    ])
-    
+    row = []
+
+    # Map method values to button text
+    method_label_map = {
+        PaymentMethod.CARD_TO_CARD.value: "💳 کارت به کارت",
+        PaymentMethod.WALLET.value: "💰 کیف پول",
+        PaymentMethod.ZARINPAL.value: "🌐 پرداخت آنلاین (زرین‌پال)",
+        PaymentMethod.CRYPTO.value: "💎 ارز دیجیتال",
+        PaymentMethod.MANUAL.value: "👨‍💻 پرداخت دستی",
+    }
+
+    # Define the desired order of buttons
+    display_order = [
+        PaymentMethod.ZARINPAL.value, 
+        PaymentMethod.CARD_TO_CARD.value,
+        PaymentMethod.WALLET.value, 
+        PaymentMethod.CRYPTO.value,
+        PaymentMethod.MANUAL.value,
+    ]
+
+    # Convert list of payment method dicts to a simple dict for easier lookup
+    active_methods = {item["method"]: item for item in payment_methods if item.get("active", False)}
+
+    # Build keyboard based on display order and active methods
+    for method_value in display_order:
+        if method_value in active_methods:
+            text = method_label_map.get(method_value, f"پرداخت {method_value}")
+            callback_data = PAYMENT_METHOD_CALLBACK_PREFIX + method_value
+            button = InlineKeyboardButton(text, callback_data=callback_data)
+            
+            # Add button to row, create new row if necessary (max 1 button per row for better UX)
+            row.append(button)
+            keyboard.append(row)
+            row = []
+
     return InlineKeyboardMarkup(keyboard)
 
 def get_cancel_keyboard():

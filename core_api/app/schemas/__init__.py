@@ -3,7 +3,7 @@
 
 # First import models that don't depend on others
 from .plan_category import PlanCategory, PlanCategoryCreate, PlanCategoryUpdate, PlanCategoryBase, PlanCategoryInDB
-from .location import Location, LocationCreate, LocationUpdate, LocationBase, LocationInDB, LocationDetail
+from .location import Location, LocationCreate, LocationUpdate, LocationBase, LocationInDB
 from .server import Server, ServerCreate, ServerUpdate, ServerBase, ServerInDB, ServerDetail
 from .plan import Plan, PlanCreate, PlanUpdate, PlanBase, PlanInDB, PlanWithCategory, PlanDetail
 from .panel import Panel, PanelCreate, PanelUpdate, PanelBase, PanelInDB, PanelDetail
@@ -19,14 +19,14 @@ from .user import User, UserCreate, UserUpdate, UserInDB, UserPasswordUpdate, Ad
 from .token import Token, TokenPayload
 
 # Import order and transaction schemas
-from .order import Order, OrderCreate, OrderUpdate, OrderInDB, OrderDetail, OrderStatusList, OrderIds, OrderStatus, OrderType
+from .order import Order, OrderCreate, OrderUpdate, OrderInDB, OrderDetail, OrderStatusList, OrderIds, OrderStatus, OrderType, OrderCreateTelegram
 from .transaction import (
     Transaction, TransactionCreate, TransactionUpdate, TransactionInDB,
-    DepositRequest, WithdrawRequest, AdminAdjustment, TransactionType, TransactionStatus
+    DepositRequest, WithdrawRequest, AdminAdjustment, TransactionType, TransactionStatus, TransactionDetail
 )
 
 # Import subscription and client schemas
-from .subscription import Subscription, SubscriptionCreate, SubscriptionInDB, SubscriptionUpdate, SubscriptionStatus, SubscriptionType
+from .subscription import Subscription, SubscriptionCreate, SubscriptionInDB, SubscriptionUpdate, SubscriptionStatus, SubscriptionType, SubscriptionDetail
 from .client import Client, ClientCreate, ClientInDB, ClientUpdate, ClientStatus
 from .billing import BillingInfo, BillingInfoCreate, BillingInfoInDB, BillingInfoUpdate
 
@@ -37,6 +37,51 @@ from .wallet import DepositRequest, WithdrawRequest, AdminAdjustment, Transactio
 from .bank_card import (
     BankCard, BankCardCreate, BankCardUpdate, BankCardBase, 
     BankCardInDB, BankCardList, BankCardDetail
+)
+
+# Import payment schemas
+from .payment import (
+    Payment,
+    PaymentCreate,
+    PaymentUpdate,
+    PaymentDetail,
+    PaymentVerification,
+    ZarinpalPaymentCreate,
+    ZarinpalPaymentVerify
+)
+
+# Import log schemas
+from .log import (
+    LogCreate,
+    Log,
+    LogDetail,
+)
+
+# Import message schemas
+from .msg import (
+    Msg
+)
+
+# Import affiliate schemas
+from .affiliate import (
+    AffiliateCommissionBase,
+    AffiliateCommissionCreate,
+    AffiliateCommissionUpdate,
+    AffiliateCommissionInDB,
+    AffiliateCommissionResponse,
+    AffiliateSettingsBase,
+    AffiliateSettingsCreate,
+    AffiliateSettingsUpdate,
+    AffiliateSettingsInDB,
+    AffiliateWithdrawalBase,
+    AffiliateWithdrawalCreate,
+    AffiliateWithdrawalUpdate,
+    AffiliateWithdrawalInDB,
+    AffiliateWithdrawalResponse,
+    UserAffiliateStats,
+    ReferralCreate,
+    AffiliateReportParams,
+    AffiliateReport
 )
 
 # All imports should be explicitly listed for better code maintainability
@@ -51,7 +96,7 @@ __all__ = [
     
     # Panel and Location related
     "Panel", "PanelCreate", "PanelUpdate", "PanelInDB", "PanelDetail",
-    "Location", "LocationCreate", "LocationUpdate", "LocationInDB", "LocationDetail",
+    "Location", "LocationCreate", "LocationUpdate", "LocationInDB",
     
     # Plan related
     "Plan", "PlanCreate", "PlanUpdate", "PlanInDB", "PlanWithCategory", "PlanDetail",
@@ -77,5 +122,22 @@ __all__ = [
     
     # Bank Card related
     "BankCard", "BankCardCreate", "BankCardUpdate", "BankCardBase", 
-    "BankCardInDB", "BankCardList", "BankCardDetail"
+    "BankCardInDB", "BankCardList", "BankCardDetail",
+    
+    # Payment related
+    "Payment", "PaymentCreate", "PaymentUpdate", "PaymentDetail", "PaymentVerification",
+    "ZarinpalPaymentCreate", "ZarinpalPaymentVerify",
+    
+    # Log related
+    "LogCreate", "Log", "LogDetail",
+    
+    # Message related
+    "Msg",
+    
+    # Affiliate related
+    "AffiliateCommissionBase", "AffiliateCommissionCreate", "AffiliateCommissionUpdate", "AffiliateCommissionInDB",
+    "AffiliateCommissionResponse", "AffiliateSettingsBase", "AffiliateSettingsCreate", "AffiliateSettingsUpdate",
+    "AffiliateSettingsInDB", "AffiliateWithdrawalBase", "AffiliateWithdrawalCreate", "AffiliateWithdrawalUpdate",
+    "AffiliateWithdrawalInDB", "AffiliateWithdrawalResponse", "UserAffiliateStats", "ReferralCreate",
+    "AffiliateReportParams", "AffiliateReport"
 ]

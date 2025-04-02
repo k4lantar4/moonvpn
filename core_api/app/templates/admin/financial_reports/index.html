@@ -1,0 +1,692 @@
+{% extends "base.html" %}
+
+{% block title %}Financial Reports{% endblock %}
+
+{% block content %}
+<div class="page-header d-print-none">
+  <div class="container-xl">
+    <div class="row g-2 align-items-center">
+      <div class="col">
+        <h2 class="page-title">
+          Financial Reports
+        </h2>
+        <p class="text-muted mt-1">View financial data and export reports</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="page-body">
+  <div class="container-xl">
+    <div class="row row-cards">
+      <!-- Summary Cards -->
+      <div class="col-lg-6 col-xl-3">
+        <div class="card card-sm">
+          <div class="card-body">
+            <div class="row align-items-center">
+              <div class="col-auto">
+                <span class="bg-primary text-white avatar">
+                  <i class="ti ti-currency-dollar"></i>
+                </span>
+              </div>
+              <div class="col">
+                <div class="font-weight-medium">
+                  Today's Revenue
+                </div>
+                <div class="text-muted" id="today-revenue">
+                  Loading...
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-6 col-xl-3">
+        <div class="card card-sm">
+          <div class="card-body">
+            <div class="row align-items-center">
+              <div class="col-auto">
+                <span class="bg-green text-white avatar">
+                  <i class="ti ti-chart-bar"></i>
+                </span>
+              </div>
+              <div class="col">
+                <div class="font-weight-medium">
+                  This Month
+                </div>
+                <div class="text-muted" id="month-revenue">
+                  Loading...
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-6 col-xl-3">
+        <div class="card card-sm">
+          <div class="card-body">
+            <div class="row align-items-center">
+              <div class="col-auto">
+                <span class="bg-info text-white avatar">
+                  <i class="ti ti-shopping-cart"></i>
+                </span>
+              </div>
+              <div class="col">
+                <div class="font-weight-medium">
+                  Orders Today
+                </div>
+                <div class="text-muted" id="orders-today">
+                  Loading...
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-6 col-xl-3">
+        <div class="card card-sm">
+          <div class="card-body">
+            <div class="row align-items-center">
+              <div class="col-auto">
+                <span class="bg-yellow text-white avatar">
+                  <i class="ti ti-percentage"></i>
+                </span>
+              </div>
+              <div class="col">
+                <div class="font-weight-medium">
+                  Monthly Growth
+                </div>
+                <div class="text-muted" id="revenue-growth">
+                  Loading...
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Report Selection -->
+      <div class="col-12">
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Generate Reports</h3>
+          </div>
+          <div class="card-body">
+            <div class="row">
+              <div class="col-md-4 mb-3">
+                <label class="form-label">Report Type</label>
+                <select class="form-select" id="report-type">
+                  <option value="orders">Orders Report</option>
+                  <option value="transactions">Transactions Report</option>
+                  <option value="commissions">Affiliate Commissions</option>
+                  <option value="revenue">Revenue Report</option>
+                  <option value="subscription">Subscription Report</option>
+                </select>
+              </div>
+              <div class="col-md-4 mb-3">
+                <label class="form-label">Time Frame</label>
+                <select class="form-select" id="time-frame">
+                  <option value="today">Today</option>
+                  <option value="yesterday">Yesterday</option>
+                  <option value="last_7_days">Last 7 Days</option>
+                  <option value="last_30_days">Last 30 Days</option>
+                  <option value="this_month" selected>This Month</option>
+                  <option value="last_month">Last Month</option>
+                  <option value="this_year">This Year</option>
+                  <option value="custom">Custom Range</option>
+                </select>
+              </div>
+              <div class="col-md-4 mb-3">
+                <label class="form-label">Export Format</label>
+                <select class="form-select" id="export-format">
+                  <option value="excel">Excel</option>
+                  <option value="csv">CSV</option>
+                  <option value="json">JSON</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="row date-range" style="display: none;">
+              <div class="col-md-6 mb-3">
+                <label class="form-label">Start Date</label>
+                <input type="date" class="form-control" id="start-date">
+              </div>
+              <div class="col-md-6 mb-3">
+                <label class="form-label">End Date</label>
+                <input type="date" class="form-control" id="end-date">
+              </div>
+            </div>
+
+            <div class="row filters">
+              <!-- Dynamic filters will be inserted here based on report type -->
+            </div>
+
+            <div class="mt-3">
+              <button class="btn btn-primary" id="load-report">Load Report</button>
+              <button class="btn btn-success" id="export-report">Export Report</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Report Data -->
+      <div class="col-12">
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title" id="report-title">Report Data</h3>
+          </div>
+          <div class="card-body">
+            <div id="report-container">
+              <div class="text-center text-muted py-4">
+                <p>Select a report type and click "Load Report" to view data</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    // Load summary data
+    loadSummaryData();
+
+    // Set up event listeners
+    document.getElementById('time-frame').addEventListener('change', function() {
+      if (this.value === 'custom') {
+        document.querySelector('.date-range').style.display = 'flex';
+      } else {
+        document.querySelector('.date-range').style.display = 'none';
+      }
+    });
+
+    document.getElementById('report-type').addEventListener('change', function() {
+      updateDynamicFilters(this.value);
+    });
+
+    document.getElementById('load-report').addEventListener('click', function() {
+      loadReportData();
+    });
+
+    document.getElementById('export-report').addEventListener('click', function() {
+      exportReport();
+    });
+
+    // Initialize dynamic filters
+    updateDynamicFilters(document.getElementById('report-type').value);
+  });
+
+  function loadSummaryData() {
+    fetch('/api/v1/financial-reporting/summary')
+      .then(response => response.json())
+      .then(data => {
+        document.getElementById('today-revenue').textContent = formatCurrency(data.today_revenue);
+        document.getElementById('month-revenue').textContent = formatCurrency(data.this_month_revenue);
+        document.getElementById('orders-today').textContent = data.new_orders_today;
+        document.getElementById('revenue-growth').textContent = formatPercentage(data.revenue_change_percentage);
+      })
+      .catch(error => {
+        console.error('Error loading summary data:', error);
+        showNotification('error', 'Failed to load summary data');
+      });
+  }
+
+  function updateDynamicFilters(reportType) {
+    const filtersContainer = document.querySelector('.filters');
+    filtersContainer.innerHTML = '';
+
+    switch (reportType) {
+      case 'orders':
+        filtersContainer.innerHTML = `
+          <div class="col-md-6 mb-3">
+            <label class="form-label">Order Status</label>
+            <select class="form-select" id="order-status">
+              <option value="">All Statuses</option>
+              <option value="pending">Pending</option>
+              <option value="paid">Paid</option>
+              <option value="confirmed">Confirmed</option>
+              <option value="rejected">Rejected</option>
+              <option value="expired">Expired</option>
+              <option value="canceled">Canceled</option>
+              <option value="failed">Failed</option>
+              <option value="verification_pending">Verification Pending</option>
+            </select>
+          </div>
+          <div class="col-md-6 mb-3">
+            <label class="form-label">Payment Method</label>
+            <select class="form-select" id="payment-method">
+              <option value="">All Methods</option>
+              <option value="card_to_card">Card to Card</option>
+              <option value="wallet">Wallet</option>
+              <option value="zarinpal">Zarinpal</option>
+              <option value="crypto">Crypto</option>
+              <option value="manual">Manual</option>
+            </select>
+          </div>
+        `;
+        break;
+      case 'transactions':
+        filtersContainer.innerHTML = `
+          <div class="col-md-6 mb-3">
+            <label class="form-label">Transaction Type</label>
+            <select class="form-select" id="transaction-type">
+              <option value="">All Types</option>
+              <option value="deposit">Deposit</option>
+              <option value="withdraw">Withdraw</option>
+              <option value="order_payment">Order Payment</option>
+              <option value="refund">Refund</option>
+              <option value="referral_bonus">Referral Bonus</option>
+              <option value="admin_adjustment">Admin Adjustment</option>
+            </select>
+          </div>
+          <div class="col-md-6 mb-3">
+            <label class="form-label">Transaction Status</label>
+            <select class="form-select" id="transaction-status">
+              <option value="">All Statuses</option>
+              <option value="pending">Pending</option>
+              <option value="completed">Completed</option>
+              <option value="failed">Failed</option>
+              <option value="canceled">Canceled</option>
+            </select>
+          </div>
+        `;
+        break;
+      case 'commissions':
+        filtersContainer.innerHTML = `
+          <div class="col-md-6 mb-3">
+            <label class="form-label">Commission Status</label>
+            <select class="form-select" id="commission-status">
+              <option value="">All Statuses</option>
+              <option value="pending">Pending</option>
+              <option value="approved">Approved</option>
+              <option value="paid">Paid</option>
+              <option value="rejected">Rejected</option>
+            </select>
+          </div>
+        `;
+        break;
+      // For revenue and subscription reports, no additional filters needed
+    }
+  }
+
+  function getReportParameters() {
+    const reportType = document.getElementById('report-type').value;
+    const timeFrame = document.getElementById('time-frame').value;
+    
+    let params = new URLSearchParams();
+    params.append('time_frame', timeFrame);
+    
+    if (timeFrame === 'custom') {
+      const startDate = document.getElementById('start-date').value;
+      const endDate = document.getElementById('end-date').value;
+      
+      if (!startDate || !endDate) {
+        showNotification('error', 'Please select both start and end dates');
+        return null;
+      }
+      
+      params.append('start_date', startDate + 'T00:00:00');
+      params.append('end_date', endDate + 'T23:59:59');
+    }
+    
+    // Add filters based on report type
+    switch (reportType) {
+      case 'orders':
+        const orderStatus = document.getElementById('order-status').value;
+        const paymentMethod = document.getElementById('payment-method').value;
+        
+        if (orderStatus) params.append('status', orderStatus);
+        if (paymentMethod) params.append('payment_method', paymentMethod);
+        break;
+        
+      case 'transactions':
+        const transactionType = document.getElementById('transaction-type').value;
+        const transactionStatus = document.getElementById('transaction-status').value;
+        
+        if (transactionType) params.append('transaction_type', transactionType);
+        if (transactionStatus) params.append('status', transactionStatus);
+        break;
+        
+      case 'commissions':
+        const commissionStatus = document.getElementById('commission-status').value;
+        if (commissionStatus) params.append('status', commissionStatus);
+        break;
+    }
+    
+    return params;
+  }
+
+  function loadReportData() {
+    const reportType = document.getElementById('report-type').value;
+    const params = getReportParameters();
+    
+    if (!params) return;
+    
+    document.getElementById('report-container').innerHTML = `
+      <div class="text-center py-4">
+        <div class="spinner-border text-primary" role="status"></div>
+        <p class="mt-2">Loading report data...</p>
+      </div>
+    `;
+    
+    fetch(`/api/v1/financial-reporting/${reportType}?${params.toString()}`)
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('Failed to load report data');
+        }
+        return response.json();
+      })
+      .then(data => {
+        displayReportData(reportType, data);
+      })
+      .catch(error => {
+        console.error('Error loading report data:', error);
+        document.getElementById('report-container').innerHTML = `
+          <div class="text-center text-danger py-4">
+            <i class="ti ti-alert-circle fs-1"></i>
+            <p class="mt-2">Failed to load report data: ${error.message}</p>
+          </div>
+        `;
+      });
+  }
+
+  function displayReportData(reportType, data) {
+    const container = document.getElementById('report-container');
+    
+    if (!data || data.length === 0) {
+      container.innerHTML = `
+        <div class="text-center text-muted py-4">
+          <i class="ti ti-file-off fs-1"></i>
+          <p class="mt-2">No data found for the selected criteria</p>
+        </div>
+      `;
+      return;
+    }
+    
+    // Set report title
+    const reportTitles = {
+      'orders': 'Orders Report',
+      'transactions': 'Transactions Report',
+      'commissions': 'Affiliate Commissions Report',
+      'revenue': 'Revenue Report',
+      'subscription': 'Subscription Report'
+    };
+    document.getElementById('report-title').textContent = reportTitles[reportType] || 'Report Data';
+    
+    // Create table based on report type
+    let tableHTML = '';
+    
+    switch (reportType) {
+      case 'orders':
+        tableHTML = createOrdersTable(data);
+        break;
+      case 'transactions':
+        tableHTML = createTransactionsTable(data);
+        break;
+      case 'commissions':
+        tableHTML = createCommissionsTable(data);
+        break;
+      case 'revenue':
+        tableHTML = createRevenueTable(data);
+        break;
+      case 'subscription':
+        tableHTML = createSubscriptionTable(data);
+        break;
+    }
+    
+    container.innerHTML = tableHTML;
+  }
+
+  function createOrdersTable(data) {
+    return `
+      <div class="table-responsive">
+        <table class="table table-vcenter card-table">
+          <thead>
+            <tr>
+              <th>Order ID</th>
+              <th>User</th>
+              <th>Plan</th>
+              <th>Amount</th>
+              <th>Status</th>
+              <th>Payment Method</th>
+              <th>Created</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${data.map(order => `
+              <tr>
+                <td>${order.order_id}</td>
+                <td>${order.username || 'N/A'}</td>
+                <td>${order.plan_name || 'N/A'}</td>
+                <td>${formatCurrency(order.final_amount)}</td>
+                <td><span class="badge ${getStatusBadgeClass(order.status)}">${order.status}</span></td>
+                <td>${order.payment_method || 'N/A'}</td>
+                <td>${formatDate(order.created_at)}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  function createTransactionsTable(data) {
+    return `
+      <div class="table-responsive">
+        <table class="table table-vcenter card-table">
+          <thead>
+            <tr>
+              <th>Transaction ID</th>
+              <th>User</th>
+              <th>Amount</th>
+              <th>Type</th>
+              <th>Status</th>
+              <th>Payment Method</th>
+              <th>Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${data.map(tx => `
+              <tr>
+                <td>${tx.transaction_id}</td>
+                <td>${tx.username || 'N/A'}</td>
+                <td>${formatCurrency(tx.amount)}</td>
+                <td>${tx.type || 'N/A'}</td>
+                <td><span class="badge ${getStatusBadgeClass(tx.status)}">${tx.status}</span></td>
+                <td>${tx.payment_method || 'N/A'}</td>
+                <td>${formatDate(tx.created_at)}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  function createCommissionsTable(data) {
+    return `
+      <div class="table-responsive">
+        <table class="table table-vcenter card-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Affiliate</th>
+              <th>Amount</th>
+              <th>Status</th>
+              <th>Type</th>
+              <th>Created</th>
+              <th>Paid</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${data.map(comm => `
+              <tr>
+                <td>${comm.commission_id}</td>
+                <td>${comm.affiliate_username || 'N/A'}</td>
+                <td>${formatCurrency(comm.amount)}</td>
+                <td><span class="badge ${getStatusBadgeClass(comm.status)}">${comm.status}</span></td>
+                <td>${comm.type || 'N/A'}</td>
+                <td>${formatDate(comm.created_at)}</td>
+                <td>${comm.paid_at ? formatDate(comm.paid_at) : 'Not Paid'}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  function createRevenueTable(data) {
+    return `
+      <div class="table-responsive">
+        <table class="table table-vcenter card-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Orders</th>
+              <th>Revenue</th>
+              <th>Deposits</th>
+              <th>Commissions</th>
+              <th>Net Revenue</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${data.map(row => `
+              <tr>
+                <td>${formatDate(row.date)}</td>
+                <td>${row.orders_count}</td>
+                <td>${formatCurrency(row.total_revenue)}</td>
+                <td>${formatCurrency(row.total_deposits)}</td>
+                <td>${formatCurrency(row.total_commissions)}</td>
+                <td>${formatCurrency(row.net_revenue)}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  function createSubscriptionTable(data) {
+    return `
+      <div class="table-responsive">
+        <table class="table table-vcenter card-table">
+          <thead>
+            <tr>
+              <th>Plan</th>
+              <th>Active Subs</th>
+              <th>Frozen</th>
+              <th>Auto-Renew</th>
+              <th>New Subs</th>
+              <th>Price</th>
+              <th>Revenue Potential</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${data.map(row => `
+              <tr>
+                <td>${row.plan_name || 'N/A'}</td>
+                <td>${row.active_subscriptions}</td>
+                <td>${row.frozen_subscriptions}</td>
+                <td>${row.auto_renew_enabled}</td>
+                <td>${row.new_subscriptions}</td>
+                <td>${formatCurrency(row.plan_price)}</td>
+                <td>${formatCurrency(row.revenue_potential)}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  function exportReport() {
+    const reportType = document.getElementById('report-type').value;
+    const exportFormat = document.getElementById('export-format').value;
+    const params = getReportParameters();
+    
+    if (!params) return;
+    
+    params.append('format', exportFormat);
+    
+    // Show notification
+    showNotification('info', 'Generating report for download...');
+    
+    // Redirect to download endpoint
+    window.location.href = `/api/v1/financial-reporting/export/${reportType}?${params.toString()}`;
+  }
+
+  function formatCurrency(value) {
+    if (value === null || value === undefined) return 'N/A';
+    return new Intl.NumberFormat('fa-IR', { 
+      style: 'currency', 
+      currency: 'IRR',
+      maximumFractionDigits: 0
+    }).format(value);
+  }
+
+  function formatPercentage(value) {
+    if (value === null || value === undefined) return 'N/A';
+    const num = parseFloat(value);
+    const sign = num >= 0 ? '+' : '';
+    return `${sign}${num.toFixed(2)}%`;
+  }
+
+  function formatDate(dateString) {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    return new Intl.DateTimeFormat('fa-IR', { 
+      year: 'numeric', 
+      month: 'short', 
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    }).format(date);
+  }
+
+  function getStatusBadgeClass(status) {
+    if (!status) return 'bg-secondary';
+    
+    switch(status.toLowerCase()) {
+      case 'completed':
+      case 'confirmed':
+      case 'active':
+      case 'approved':
+      case 'paid':
+        return 'bg-success';
+      case 'pending':
+      case 'verification_pending':
+        return 'bg-warning';
+      case 'failed':
+      case 'rejected':
+      case 'canceled':
+      case 'expired':
+        return 'bg-danger';
+      default:
+        return 'bg-secondary';
+    }
+  }
+
+  function showNotification(type, message) {
+    let color = 'primary';
+    switch (type) {
+      case 'success': color = 'success'; break;
+      case 'error': color = 'danger'; break;
+      case 'warning': color = 'warning'; break;
+      case 'info': color = 'info'; break;
+    }
+    
+    // This assumes you have the Tabler notification system available
+    if (window.showNotification) {
+      window.showNotification(color, message);
+    } else {
+      console.log(`[${type.toUpperCase()}] ${message}`);
+      alert(message);
+    }
+  }
+</script>
+{% endblock %} 

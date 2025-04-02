@@ -2,7 +2,7 @@ import httpx
 import logging
 from typing import Optional, Dict, Any, List
 
-from app.core.config import CORE_API_URL
+from core.config import CORE_API_URL
 
 # Get logger instance
 logger = logging.getLogger(__name__)

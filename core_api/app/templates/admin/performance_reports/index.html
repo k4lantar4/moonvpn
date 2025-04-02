@@ -1,0 +1,357 @@
+{% extends "base.html" %}
+
+{% block title %}Payment Admin Performance Reports{% endblock %}
+
+{% block page_title %}Payment Admin Performance Reports{% endblock %}
+
+{% block extra_css %}
+<!-- If using a charting library like Chart.js or ApexCharts, include its CSS here -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<style>
+  /* Add custom styles if needed */
+  .chart-container {
+    min-height: 300px; /* Ensure charts have some height */
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-xl">
+  <!-- Page Header -->
+  <div class="page-header d-print-none">
+    <div class="row align-items-center">
+      <div class="col">
+        <h2 class="page-title">
+          Admin Performance Reports
+        </h2>
+        <div class="text-muted mt-1">
+          Analyze payment verification performance metrics.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filters Row -->
+  <div class="row mt-3">
+    <div class="col-12">
+      <form class="card" id="report-filter-form">
+        <div class="card-header">
+            <h3 class="card-title">Report Filters</h3>
+        </div>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label">Date Range</label>
+              <input class="form-control" placeholder="Select date range" id="date-range-picker"/>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Payment Admin</label>
+              <select class="form-select" id="admin-filter-select">
+                <option value="all" selected>All Admins</option>
+                <!-- Admin users will be populated here -->
+              </select>
+            </div>
+            <div class="col-md-4 align-self-end">
+              <button type="submit" class="btn btn-primary w-100">
+                Generate Report
+              </button>
+            </div>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Report Content Area -->
+  <div class="row row-cards mt-3" id="report-content-area">
+    <!-- Loading Indicator -->
+     <div class="col-12 text-center py-5 d-none" id="report-loading">
+        <div class="spinner-border text-primary" role="status"></div>
+        <p class="mt-2">Generating report...</p>
+     </div>
+
+     <!-- Initial Prompt / Empty State -->
+     <div class="col-12 text-center py-5" id="report-prompt">
+         <div class="empty">
+            <div class="empty-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-chart-infographic" width="40" height="40" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M7 7m-4 0a4 4 0 1 0 8 0a4 4 0 1 0 -8 0" /><path d="M7 3v4h4" /><path d="M9 17l0 4" /><path d="M17 14l0 7" /><path d="M13 13l0 8" /><path d="M21 12l0 9" /></svg>
+            </div>
+            <p class="empty-title">Select Filters to Generate Report</p>
+            <p class="empty-subtitle text-muted">
+              Choose a date range and optionally filter by admin to view performance metrics.
+            </p>
+          </div>
+     </div>
+
+     <!-- Report Data - Will be populated dynamically -->
+     <div class="col-md-6 d-none report-section">
+       <div class="card">
+         <div class="card-header">
+           <h3 class="card-title">Summary Metrics</h3>
+         </div>
+         <div class="card-body">
+            <dl class="row" id="summary-metrics">
+                <!-- Summary data like total processed, approval rate etc. -->
+            </dl>
+         </div>
+       </div>
+     </div>
+
+     <div class="col-md-6 d-none report-section">
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Processing Volume</h3>
+          </div>
+          <div class="card-body chart-container" id="processing-volume-chart">
+             <!-- Chart for volume over time or by admin -->
+          </div>
+        </div>
+     </div>
+
+      <div class="col-md-6 d-none report-section">
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Approval/Rejection Rates</h3>
+          </div>
+          <div class="card-body chart-container" id="approval-rate-chart">
+            <!-- Chart for approval/rejection stats -->
+          </div>
+        </div>
+      </div>
+
+       <div class="col-md-6 d-none report-section">
+         <div class="card">
+           <div class="card-header">
+             <h3 class="card-title">Average Response Time</h3>
+           </div>
+           <div class="card-body chart-container" id="response-time-chart">
+              <!-- Chart/Data for response times -->
+           </div>
+         </div>
+      </div>
+
+      <div class="col-12 d-none report-section">
+         <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Detailed Admin Breakdown</h3>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-vcenter card-table" id="admin-details-table">
+                    <thead>
+                        <tr>
+                            <th>Admin</th>
+                            <th>Processed</th>
+                            <th>Approved</th>
+                            <th>Rejected</th>
+                            <th>Approval Rate</th>
+                            <th>Avg. Response Time</th>
+                            <!-- Add more columns as needed -->
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Detailed rows per admin -->
+                    </tbody>
+                </table>
+            </div>
+         </div>
+      </div>
+
+  </div> <!-- End Report Content Area -->
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<!-- Include Charting library JS (e.g., Chart.js or ApexCharts) -->
+<!-- <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> -->
+<!-- <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script> -->
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const filterForm = document.getElementById('report-filter-form');
+    const dateRangePicker = document.getElementById('date-range-picker');
+    const adminFilterSelect = document.getElementById('admin-filter-select');
+    const reportContentArea = document.getElementById('report-content-area');
+    const reportLoading = document.getElementById('report-loading');
+    const reportPrompt = document.getElementById('report-prompt');
+    const summaryMetricsDl = document.getElementById('summary-metrics');
+    const adminDetailsTableBody = document.querySelector('#admin-details-table tbody');
+
+    // Chart placeholders - Initialize chart instances here if using JS charts
+    let processingVolumeChart = null;
+    let approvalRateChart = null;
+    let responseTimeChart = null;
+
+    // Initialize Flatpickr
+    flatpickr(dateRangePicker, {
+        mode: "range",
+        dateFormat: "Y-m-d",
+        altInput: true,
+        altFormat: "F j, Y",
+    });
+
+    // --- Helper Functions ---
+    function showAlert(message, type = 'danger') {
+        alert(`[${type.toUpperCase()}] ${message}`); // Simple alert
+    }
+
+    function showLoading() {
+        reportPrompt.classList.add('d-none');
+        reportContentArea.querySelectorAll('.report-section').forEach(el => el.classList.add('d-none'));
+        reportLoading.classList.remove('d-none');
+    }
+
+    function hideLoading() {
+        reportLoading.classList.add('d-none');
+    }
+
+    function displayReportData(data) {
+        hideLoading();
+        reportContentArea.querySelectorAll('.report-section').forEach(el => el.classList.remove('d-none'));
+
+        // --- Populate Summary Metrics ---
+        summaryMetricsDl.innerHTML = `
+            <dt class="col-5">Total Payments Processed:</dt>
+            <dd class="col-7">${data.summary?.total_processed || 0}</dd>
+            <dt class="col-5">Total Approved:</dt>
+            <dd class="col-7">${data.summary?.total_approved || 0}</dd>
+            <dt class="col-5">Total Rejected:</dt>
+            <dd class="col-7">${data.summary?.total_rejected || 0}</dd>
+            <dt class="col-5">Overall Approval Rate:</dt>
+            <dd class="col-7">${data.summary?.overall_approval_rate?.toFixed(2) || 'N/A'}%</dd>
+            <dt class="col-5">Avg. Response Time:</dt>
+            <dd class="col-7">${data.summary?.overall_avg_response_time_str || 'N/A'}</dd>
+        `; // Adjust fields based on actual API response
+
+        // --- Populate Detailed Admin Table ---
+        adminDetailsTableBody.innerHTML = ''; // Clear previous data
+        if (data.admin_details && data.admin_details.length > 0) {
+            data.admin_details.forEach(admin => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${admin.username || 'Unknown'}</td>
+                    <td>${admin.total_processed || 0}</td>
+                    <td>${admin.total_approved || 0}</td>
+                    <td>${admin.total_rejected || 0}</td>
+                    <td>${admin.approval_rate?.toFixed(2) || 'N/A'}%</td>
+                    <td>${admin.avg_response_time_str || 'N/A'}</td>
+                `; // Adjust fields based on actual API response
+                adminDetailsTableBody.appendChild(row);
+            });
+        } else {
+             const row = document.createElement('tr');
+             row.innerHTML = `<td colspan="6" class="text-center text-muted">No detailed admin data available for this period.</td>`;
+             adminDetailsTableBody.appendChild(row);
+        }
+
+        // --- Render Charts (using placeholders) ---
+        // Replace with actual chart rendering logic using data.charts or data.admin_details
+        renderPlaceholderChart('processing-volume-chart', 'Processing Volume Data (Placeholder)');
+        renderPlaceholderChart('approval-rate-chart', 'Approval Rate Data (Placeholder)');
+        renderPlaceholderChart('response-time-chart', 'Response Time Data (Placeholder)');
+
+        // --- Example using Chart.js (if included) ---
+        /*
+        if (data.charts?.processing_volume) {
+            renderProcessingVolumeChart(data.charts.processing_volume);
+        }
+        */
+    }
+
+    function renderPlaceholderChart(elementId, text) {
+        const container = document.getElementById(elementId);
+        if (container) {
+            container.innerHTML = `<div class="text-center text-muted p-4">${text}</div>`;
+             // If using a library, destroy previous instance if exists
+            // if (elementId === 'processing-volume-chart' && processingVolumeChart) processingVolumeChart.destroy();
+            // etc.
+        }
+    }
+
+    // --- API Interaction ---
+    async function fetchUsers() {
+        // Placeholder: Fetch users with admin roles for the filter dropdown
+        console.log("Fetching admin users for filter...");
+         try {
+            // const response = await fetch('/api/v1/users?role=admin', { // Adjust API endpoint
+            //     headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
+            // });
+            // if (!response.ok) throw new Error('Failed to fetch admins');
+            // const users = await response.json();
+             const users = [
+                 { id: 1, username: 'admin_user_1' },
+                 { id: 2, username: 'payment_verifier' },
+             ];
+
+            users.forEach(user => {
+                const option = document.createElement('option');
+                option.value = user.id;
+                option.textContent = user.username;
+                adminFilterSelect.appendChild(option);
+            });
+        } catch (error) {
+            console.error("Failed to populate admin filter:", error);
+            showAlert("Could not load admin list for filtering.", "warning");
+        }
+    }
+
+    async function generateReport(event) {
+        event.preventDefault();
+        showLoading();
+
+        const dates = dateRangePicker.value.split(' to ');
+        const startDate = dates[0] || null;
+        const endDate = dates.length > 1 ? dates[1] : startDate; // Handle single date selection
+        const adminId = adminFilterSelect.value;
+
+        const params = new URLSearchParams();
+        if (startDate) params.append('start_date', startDate);
+        if (endDate) params.append('end_date', endDate);
+        if (adminId !== 'all') params.append('admin_id', adminId);
+
+        try {
+            console.log(`Generating report with params: ${params.toString()}`);
+            const response = await fetch(`/api/v1/payment-admins/reports?${params.toString()}`, { // ADJUST API ENDPOINT
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+                }
+            });
+
+            if (!response.ok) {
+                 const errorData = await response.json();
+                 throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
+            }
+
+            const reportData = await response.json();
+            console.log("Report Data Received:", reportData);
+
+            if (!reportData || (reportData.summary && reportData.summary.total_processed === 0)) {
+                hideLoading();
+                reportPrompt.classList.remove('d-none');
+                reportPrompt.querySelector('.empty-title').textContent = "No Data Found";
+                reportPrompt.querySelector('.empty-subtitle').textContent = "No payment verification activity matches the selected filters.";
+                reportContentArea.querySelectorAll('.report-section').forEach(el => el.classList.add('d-none'));
+            } else {
+                 reportPrompt.classList.add('d-none');
+                 displayReportData(reportData);
+            }
+
+        } catch (error) {
+            console.error("Failed to generate report:", error);
+            hideLoading();
+            showAlert(`Error generating report: ${error.message}`, "danger");
+             reportPrompt.classList.remove('d-none'); // Show prompt again on error
+             reportPrompt.querySelector('.empty-title').textContent = "Error Generating Report";
+             reportPrompt.querySelector('.empty-subtitle').textContent = "Could not fetch or process report data. Please try again or check console.";
+        }
+    }
+
+    // --- Event Listeners ---
+    filterForm.addEventListener('submit', generateReport);
+
+    // --- Initial Load ---
+    fetchUsers(); // Populate admin filter
+
+});
+</script>
+{% endblock %} 

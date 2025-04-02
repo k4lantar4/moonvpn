@@ -6,11 +6,17 @@ from datetime import datetime
 
 from app.models.transaction import Transaction, TransactionType, TransactionStatus
 from app.models.order import Order, OrderStatus, PaymentMethod
+from app.models.role import Role
 from app import crud
+from app.core.config import settings
 
 # Configure logger
 logger = logging.getLogger(__name__)
 
+# --- TODO: Move to config.py and load from environment --- 
+# SELLER_UPGRADE_THRESHOLD = Decimal('1000000.00') # Example threshold (e.g., 1 Million Toman)
+# SELLER_ROLE_NAME = 'seller' 
+# --- Removed Constants - Use settings instead ---
 
 class WalletException(Exception):
     """Custom exception for wallet operations"""
@@ -372,62 +378,79 @@ class WalletService:
         admin_note: Optional[str] = None,
     ) -> Transaction:
         """
-        Approve a pending deposit transaction.
-        
-        Args:
-            db: Database session
-            transaction_id: Transaction ID
-            admin_id: Admin who approved the transaction
-            admin_note: Note from admin
-            
-        Returns:
-            Updated Transaction object
-            
-        Raises:
-            WalletException: On validation errors
+        Approve a pending deposit transaction and update user balance.
+        Checks if the user qualifies for a role upgrade after deposit.
         """
-        # Get the transaction
         transaction = crud.transaction.get(db, id=transaction_id)
         if not transaction:
             raise WalletException(f"Transaction with ID {transaction_id} not found")
         
-        # Validate transaction type and status
         if transaction.type != TransactionType.DEPOSIT:
-            raise WalletException(
-                f"Transaction is of type {transaction.type.value}, expected DEPOSIT"
-            )
+            raise WalletException("Only DEPOSIT transactions can be approved")
         
         if transaction.status != TransactionStatus.PENDING:
-            raise WalletException(
-                f"Transaction is in state {transaction.status.value}, expected PENDING"
-            )
+            raise WalletException(f"Transaction is already in state {transaction.status.value}")
         
         # Get the user
         user = crud.user.get(db, id=transaction.user_id)
         if not user:
             raise WalletException(f"User with ID {transaction.user_id} not found")
         
+        # Ensure user role is loaded for the check later
+        db.refresh(user, attribute_names=['role'])
+
         # Calculate new balance
         current_balance = user.wallet_balance
-        amount = Decimal(str(transaction.amount))
-        new_balance = current_balance + amount
+        new_balance = current_balance + transaction.amount # Add the deposit amount
         
         # Update transaction
-        transaction_update = {
+        update_data = {
             "status": TransactionStatus.COMPLETED,
-            "balance_after": new_balance,
             "admin_id": admin_id,
             "admin_note": admin_note,
+            "processed_at": datetime.utcnow(),
+            "balance_after": new_balance # Record the balance after this transaction
         }
-        transaction = crud.transaction.update(db, db_obj=transaction, obj_in=transaction_update)
+        transaction = crud.transaction.update(db, db_obj=transaction, obj_in=update_data)
         
         # Update user balance
         user.wallet_balance = new_balance
-        
-        # Commit changes
+        db.add(user) # Add user to session before commit
         db.commit()
-        logger.info(f"Approved deposit of {amount} for user {transaction.user_id}. New balance: {new_balance}")
+        db.refresh(user, attribute_names=['wallet_balance', 'role']) # Refresh again to get latest state
+        db.refresh(transaction)
+
+        logger.info(f"Deposit transaction {transaction_id} approved by admin {admin_id}. User {user.id} new balance: {new_balance}")
+
+        # --- Check for Seller Role Upgrade --- 
+        # Use values from settings
+        seller_role_name = settings.SELLER_ROLE_NAME
+        seller_upgrade_threshold = settings.SELLER_UPGRADE_THRESHOLD
         
+        if seller_upgrade_threshold is None:
+             logger.debug("SELLER_UPGRADE_THRESHOLD not set, skipping auto-upgrade check.")
+             return transaction # Exit early if threshold not configured
+             
+        try:
+            seller_role = crud.role.get_by_name(db, name=seller_role_name)
+            if not seller_role:
+                logger.warning(f"Seller role '{seller_role_name}' not found in database. Cannot perform auto-upgrade.")
+            elif user.role_id != seller_role.id: # Check if user is not already a seller
+                if new_balance >= seller_upgrade_threshold:
+                    logger.info(f"User {user.id} balance ({new_balance}) reached threshold ({seller_upgrade_threshold}). Upgrading role to '{seller_role_name}'.")
+                    user.role_id = seller_role.id
+                    db.add(user)
+                    db.commit()
+                    db.refresh(user, attribute_names=['role'])
+                    logger.info(f"User {user.id} successfully upgraded to role '{seller_role_name}'.")
+        except Exception as e:
+            # Log the error but don't let it fail the deposit approval
+            logger.error(f"Error during seller role upgrade check for user {user.id} after approving transaction {transaction_id}: {e}", exc_info=True)
+            # We might need to rollback the specific role change attempt if db.commit failed within the try block,
+            # but the main balance update should already be committed.
+            # For simplicity, we just log the error here.
+            pass # Continue even if role upgrade fails
+
         return transaction
     
     @staticmethod

@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+
+{% block title %}Create New Plan - MoonVPN Admin{% endblock %}
+
+{% block content %}
+
+<div class="page-wrapper">
+  <div class="container-xl">
+    <!-- Page title -->
+    <div class="page-header d-print-none">
+      <div class="row align-items-center">
+        <div class="col">
+          <h2 class="page-title">
+            Create New Plan
+          </h2>
+          <div class="text-muted mt-1">Add a new service plan to the system</div>
+        </div>
+        <div class="col-auto ms-auto d-print-none">
+          <div class="btn-list">
+            <a href="/admin/plans" class="btn btn-outline-primary d-none d-sm-inline-block">
+              <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-chevron-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                <path d="M15 6l-6 6l6 6"></path>
+              </svg>
+              Back to Plans
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row">
+      <!-- Plan form -->
+      <div class="col-md-12">
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">New Plan Details</h3>
+          </div>
+          <div class="card-body">
+            <form id="plan-form">
+              <div class="mb-3">
+                <label class="form-label required">Plan Name</label>
+                <input type="text" class="form-control" id="plan-name" required>
+                <small class="form-hint">Choose a descriptive name for this plan (e.g., "Standard 30-Day Plan")</small>
+              </div>
+
+              <div class="row">
+                <div class="col-md-6 mb-3">
+                  <label class="form-label required">Price</label>
+                  <div class="input-group">
+                    <span class="input-group-text">$</span>
+                    <input type="number" class="form-control" id="plan-price" step="0.01" min="0" required>
+                  </div>
+                  <small class="form-hint">Regular price for this plan</small>
+                </div>
+                <div class="col-md-6 mb-3">
+                  <label class="form-label">Seller Price (Optional)</label>
+                  <div class="input-group">
+                    <span class="input-group-text">$</span>
+                    <input type="number" class="form-control" id="plan-seller-price" step="0.01" min="0">
+                  </div>
+                  <small class="form-hint">Special price for users with the Seller role</small>
+                </div>
+              </div>
+
+              <div class="row">
+                <div class="col-md-6 mb-3">
+                  <label class="form-label required">Duration (Days)</label>
+                  <input type="number" class="form-control" id="plan-duration" value="30" min="1" required>
+                  <small class="form-hint">How long this plan remains active after purchase</small>
+                </div>
+                <div class="col-md-6 mb-3">
+                  <label class="form-label">Traffic Limit (GB)</label>
+                  <div class="input-group">
+                    <input type="number" class="form-control" id="plan-traffic" min="1">
+                    <span class="input-group-text">GB</span>
+                  </div>
+                  <small class="form-hint">Leave empty for unlimited traffic</small>
+                </div>
+              </div>
+
+              <div class="row">
+                <div class="col-md-6 mb-3">
+                  <label class="form-label">Max Users</label>
+                  <input type="number" class="form-control" id="plan-max-users" min="1">
+                  <small class="form-hint">Maximum number of users who can purchase this plan (leave empty for unlimited)</small>
+                </div>
+                <div class="col-md-6 mb-3">
+                  <label class="form-label">Category</label>
+                  <select class="form-select" id="plan-category">
+                    <option value="">None</option>
+                    {% for category in categories %}
+                    <option value="{{ category.id }}">{{ category.name }}</option>
+                    {% endfor %}
+                  </select>
+                  <small class="form-hint">Group this plan into a category for better organization</small>
+                </div>
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label">Description</label>
+                <textarea class="form-control" id="plan-description" rows="4"></textarea>
+                <small class="form-hint">Detailed description of this plan's features and benefits</small>
+              </div>
+
+              <div class="row mb-3">
+                <div class="col-md-4">
+                  <label class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="plan-is-active" checked>
+                    <span class="form-check-label">Active</span>
+                  </label>
+                  <small class="form-hint d-block mt-1">Make this plan available for purchase immediately</small>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="plan-is-featured">
+                    <span class="form-check-label">Featured</span>
+                  </label>
+                  <small class="form-hint d-block mt-1">Highlight this plan as a featured offering</small>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label">Sort Order</label>
+                  <input type="number" class="form-control" id="plan-sort-order" value="100" min="1">
+                  <small class="form-hint">Order in which plans appear (lower numbers first)</small>
+                </div>
+              </div>
+
+              <div class="form-footer">
+                <div class="d-flex">
+                  <a href="/admin/plans" class="btn btn-link">Cancel</a>
+                  <button type="submit" class="btn btn-primary ms-auto">Create Plan</button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- JavaScript for plan creation -->
+<script>
+  // Handle form submission
+  document.getElementById('plan-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const planData = {
+      name: document.getElementById('plan-name').value,
+      price: parseFloat(document.getElementById('plan-price').value),
+      duration_days: parseInt(document.getElementById('plan-duration').value),
+      is_active: document.getElementById('plan-is-active').checked,
+      is_featured: document.getElementById('plan-is-featured').checked,
+      sort_order: parseInt(document.getElementById('plan-sort-order').value || 100)
+    };
+    
+    // Optional fields
+    const sellerPrice = document.getElementById('plan-seller-price').value;
+    if (sellerPrice) {
+      planData.seller_price = parseFloat(sellerPrice);
+    }
+    
+    const trafficLimit = document.getElementById('plan-traffic').value;
+    if (trafficLimit) {
+      planData.traffic_limit_gb = parseInt(trafficLimit);
+    }
+    
+    const maxUsers = document.getElementById('plan-max-users').value;
+    if (maxUsers) {
+      planData.max_users = parseInt(maxUsers);
+    }
+    
+    const categoryId = document.getElementById('plan-category').value;
+    planData.category_id = categoryId ? parseInt(categoryId) : null;
+    
+    const description = document.getElementById('plan-description').value;
+    if (description) {
+      planData.description = description;
+    }
+    
+    // Submit the data via API
+    fetch('/api/v1/plans/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(planData),
+      credentials: 'same-origin'
+    })
+    .then(response => {
+      if (response.ok) {
+        return response.json();
+      }
+      return response.json().then(data => {
+        throw new Error(data.detail || 'Failed to create plan');
+      });
+    })
+    .then(data => {
+      // Show success notification
+      alert('Plan created successfully');
+      // Redirect to the edit page for the new plan
+      window.location.href = `/admin/plan/${data.id}`;
+    })
+    .catch(error => {
+      console.error('Error:', error);
+      alert(error.message || 'An error occurred while creating the plan');
+    });
+  });
+</script>
+
+{% endblock %} 

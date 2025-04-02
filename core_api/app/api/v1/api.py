@@ -18,6 +18,11 @@ from app.api.v1.endpoints import wallet # Import the wallet router
 from app.api.v1.endpoints import bank_cards # Import the bank cards router
 from app.api.v1.endpoints import payment_admins # Import the payment admins router
 from app.api.v1.endpoints import payment_proofs # Import the payment proofs router
+from app.api.v1.endpoints import payments # Import the payments router
+from app.api.v1.endpoints import settings # Import the settings router
+from app.api.v1.endpoints import panel # Import the panel router (deprecated endpoints)
+from app.api.v1.endpoints import servers # Import the servers router
+from app.api.v1.endpoints import financial_reporting # Import the financial reporting router
 # Import other endpoint routers here as they are created
 # from app.api.v1.endpoints import roles, permissions, ...
 
@@ -42,6 +47,11 @@ api_router.include_router(wallet.router, prefix="/wallet", tags=["wallet"])
 api_router.include_router(bank_cards.router, prefix="/bank-cards", tags=["bank_cards"])
 api_router.include_router(payment_admins.router, prefix="/payment-admins", tags=["payment_admins"])
 api_router.include_router(payment_proofs.router, prefix="/payment-proofs", tags=["payment_proofs"])
+api_router.include_router(payments.router, prefix="/payments", tags=["payments"])
+api_router.include_router(settings.router, prefix="/settings", tags=["settings"])
+api_router.include_router(panel.router, prefix="/panel", tags=["Panel"]) # Add panel router (deprecated endpoints)
+api_router.include_router(servers.router, prefix="/servers", tags=["Servers"]) # Add servers router
+api_router.include_router(financial_reporting.router, prefix="/financial-reporting", tags=["Financial Reports"]) # Add financial reporting router
 # Include other routers here
 # api_router.include_router(roles.router, prefix="/roles", tags=["Roles"])
 # api_router.include_router(permissions.router, prefix="/permissions", tags=["Permissions"])

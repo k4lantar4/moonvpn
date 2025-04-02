@@ -1,0 +1,751 @@
+{% extends "base.html" %}
+
+{% block title %}Server Management{% endblock %}
+
+{% block content %}
+<div class="page-wrapper">
+    <div class="container-xl">
+        <div class="page-header d-print-none">
+            <div class="row align-items-center">
+                <div class="col">
+                    <h2 class="page-title">
+                        Server Management
+                    </h2>
+                    <div class="text-muted mt-1">
+                        Manage VPN server configurations
+                    </div>
+                </div>
+                <div class="col-auto ms-auto d-print-none">
+                    <div class="d-flex">
+                        <button class="btn btn-primary" id="btn-add-server">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                                <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                                <path d="M12 5l0 14"></path>
+                                <path d="M5 12l14 0"></path>
+                            </svg>
+                            Add Server
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="page-body">
+        <div class="container-xl">
+            <!-- Status Alert -->
+            <div class="alert alert-success d-none" id="status-alert">
+                <div class="d-flex">
+                    <div>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon alert-icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                            <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                            <path d="M5 12l5 5l10 -10"></path>
+                        </svg>
+                    </div>
+                    <div id="status-message">
+                        Operation completed successfully.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Server Cards -->
+            <div class="row row-cards" id="server-cards">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-body">
+                            <div class="text-center py-4">
+                                <div class="spinner-border text-primary" role="status"></div>
+                                <p class="mt-3">Loading servers...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Server Card Template -->
+<template id="server-card-template">
+    <div class="col-md-6 col-lg-4">
+        <div class="card">
+            <div class="card-status-top bg-primary"></div>
+            <div class="card-header">
+                <h3 class="card-title server-name">Server Name</h3>
+                <div class="card-actions">
+                    <span class="badge bg-green server-status">Active</span>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="mb-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon me-1" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                        <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                        <rect x="4" y="4" width="16" height="16" rx="2"></rect>
+                        <circle cx="8" cy="8" r="1"></circle>
+                        <circle cx="8" cy="16" r="1"></circle>
+                        <circle cx="16" cy="8" r="1"></circle>
+                        <circle cx="16" cy="16" r="1"></circle>
+                    </svg>
+                    <span class="server-ip">IP: 1.2.3.4</span>
+                </div>
+                <div class="mb-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon me-1" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                        <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                        <path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0"></path>
+                        <path d="M3.6 9h16.8"></path>
+                        <path d="M3.6 15h16.8"></path>
+                        <path d="M11.5 3a17 17 0 0 0 0 18"></path>
+                        <path d="M12.5 3a17 17 0 0 1 0 18"></path>
+                    </svg>
+                    <span class="server-hostname">Hostname: server1.example.com</span>
+                </div>
+                <div class="mb-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon me-1" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                        <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                        <path d="M9 11a3 3 0 1 0 6 0a3 3 0 0 0 -6 0"></path>
+                        <path d="M17.657 16.657l-4.243 4.243a2 2 0 0 1 -2.827 0l-4.244 -4.243a8 8 0 1 1 11.314 0z"></path>
+                    </svg>
+                    <span class="server-location">Location: Germany</span>
+                </div>
+                <div class="mb-3">
+                    <div class="text-muted server-description">Server description goes here</div>
+                </div>
+                <div class="d-flex mb-2">
+                    <div>
+                        <span class="text-muted">Panels:</span>
+                        <span class="server-panel-count">0</span>
+                    </div>
+                    <div class="ms-auto">
+                        <span class="status-dot server-ping-status"></span>
+                        <span class="server-ping-text">Checking status...</span>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer">
+                <div class="d-flex">
+                    <a href="#" class="btn btn-link btn-view-panels" data-server-id="">View Panels</a>
+                    <div class="ms-auto">
+                        <a href="#" class="btn btn-primary btn-edit-server" data-server-id="">
+                            Edit
+                        </a>
+                        <a href="#" class="btn btn-danger btn-delete-server" data-server-id="">
+                            Delete
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</template>
+
+<!-- Add/Edit Server Modal -->
+<div class="modal modal-blur fade" id="modal-server" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modal-title">Add New Server</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="server-form">
+                    <input type="hidden" id="server-id" value="">
+                    <div class="mb-3">
+                        <label class="form-label required">Server Name</label>
+                        <input type="text" class="form-control" id="server-name" name="name" placeholder="Server name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label required">IP Address</label>
+                        <input type="text" class="form-control" id="server-ip-address" name="ip_address" placeholder="IP address" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Hostname</label>
+                        <input type="text" class="form-control" id="server-hostname" name="hostname" placeholder="e.g., server1.example.com">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Location</label>
+                        <select class="form-select" id="server-location-id" name="location_id">
+                            <option value="">Select a location</option>
+                            <!-- Location options will be dynamically loaded -->
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Description</label>
+                        <textarea class="form-control" id="server-description" name="description" rows="3" placeholder="Server description"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="server-is-active" name="is_active" checked>
+                            <span class="form-check-label">Active</span>
+                        </label>
+                    </div>
+                </form>
+                <div class="alert alert-danger d-none" id="form-error">
+                    An error occurred. Please try again.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn me-auto" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="btn-save-server">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal modal-blur fade" id="modal-delete-server" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-sm modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-body">
+                <div class="modal-title">Are you sure?</div>
+                <div>You are about to delete the server "<span id="delete-server-name"></span>". This action cannot be undone.</div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-link link-secondary me-auto" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="btn-confirm-delete" data-server-id="">Yes, delete</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Server Panels Modal -->
+<div class="modal modal-blur fade" id="modal-server-panels" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Panels on "<span id="panels-server-name"></span>"</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="panels-loading" class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <p class="mt-3">Loading panels...</p>
+                </div>
+                <div id="panels-container" class="d-none">
+                    <div class="table-responsive">
+                        <table class="table table-vcenter card-table">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>URL</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="panels-list">
+                                <!-- Panel list will be dynamically generated -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div id="no-panels" class="text-center py-4 d-none">
+                        <div class="empty">
+                            <div class="empty-img">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-server" width="100" height="100" viewBox="0 0 24 24" stroke-width="1" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                                    <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                                    <rect x="3" y="4" width="18" height="8" rx="1"></rect>
+                                    <rect x="3" y="12" width="18" height="8" rx="1"></rect>
+                                    <line x1="7" y1="8" x2="7" y2="8.01"></line>
+                                    <line x1="7" y1="16" x2="7" y2="16.01"></line>
+                                </svg>
+                            </div>
+                            <p class="empty-title">No panels found</p>
+                            <p class="empty-subtitle text-muted">
+                                This server does not have any panels configured.
+                            </p>
+                            <div class="empty-action">
+                                <a href="/admin/panels" class="btn btn-primary">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                                        <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                                        <path d="M12 5l0 14"></path>
+                                        <path d="M5 12l14 0"></path>
+                                    </svg>
+                                    Add Panel
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <a href="/admin/panels" class="btn btn-primary me-auto">Manage All Panels</a>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Server Status Modal -->
+<div class="modal modal-blur fade" id="modal-server-status" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Server Status: <span id="status-server-name"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="status-loading" class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <p class="mt-3">Checking server status...</p>
+                </div>
+                <div id="status-container" class="d-none">
+                    <div class="card">
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <div class="d-flex align-items-center mb-2">
+                                    <span class="status-dot status-dot-animated me-2" id="status-dot"></span>
+                                    <h3 class="mb-0" id="status-text">Unknown</h3>
+                                </div>
+                                <div class="text-muted" id="status-detail">Status details will appear here</div>
+                            </div>
+                            <div class="mb-3">
+                                <div class="d-flex">
+                                    <div class="flex-grow-1">
+                                        <div class="mb-2">
+                                            <span class="text-muted">IP Address:</span>
+                                            <span id="status-ip">-</span>
+                                        </div>
+                                        <div class="mb-2">
+                                            <span class="text-muted">Hostname:</span>
+                                            <span id="status-hostname">-</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary me-auto" id="btn-refresh-status">Refresh Status</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Server management JavaScript
+    document.addEventListener('DOMContentLoaded', function() {
+        // Elements
+        const serverCards = document.getElementById('server-cards');
+        const serverCardTemplate = document.getElementById('server-card-template');
+        const modalServer = document.getElementById('modal-server');
+        const modalTitle = document.getElementById('modal-title');
+        const serverForm = document.getElementById('server-form');
+        const formError = document.getElementById('form-error');
+        const modalDeleteServer = document.getElementById('modal-delete-server');
+        const deleteServerName = document.getElementById('delete-server-name');
+        const btnConfirmDelete = document.getElementById('btn-confirm-delete');
+        const modalServerPanels = document.getElementById('modal-server-panels');
+        const panelsServerName = document.getElementById('panels-server-name');
+        const panelsList = document.getElementById('panels-list');
+        const panelsLoading = document.getElementById('panels-loading');
+        const panelsContainer = document.getElementById('panels-container');
+        const noPanels = document.getElementById('no-panels');
+        const statusAlert = document.getElementById('status-alert');
+        const statusMessage = document.getElementById('status-message');
+
+        // Buttons
+        const btnAddServer = document.getElementById('btn-add-server');
+        const btnSaveServer = document.getElementById('btn-save-server');
+
+        // Initialize Bootstrap modals
+        const serverModal = new bootstrap.Modal(modalServer);
+        const deleteModal = new bootstrap.Modal(modalDeleteServer);
+        const panelsModal = new bootstrap.Modal(modalServerPanels);
+
+        // Load locations for dropdown
+        loadLocations();
+
+        // Load servers
+        loadServers();
+
+        // Add event listeners
+        btnAddServer.addEventListener('click', showAddServerModal);
+        btnSaveServer.addEventListener('click', saveServer);
+        btnConfirmDelete.addEventListener('click', deleteServer);
+
+        // Functions
+        function loadServers() {
+            fetch('/api/v1/servers')
+                .then(response => response.json())
+                .then(servers => {
+                    displayServers(servers);
+                })
+                .catch(error => {
+                    console.error('Error loading servers:', error);
+                    showAlert('Failed to load servers. Please try again.', 'danger');
+                });
+        }
+
+        function loadLocations() {
+            const locationSelect = document.getElementById('server-location-id');
+            
+            fetch('/api/v1/locations')
+                .then(response => response.json())
+                .then(locations => {
+                    // Clear existing options except the first one
+                    while (locationSelect.options.length > 1) {
+                        locationSelect.remove(1);
+                    }
+                    
+                    // Add location options
+                    locations.forEach(location => {
+                        const option = document.createElement('option');
+                        option.value = location.id;
+                        option.textContent = location.name;
+                        locationSelect.appendChild(option);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error loading locations:', error);
+                });
+        }
+
+        function displayServers(servers) {
+            // Clear loading indicator
+            serverCards.innerHTML = '';
+            
+            if (!servers || servers.length === 0) {
+                serverCards.innerHTML = `
+                    <div class="col-12">
+                        <div class="empty">
+                            <div class="empty-img">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-server" width="100" height="100" viewBox="0 0 24 24" stroke-width="1" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                                    <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                                    <rect x="3" y="4" width="18" height="8" rx="1"></rect>
+                                    <rect x="3" y="12" width="18" height="8" rx="1"></rect>
+                                    <line x1="7" y1="8" x2="7" y2="8.01"></line>
+                                    <line x1="7" y1="16" x2="7" y2="16.01"></line>
+                                </svg>
+                            </div>
+                            <p class="empty-title">No servers found</p>
+                            <p class="empty-subtitle text-muted">
+                                Start by adding a new server to manage your VPN panels.
+                            </p>
+                            <div class="empty-action">
+                                <button class="btn btn-primary" id="btn-add-first-server">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                                        <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                                        <path d="M12 5l0 14"></path>
+                                        <path d="M5 12l14 0"></path>
+                                    </svg>
+                                    Add First Server
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                document.getElementById('btn-add-first-server').addEventListener('click', showAddServerModal);
+                return;
+            }
+            
+            // Create server cards
+            servers.forEach(server => {
+                const serverCard = createServerCard(server);
+                serverCards.appendChild(serverCard);
+            });
+            
+            // Add event listeners to buttons
+            document.querySelectorAll('.btn-edit-server').forEach(btn => {
+                btn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const serverId = this.getAttribute('data-server-id');
+                    showEditServerModal(serverId);
+                });
+            });
+            
+            document.querySelectorAll('.btn-delete-server').forEach(btn => {
+                btn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const serverId = this.getAttribute('data-server-id');
+                    const serverName = this.closest('.card').querySelector('.server-name').textContent;
+                    showDeleteConfirmation(serverId, serverName);
+                });
+            });
+            
+            document.querySelectorAll('.btn-view-panels').forEach(btn => {
+                btn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const serverId = this.getAttribute('data-server-id');
+                    const serverName = this.closest('.card').querySelector('.server-name').textContent;
+                    showServerPanels(serverId, serverName);
+                });
+            });
+            
+            // Check server status for each card
+            servers.forEach(server => {
+                checkServerStatus(server.id);
+            });
+        }
+
+        function createServerCard(server) {
+            const template = serverCardTemplate.content.cloneNode(true);
+            
+            template.querySelector('.server-name').textContent = server.name;
+            template.querySelector('.server-ip').textContent = `IP: ${server.ip_address}`;
+            
+            const hostnameElement = template.querySelector('.server-hostname');
+            if (server.hostname) {
+                hostnameElement.textContent = `Hostname: ${server.hostname}`;
+            } else {
+                hostnameElement.closest('.mb-2').classList.add('d-none');
+            }
+            
+            const locationElement = template.querySelector('.server-location');
+            if (server.location_id) {
+                // Need to fetch location name or have it included in server data
+                locationElement.textContent = `Location ID: ${server.location_id}`;
+            } else {
+                locationElement.closest('.mb-2').classList.add('d-none');
+            }
+            
+            const descriptionElement = template.querySelector('.server-description');
+            if (server.description) {
+                descriptionElement.textContent = server.description;
+            } else {
+                descriptionElement.textContent = 'No description available';
+            }
+            
+            const statusBadge = template.querySelector('.server-status');
+            if (server.is_active) {
+                statusBadge.classList.add('bg-green');
+                statusBadge.textContent = 'Active';
+            } else {
+                statusBadge.classList.add('bg-gray');
+                statusBadge.textContent = 'Inactive';
+            }
+            
+            // Set data attributes for buttons
+            template.querySelectorAll('[data-server-id]').forEach(el => {
+                el.setAttribute('data-server-id', server.id);
+            });
+            
+            return template;
+        }
+
+        function showAddServerModal() {
+            // Reset form
+            serverForm.reset();
+            document.getElementById('server-id').value = '';
+            formError.classList.add('d-none');
+            
+            // Update modal title
+            modalTitle.textContent = 'Add New Server';
+            
+            // Show modal
+            serverModal.show();
+        }
+
+        function showEditServerModal(serverId) {
+            // Reset form
+            serverForm.reset();
+            formError.classList.add('d-none');
+            
+            // Update modal title
+            modalTitle.textContent = 'Edit Server';
+            
+            // Load server data
+            fetch(`/api/v1/servers/${serverId}`)
+                .then(response => response.json())
+                .then(server => {
+                    // Populate form
+                    document.getElementById('server-id').value = server.id;
+                    document.getElementById('server-name').value = server.name;
+                    document.getElementById('server-ip-address').value = server.ip_address;
+                    document.getElementById('server-hostname').value = server.hostname || '';
+                    document.getElementById('server-location-id').value = server.location_id || '';
+                    document.getElementById('server-description').value = server.description || '';
+                    document.getElementById('server-is-active').checked = server.is_active;
+                    
+                    // Show modal
+                    serverModal.show();
+                })
+                .catch(error => {
+                    console.error('Error loading server details:', error);
+                    showAlert('Failed to load server details. Please try again.', 'danger');
+                });
+        }
+
+        function saveServer() {
+            // Get form data
+            const serverId = document.getElementById('server-id').value;
+            const formData = new FormData(serverForm);
+            const serverData = {
+                name: formData.get('name'),
+                ip_address: formData.get('ip_address'),
+                hostname: formData.get('hostname') || null,
+                location_id: formData.get('location_id') || null,
+                description: formData.get('description') || null,
+                is_active: formData.get('is_active') === 'on'
+            };
+            
+            // Determine if this is an add or edit operation
+            const isEdit = serverId !== '';
+            const url = isEdit ? `/api/v1/servers/${serverId}` : '/api/v1/servers';
+            const method = isEdit ? 'PUT' : 'POST';
+            
+            // Send request
+            fetch(url, {
+                method: method,
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(serverData)
+            })
+                .then(response => {
+                    if (!response.ok) {
+                        return response.json().then(err => {
+                            throw new Error(err.detail || 'Failed to save server');
+                        });
+                    }
+                    return response.json();
+                })
+                .then(result => {
+                    // Close modal
+                    serverModal.hide();
+                    
+                    // Show success message
+                    showAlert(isEdit ? 'Server updated successfully.' : 'Server added successfully.', 'success');
+                    
+                    // Reload servers
+                    loadServers();
+                })
+                .catch(error => {
+                    console.error('Error saving server:', error);
+                    formError.textContent = error.message;
+                    formError.classList.remove('d-none');
+                });
+        }
+
+        function showDeleteConfirmation(serverId, serverName) {
+            deleteServerName.textContent = serverName;
+            btnConfirmDelete.setAttribute('data-server-id', serverId);
+            deleteModal.show();
+        }
+
+        function deleteServer() {
+            const serverId = btnConfirmDelete.getAttribute('data-server-id');
+            
+            fetch(`/api/v1/servers/${serverId}`, {
+                method: 'DELETE'
+            })
+                .then(response => {
+                    if (!response.ok) {
+                        return response.json().then(err => {
+                            throw new Error(err.detail || 'Failed to delete server');
+                        });
+                    }
+                    return response.json();
+                })
+                .then(() => {
+                    // Close modal
+                    deleteModal.hide();
+                    
+                    // Show success message
+                    showAlert('Server deleted successfully.', 'success');
+                    
+                    // Reload servers
+                    loadServers();
+                })
+                .catch(error => {
+                    console.error('Error deleting server:', error);
+                    deleteModal.hide();
+                    showAlert(error.message, 'danger');
+                });
+        }
+
+        function showServerPanels(serverId, serverName) {
+            panelsServerName.textContent = serverName;
+            panelsLoading.classList.remove('d-none');
+            panelsContainer.classList.add('d-none');
+            noPanels.classList.add('d-none');
+            panelsList.innerHTML = '';
+            
+            fetch(`/api/v1/servers/${serverId}/panels`)
+                .then(response => response.json())
+                .then(panels => {
+                    panelsLoading.classList.add('d-none');
+                    panelsContainer.classList.remove('d-none');
+                    
+                    if (!panels || panels.length === 0) {
+                        noPanels.classList.remove('d-none');
+                        return;
+                    }
+                    
+                    // Create panel list
+                    panels.forEach(panel => {
+                        const row = document.createElement('tr');
+                        
+                        row.innerHTML = `
+                            <td>${panel.name}</td>
+                            <td><span class="text-muted">${panel.url}</span></td>
+                            <td>
+                                <span class="badge ${panel.is_active ? 'bg-green' : 'bg-gray'}">
+                                    ${panel.is_active ? 'Active' : 'Inactive'}
+                                </span>
+                            </td>
+                            <td>
+                                <a href="/admin/panels/${panel.id}" class="btn btn-sm btn-primary">
+                                    Manage
+                                </a>
+                            </td>
+                        `;
+                        
+                        panelsList.appendChild(row);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error loading panels:', error);
+                    panelsLoading.classList.add('d-none');
+                    panelsContainer.classList.remove('d-none');
+                    noPanels.classList.remove('d-none');
+                    noPanels.querySelector('.empty-subtitle').textContent = 'Error loading panels. Please try again.';
+                });
+            
+            panelsModal.show();
+        }
+
+        function checkServerStatus(serverId) {
+            fetch(`/api/v1/servers/${serverId}/status`)
+                .then(response => response.json())
+                .then(status => {
+                    const card = document.querySelector(`.btn-view-panels[data-server-id="${serverId}"]`).closest('.card');
+                    const statusDot = card.querySelector('.server-ping-status');
+                    const statusText = card.querySelector('.server-ping-text');
+                    
+                    if (status.is_up) {
+                        statusDot.classList.add('status-green');
+                        statusText.textContent = 'Online';
+                    } else {
+                        statusDot.classList.add('status-red');
+                        statusText.textContent = 'Offline';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error checking server status:', error);
+                    const card = document.querySelector(`.btn-view-panels[data-server-id="${serverId}"]`).closest('.card');
+                    const statusDot = card.querySelector('.server-ping-status');
+                    const statusText = card.querySelector('.server-ping-text');
+                    
+                    statusDot.classList.add('status-yellow');
+                    statusText.textContent = 'Unknown';
+                });
+        }
+
+        function showAlert(message, type = 'success') {
+            statusAlert.className = `alert alert-${type}`;
+            statusMessage.textContent = message;
+            statusAlert.classList.remove('d-none');
+            
+            // Auto-hide after 5 seconds
+            setTimeout(() => {
+                statusAlert.classList.add('d-none');
+            }, 5000);
+        }
+    });
+</script>
+{% endblock %} 

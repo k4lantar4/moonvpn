@@ -1,6 +1,8 @@
 from pydantic import BaseModel, Field, ConfigDict
-from typing import Optional, List, Any
+from typing import Optional, List, Any, Dict
 from datetime import datetime
+from decimal import Decimal
+from pydantic import EmailStr
 
 # Import related schemas if needed (e.g., Role)
 from .role import Role # Assuming role.py exists and defines Role schema
@@ -11,36 +13,42 @@ from .role import Role # Assuming role.py exists and defines Role schema
 
 # --- Base Schema --- #
 class UserBase(BaseModel):
-    telegram_id: int = Field(..., description="Unique Telegram User ID")
+    telegram_id: Optional[str] = None
     first_name: Optional[str] = None
     last_name: Optional[str] = None
     username: Optional[str] = None
-    language_code: Optional[str] = Field(None, max_length=10)
-    is_active: bool = True
-    is_superuser: bool = False
-    # Note: We don't include sensitive fields like hashed_password here
+    language_code: Optional[str] = None
+    is_active: Optional[bool] = True
+    is_superuser: Optional[bool] = False
+    # New affiliate fields
+    affiliate_code: Optional[str] = None
+    affiliate_balance: Optional[Decimal] = Field(None, description="User's affiliate earnings balance")
+    is_affiliate_enabled: Optional[bool] = Field(True, description="Whether the user can participate in the affiliate program")
 
 # --- Schema for Creation --- #
 # Fields required when creating a new user via API
 class UserCreate(UserBase):
-    pass # Inherits all fields from UserBase
+    telegram_id: str
+    password: Optional[str] = None
+    email: Optional[EmailStr] = None
+    role_id: Optional[int] = 1  # Default to User role
+    affiliate_code: Optional[str] = None
 
 # --- Schema for Updating --- #
 # Fields that are allowed to be updated via API
 # Make all fields optional for updates
-class UserUpdate(BaseModel):
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
-    username: Optional[str] = None
-    language_code: Optional[str] = Field(None, max_length=10)
-    is_active: Optional[bool] = None
-    is_superuser: Optional[bool] = None
-    role_id: Optional[int] = None # Allow updating the assigned role
+class UserUpdate(UserBase):
+    password: Optional[str] = None
+    email: Optional[EmailStr] = None
+    role_id: Optional[int] = None
 
 # Additional schema for admin users to update users
 class AdminUserUpdate(UserUpdate):
-    """Additional fields that only admins can update"""
+    telegram_id: Optional[str] = None
+    is_active: Optional[bool] = None
     is_superuser: Optional[bool] = None
+    affiliate_balance: Optional[Decimal] = None
+    is_affiliate_enabled: Optional[bool] = None
 
 # Schema for updating user's password
 class UserPasswordUpdate(BaseModel):
@@ -52,14 +60,22 @@ class UserPasswordUpdate(BaseModel):
 # Redefine User fully here
 class User(UserBase):
     id: int
+    email: Optional[EmailStr] = None
     created_at: datetime
-    updated_at: datetime
-    role: Optional["Role"] = None # Use string type hint to avoid circular imports
-    # referrals: List["User"] = [] # Add referrals relationship (recursive) if needed later
-    # wallet_balance: float = 0.0 # Maybe add wallet later
-
+    updated_at: Optional[datetime] = None
+    role: Optional[Role] = None
+    role_id: Optional[int] = None
+    # Affiliate stats
+    referred_users_count: Optional[int] = Field(0, description="Number of users referred by this user")
+    total_commissions: Optional[Decimal] = Field(Decimal('0'), description="Total earnings from affiliate commissions")
+    pending_commissions: Optional[Decimal] = Field(Decimal('0'), description="Pending earnings from affiliate commissions")
+    
     model_config = ConfigDict(
-        from_attributes=True # Enable creating models from ORM objects
+        from_attributes=True, # Enable creating models from ORM objects
+        json_encoders={
+            datetime: lambda v: v.isoformat(),
+            Decimal: lambda v: str(v)
+        }
     )
 
 # Schema for database representation (including any sensitive fields)
@@ -69,20 +85,24 @@ class UserInDB(User):
 # Additional schemas for specific API responses
 class UserList(BaseModel):
     """List of users for API response"""
-    items: List[User] = []
-    total: int = 0
+    users: List[User]
+    total: int
 
 class UserDetail(User):
     """Detailed user information"""
-    pass
+    total_orders: Optional[int] = None
+    total_spent: Optional[Decimal] = None
+    latest_order_date: Optional[datetime] = None
+    # Affiliate data
+    referrer: Optional[Dict[str, Any]] = None  # Information about the user who referred this user
 
 class UserIds(BaseModel):
     """Simple model for user IDs list"""
-    ids: List[int] = []
+    ids: List[int]
 
 class UserWithRole(User):
     """User model with expanded role information"""
-    role: Optional["Role"] = None
+    role: Optional[Role] = None
 
 # Update the forward reference
 # User.model_rebuild() # Use this in newer Pydantic v2

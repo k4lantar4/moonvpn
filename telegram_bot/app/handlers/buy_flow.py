@@ -21,11 +21,14 @@ from app.core.config import MANAGE_GROUP_ID
 from app.utils.api_client import get_user_by_telegram_id
 from app.api import api_client
 from app.keyboards.payment import generate_payment_method_keyboard
+from app.api.api_client import payments_client, order_client, user_client, plan_client
+from app.models.order import PaymentMethod
 
 # Define conversation states
 SELECTING_PAYMENT_METHOD = 1
 WAITING_FOR_PAYMENT_PROOF = 2
 CONFIRMING_PAYMENT = 3
+PROCESSING_ZARINPAL = 4
 
 # Callback data patterns
 PLAN_CALLBACK_PREFIX = "buy_plan_"
@@ -40,6 +43,9 @@ logger = logging.getLogger(__name__)
 # Store user orders in memory (temporary solution - in production, use a database)
 # Structure: {user_id: {"order_id": order_id, "payment_method": method, "message_id": msg_id}}
 active_orders = {}
+
+# Import the Zarinpal handler
+from app.handlers.zarinpal_handler import zarinpal_conversation
 
 async def handle_buy_plan_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Handle callback when user selects a plan to purchase."""
@@ -70,21 +76,32 @@ async def handle_buy_plan_callback(update: Update, context: ContextTypes.DEFAULT
     context.user_data["selected_plan_id"] = plan_id
     
     # Get user info to get the user ID
-    user_info = await get_user_by_telegram_id(user.id)
-    if not user_info or "id" not in user_info:
-        logger.error(f"Could not get user info for user {user.id}")
-        await query.edit_message_text("❌ اطلاعات کاربری شما یافت نشد. لطفاً با پشتیبانی تماس بگیرید.")
+    try:
+        # Use the user_client
+        user_info = await user_client.get_user_by_telegram_id(user.id)
+        if not user_info or "id" not in user_info:
+            logger.error(f"Could not get user info for user {user.id}")
+            await query.edit_message_text("❌ اطلاعات کاربری شما یافت نشد. لطفاً با پشتیبانی تماس بگیرید.")
+            return ConversationHandler.END
+        context.user_data["user_id"] = user_info["id"]
+    except Exception as e:
+        logger.error(f"API Error getting user info for {user.id}: {e}")
+        await query.edit_message_text(f"❌ خطای ارتباط با سرور: {str(e)}")
         return ConversationHandler.END
     
-    # Store user_id in context
-    context.user_data["user_id"] = user_info["id"]
-    
-    # Get available payment methods
-    payment_methods = await api_client.get_payment_methods()
-    if not payment_methods:
-        logger.error("Could not fetch payment methods")
-        await query.edit_message_text("❌ در حال حاضر امکان پرداخت فراهم نیست. لطفاً بعداً مجدد تلاش کنید.")
-        return ConversationHandler.END
+    # Get available payment methods using the payments_client
+    try:
+        # Use the new get_available_payment_methods function
+        payment_methods = await payments_client.get_available_payment_methods()
+        if not payment_methods:
+            logger.error("No payment methods returned from API")
+            await query.edit_message_text("❌ در حال حاضر امکان پرداخت فراهم نیست. لطفاً بعداً مجدد تلاش کنید.")
+            return ConversationHandler.END
+    except Exception as e:
+        logger.error(f"Error getting payment methods: {e}")
+        # Fallback to card-to-card only if API call fails
+        payment_methods = [PaymentMethod.CARD_TO_CARD]
+        # Don't terminate the flow, just show available methods
     
     # Show payment method selection
     keyboard = generate_payment_method_keyboard(payment_methods)
@@ -101,37 +118,28 @@ async def handle_buy_plan_callback(update: Update, context: ContextTypes.DEFAULT
     return SELECTING_PAYMENT_METHOD
 
 async def handle_payment_method_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Handle selected payment method"""
+    """Handle selected payment method (excluding Zarinpal, handled separately)."""
     query = update.callback_query
     user = update.effective_user
-    
-    # Answer callback query to remove the loading state
     await query.answer()
     
-    # Check for cancellation
-    if query.data == "cancel_payment":
-        # Delete active order from memory
-        if user.id in active_orders:
-            del active_orders[user.id]
+    if query.data == CANCEL_ORDER_CALLBACK:
+        return await cancel_order(update, context)
         
-        await query.edit_message_text(
-            "❌ خرید لغو شد.",
-            reply_markup=None
-        )
-        return ConversationHandler.END
+    # Extract payment method
+    if not query.data.startswith(PAYMENT_METHOD_CALLBACK_PREFIX):
+        logger.warning(f"Invalid payment method callback data: {query.data}")
+        return SELECTING_PAYMENT_METHOD # Stay in the same state
+        
+    payment_method_value = query.data[len(PAYMENT_METHOD_CALLBACK_PREFIX):]
     
-    # Extract selected payment method from callback data
-    try:
-        payment_method = query.data.replace("payment_method_", "")
-    except Exception as e:
-        logger.error(f"Error extracting payment method: {str(e)}")
-        await query.edit_message_text(
-            "❌ خطایی رخ داد. لطفاً دوباره تلاش کنید.",
-            reply_markup=None
-        )
-        return ConversationHandler.END
-    
-    # Get plan data from memory
+    # --- IMPORTANT: Skip Zarinpal here, it will have its own handler --- 
+    if payment_method_value == PaymentMethod.ZARINPAL.value:
+        # This case should be handled by handle_zarinpal_payment
+        logger.warning("Zarinpal callback received in general payment handler. Ignoring.")
+        return SELECTING_PAYMENT_METHOD # Or perhaps ConversationHandler.END?
+
+    # Get plan_id from context
     plan_id = context.user_data.get('selected_plan_id')
     if not plan_id:
         logger.error(f"No selected plan found for user {user.id}")
@@ -141,86 +149,71 @@ async def handle_payment_method_callback(update: Update, context: ContextTypes.D
         )
         return ConversationHandler.END
     
-    # Get user data
-    user_data = await api_client.get_user_by_telegram_id(user.id)
-    if not user_data:
-        logger.error(f"User data not found for Telegram ID {user.id}")
+    # Get user_id from context
+    user_id = context.user_data.get('user_id')
+    if not user_id:
+        logger.error(f"User ID not found in context for user {user.id}")
         await query.edit_message_text(
             "❌ اطلاعات کاربری شما یافت نشد. لطفاً با پشتیبانی تماس بگیرید.",
             reply_markup=None
         )
         return ConversationHandler.END
     
-    # Create order
+    # Create order (or maybe update payment method if order already created?)
+    # Let's assume we create the order *after* method selection for non-instant payments
     try:
-        order = await api_client.create_order(
-            user_id=user_data["id"],
+        order = await order_client.create_order(
+            user_id=user_id,
             plan_id=plan_id,
-            payment_method=payment_method
+            payment_method=payment_method_value
         )
-        
         if not order:
-            logger.error(f"Failed to create order for user {user_data['id']}, plan {plan_id}")
+            logger.error(f"Failed to create order for user {user_id}, plan {plan_id}")
             await query.edit_message_text(
                 "❌ خطا در ایجاد سفارش. لطفاً دوباره تلاش کنید یا با پشتیبانی تماس بگیرید.",
                 reply_markup=None
             )
             return ConversationHandler.END
             
-        logger.info(f"Order created: {order}")
-        
-        # Store order_id and amount in context for the payment proof submission
+        logger.info(f"Order {order['id']} created for user {user_id} with method {payment_method_value}")
         context.user_data["order_id"] = order["id"]
-        context.user_data["amount"] = order["total_price"]
+        context.user_data["amount"] = order.get("final_amount", 0) # Use final_amount
+
+        # Handle different payment methods (excluding Zarinpal)
+        if payment_method_value == PaymentMethod.CARD_TO_CARD.value:
+            from app.handlers.payment_proof_handlers import start_card_payment
+            # Pass order details needed for card payment
+            return await start_card_payment(update, context)
+            
+        # elif payment_method_value == PaymentMethod.WALLET.value:
+            # Handle wallet payment
         
-        # Handle different payment methods
-        if payment_method == "card_to_card":
-            # For card-to-card payment, redirect to payment proof handler
-            # Store the active order for reference
-            active_orders[user.id] = {
-                "order_id": order["id"],
-                "plan_id": plan_id,
-                "amount": order["total_price"]
-            }
-            
-            # Redirect to card-to-card payment flow
-            from app.handlers.payment_proof_handlers import show_bank_cards
-            return await show_bank_cards(update, context)
-            
-        elif payment_method == "crypto":
-            # Handle crypto payment method
-            message = (
-                f"💰 *پرداخت ارز دیجیتال*\n\n"
-                f"📌 شماره سفارش: `{order['id']}`\n"
-                f"💰 مبلغ قابل پرداخت: *{order['total_price']:,} تومان*\n\n"
-                f"لطفاً با پشتیبانی تماس بگیرید تا اطلاعات پرداخت ارز دیجیتال به شما ارائه شود."
-            )
-            
-            await query.edit_message_text(
-                message,
-                reply_markup=InlineKeyboardMarkup([[
-                    InlineKeyboardButton("🏠 بازگشت به منوی اصلی", callback_data="back_to_main")
-                ]]),
-                parse_mode="Markdown"
-            )
-            return ConversationHandler.END
+        # elif payment_method_value == PaymentMethod.CRYPTO.value:
+            # Handle crypto
+            # ... (show message as before) ...
+            # return ConversationHandler.END
             
         else:
-            # Unsupported payment method
-            logger.warning(f"Unsupported payment method: {payment_method}")
-            await query.edit_message_text(
-                "❌ روش پرداخت انتخابی فعلاً پشتیبانی نمی‌شود.",
-                reply_markup=None
-            )
+            logger.warning(f"Unhandled payment method in callback: {payment_method_value}")
+            await query.edit_message_text("❌ روش پرداخت انتخاب شده در حال حاضر قابل پردازش نیست.")
             return ConversationHandler.END
-            
-    except Exception as e:
-        logger.error(f"Error handling payment method: {str(e)}")
-        await query.edit_message_text(
-            f"❌ خطایی رخ داد: {str(e)}",
-            reply_markup=None
-        )
+
+    except APIError as e:
+        logger.error(f"API Error creating order or handling payment method {payment_method_value}: {e}")
+        await query.edit_message_text(f"❌ خطای سرور: {e.message}")
         return ConversationHandler.END
+    except Exception as e:
+        logger.exception(f"Unexpected error handling payment method {payment_method_value}")
+        await query.edit_message_text("❌ خطای پیش‌بینی نشده رخ داد.")
+        return ConversationHandler.END
+
+# --- Add New Handler for Zarinpal (keep existing code if any) --- 
+async def handle_zarinpal_payment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Handles the selection of Zarinpal payment method."""
+    # This is now handled by zarinpal_handler.py's implementation
+    # This stub is left for backward compatibility
+    from app.handlers.zarinpal_handler import initiate_zarinpal_payment
+    return await initiate_zarinpal_payment(update, context)
 
 async def handle_payment_proof(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Handle when user sends payment proof (image)."""
@@ -485,47 +478,86 @@ async def cancel_order(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
     
     return ConversationHandler.END
 
+async def handle_retry_zarinpal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Handles retrying a Zarinpal payment."""
+    query = update.callback_query
+    user = update.effective_user
+    await query.answer()
+
+    if not query.data.startswith("retry_zarinpal_"):
+        logger.error(f"Invalid callback data for handle_retry_zarinpal: {query.data}")
+        await query.edit_message_text("❌ خطای داخلی. لطفاً دوباره تلاش کنید.")
+        return ConversationHandler.END
+
+    try:
+        order_id = int(query.data.split("retry_zarinpal_")[1])
+    except (ValueError, IndexError):
+        logger.error(f"Could not parse order ID from: {query.data}")
+        await query.edit_message_text("❌ خطای داخلی. لطفاً دوباره تلاش کنید.")
+        return ConversationHandler.END
+
+    await query.edit_message_text("⏳ در حال دریافت مجدد لینک پرداخت زرین‌پال...")
+
+    try:
+        # Request the payment URL from Core API
+        payment_url = await payments_client.request_zarinpal_payment(order_id)
+
+        # Show the payment link to the user
+        keyboard = [[InlineKeyboardButton("🚀 پرداخت آنلاین", url=payment_url)]]
+        
+        message = (
+            f"✅ لینک پرداخت آنلاین برای سفارش {order_id} دریافت شد.\n\n"
+            f"👈 لطفاً برای تکمیل پرداخت روی دکمه زیر کلیک کنید.\n\n"
+            f"⚠️ *توجه:* پس از پرداخت موفق در صفحه زرین‌پال، به ربات بازگردید. وضعیت سفارش شما به صورت خودکار بررسی خواهد شد."
+        )
+        
+        await query.edit_message_text(
+            message,
+            reply_markup=InlineKeyboardMarkup(keyboard),
+            parse_mode="Markdown"
+        )
+        
+        # End the conversation here, user proceeds to Zarinpal
+        return ConversationHandler.END
+
+    except Exception as e:
+        logger.error(f"Error getting Zarinpal payment URL for order {order_id}: {e}")
+        error_message = f"❌ خطای ارتباط با سرور پرداخت: {str(e)}"
+        if hasattr(e, 'message') and "Payment gateway error:" in getattr(e, 'message', ''):
+            error_message = f"❌ خطای درگاه پرداخت: {e.message.split('Payment gateway error:')[-1].strip()}"
+        elif str(e) and "Payment gateway error:" in str(e):
+            error_message = f"❌ خطای درگاه پرداخت: {str(e).split('Payment gateway error:')[-1].strip()}"
+        await query.edit_message_text(error_message)
+        return ConversationHandler.END
+
+# Main conversation handler for the buy flow
+buy_flow_conversation = ConversationHandler(
+    entry_points=[CallbackQueryHandler(handle_buy_plan_callback, pattern=f"^{PLAN_CALLBACK_PREFIX}[0-9]+$")],
+    states={
+        SELECTING_PAYMENT_METHOD: [
+            CallbackQueryHandler(
+                handle_payment_method_callback, 
+                pattern=f"^{PAYMENT_METHOD_CALLBACK_PREFIX}[^{PaymentMethod.ZARINPAL.value}].*$"
+            ),
+            # Note: Zarinpal is handled by its own conversation handler
+            CallbackQueryHandler(cancel_order, pattern=f"^{CANCEL_ORDER_CALLBACK}$"),
+        ],
+        # Other states go here
+    },
+    fallbacks=[
+        CallbackQueryHandler(cancel_order, pattern=f"^{CANCEL_ORDER_CALLBACK}$"),
+        # Add more fallbacks as needed
+    ],
+    name="buy_flow_conversation",
+)
+
 def get_buy_flow_handlers():
-    """Return the handlers for the buy flow."""
+    """
+    Returns a list of all handlers related to the buy flow, including Zarinpal.
+    This should be used in main.py to register all handlers at once.
+    """
     return [
-        # Handle plan selection callbacks
-        CallbackQueryHandler(
-            handle_buy_plan_callback,
-            pattern=f"^{PLAN_CALLBACK_PREFIX}",
-        ),
-        # Admin payment confirmation/rejection handlers
-        CallbackQueryHandler(
-            handle_admin_payment_confirmation,
-            pattern=f"^{CONFIRM_PAYMENT_CALLBACK_PREFIX}|{REJECT_PAYMENT_CALLBACK_PREFIX}",
-        ),
-        # Conversation handler for the full purchase flow
-        ConversationHandler(
-            entry_points=[
-                CallbackQueryHandler(
-                    handle_buy_plan_callback,
-                    pattern=f"^{PLAN_CALLBACK_PREFIX}",
-                ),
-            ],
-            states={
-                SELECTING_PAYMENT_METHOD: [
-                    CallbackQueryHandler(
-                        handle_payment_method_callback,
-                        pattern=f"^{PAYMENT_METHOD_CALLBACK_PREFIX}|{CANCEL_ORDER_CALLBACK}",
-                    ),
-                ],
-                WAITING_FOR_PAYMENT_PROOF: [
-                    MessageHandler(filters.PHOTO, handle_payment_proof),
-                    CallbackQueryHandler(cancel_order, pattern=f"^{CANCEL_ORDER_CALLBACK}$"),
-                ],
-                CONFIRMING_PAYMENT: [
-                    # This is handled by the standalone handler for admin confirmation
-                ],
-            },
-            fallbacks=[
-                CommandHandler("cancel", cancel_order),
-                CallbackQueryHandler(cancel_order, pattern=f"^{CANCEL_ORDER_CALLBACK}$"),
-            ],
-            name="buy_flow",
-            persistent=False,
-        ),
+        buy_flow_conversation,
+        zarinpal_conversation,
+        # Add any other related handlers here
     ] 

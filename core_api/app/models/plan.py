@@ -32,6 +32,12 @@ class Plan(Base):
     # - Cannot be null
     price = Column(DECIMAL(10, 2), nullable=False)
 
+    # Seller price column: 'seller_price'
+    # - Optional price specific to users with the 'seller' role
+    # - Using DECIMAL for precise decimal values
+    # - Can be null (indicating seller uses regular price or default discount)
+    seller_price = Column(DECIMAL(10, 2), nullable=True)
+
     # Plan duration column: 'duration_days'
     # - Validity period of the plan in days
     # - Cannot be null
@@ -41,6 +47,12 @@ class Plan(Base):
     # - Maximum data usage allowed in Gigabytes (GB)
     # - Can be null (indicating unlimited traffic)
     traffic_limit_gb = Column(Integer, nullable=True)
+    
+    # Max users column: 'max_users'
+    # - Maximum number of users who can purchase this plan
+    # - Can be null (indicating unlimited users)
+    # - Used for limited time offers or exclusive plans
+    max_users = Column(Integer, nullable=True)
 
     # Plan status column: 'is_active'
     # - Indicates if the plan is currently available for purchase

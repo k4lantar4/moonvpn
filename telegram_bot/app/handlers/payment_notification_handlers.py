@@ -16,12 +16,12 @@ from telegram.ext import (
     filters
 )
 
-from app.api import api_client
-from app.utils.logger import get_logger
-from app.core.config import MANAGE_GROUP_ID, DEBUG_MODE
-from app.handlers.payment_proof_handlers import active_payments
-from app.utils.helpers import format_card_number
-from app.utils.permissions import is_payment_admin
+from api import api_client
+from utils.logger import get_logger
+from core.config import MANAGE_GROUP_ID, DEBUG_MODE
+from handlers.payment_proof_handlers import active_payments
+from utils.helpers import format_card_number
+from utils.permissions import is_payment_admin
 
 # Set up logging
 logger = get_logger(__name__)

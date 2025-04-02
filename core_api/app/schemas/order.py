@@ -15,9 +15,10 @@ class OrderBase(BaseModel):
     status: OrderStatus = OrderStatus.PENDING
     payment_method: Optional[PaymentMethod] = None
     payment_reference: Optional[str] = None
-    amount: Decimal
-    discount_amount: Decimal = Decimal('0.00')
-    final_amount: Decimal
+    payment_authority: Optional[str] = None
+    amount: Optional[Decimal] = None
+    discount_amount: Optional[Decimal] = None
+    final_amount: Optional[Decimal] = None
     discount_code: Optional[str] = None
     config_protocol: Optional[str] = None
     config_days: Optional[int] = None
@@ -32,13 +33,9 @@ class OrderCreate(OrderBase):
     # Override required fields that shouldn't be required during creation
     payment_method: Optional[PaymentMethod] = None
     payment_reference: Optional[str] = None
-    
-    @validator('final_amount', pre=True)
-    def calculate_final_amount(cls, v, values):
-        """Calculate final amount if not explicitly provided"""
-        if v is None and 'amount' in values and 'discount_amount' in values:
-            return values['amount'] - values['discount_amount']
-        return v
+    amount: Optional[Decimal] = Field(None, exclude=True)
+    discount_amount: Optional[Decimal] = Field(None, exclude=True)
+    final_amount: Optional[Decimal] = Field(None, exclude=True)
 
 
 # Properties to receive on Order update
@@ -47,6 +44,7 @@ class OrderUpdate(BaseModel):
     status: Optional[OrderStatus] = None
     payment_method: Optional[PaymentMethod] = None
     payment_reference: Optional[str] = None
+    payment_authority: Optional[str] = None
     payment_proof: Optional[str] = None
     panel_id: Optional[int] = None
     inbound_id: Optional[int] = None
@@ -116,6 +114,7 @@ class OrderInDB(OrderBase):
     payment_verified_at: Optional[datetime] = None
     payment_verification_admin_id: Optional[int] = None
     payment_rejection_reason: Optional[str] = None
+    payment_authority: Optional[str] = None
     admin_id: Optional[int] = None
     created_at: datetime
     paid_at: Optional[datetime] = None

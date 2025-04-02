@@ -8,9 +8,9 @@ from telegram.ext import (
     filters, ConversationHandler, ContextTypes
 )
 
-from app.api import api_client
-from app.keyboards.admin_keyboards import get_admin_main_keyboard, get_admin_card_management_keyboard
-from app.utils.logger import get_logger
+from api import api_client
+from keyboards.admin_keyboards import get_admin_main_keyboard, get_admin_card_management_keyboard
+from utils.logger import get_logger
 
 # Set up logging
 logger = get_logger(__name__)

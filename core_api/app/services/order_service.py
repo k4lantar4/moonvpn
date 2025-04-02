@@ -31,8 +31,8 @@ class OrderService:
         db: Session,
         user_id: int,
         plan_id: int,
-        amount: float,
-        discount_amount: float = 0.0,
+        amount: Decimal,
+        discount_amount: Decimal = Decimal('0.00'),
         discount_code: Optional[str] = None,
         panel_id: Optional[int] = None,
         config_protocol: Optional[str] = None,
@@ -48,8 +48,8 @@ class OrderService:
             db: Database session
             user_id: ID of the user placing the order
             plan_id: ID of the plan being ordered
-            amount: Original price
-            discount_amount: Discount amount
+            amount: Original price (determined by endpoint based on role)
+            discount_amount: Discount amount (determined by endpoint)
             discount_code: Discount code used
             panel_id: Optional panel ID for this order
             config_protocol: Optional protocol override
@@ -76,19 +76,19 @@ class OrderService:
         if config_traffic_gb is None:
             config_traffic_gb = plan.traffic_limit_gb
             
-        # Calculate final amount
+        # Calculate final amount (using Decimal directly)
         final_amount = amount - discount_amount
-        if final_amount < 0:
-            final_amount = 0
+        if final_amount < Decimal('0.00'):
+            final_amount = Decimal('0.00')
             
         # Create order using CRUD
         order_data = {
             "user_id": user_id,
             "plan_id": plan_id,
             "panel_id": panel_id,
-            "amount": Decimal(str(amount)),
-            "discount_amount": Decimal(str(discount_amount)),
-            "final_amount": Decimal(str(final_amount)),
+            "amount": amount,
+            "discount_amount": discount_amount,
+            "final_amount": final_amount,
             "discount_code": discount_code,
             "config_protocol": config_protocol,
             "config_days": config_days,

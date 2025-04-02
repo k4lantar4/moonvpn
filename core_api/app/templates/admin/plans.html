@@ -1,0 +1,312 @@
+{% extends "base.html" %}
+
+{% block title %}Plan Management - MoonVPN Admin{% endblock %}
+
+{% block content %}
+
+<div class="page-wrapper">
+  <div class="container-xl">
+
+    <!-- Page title -->
+    <div class="page-header d-print-none">
+      <div class="row align-items-center">
+        <div class="col">
+          <h2 class="page-title">
+            Plan Management
+          </h2>
+          <div class="text-muted mt-1">Manage service plans and categories</div>
+        </div>
+        <div class="col-auto ms-auto d-print-none">
+          <div class="btn-list">
+            <a href="/admin/plan-categories" class="btn btn-outline-primary d-none d-sm-inline-block">
+              <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-category" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                <path d="M4 4h6v6h-6z"></path>
+                <path d="M14 4h6v6h-6z"></path>
+                <path d="M4 14h6v6h-6z"></path>
+                <path d="M17 17m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0"></path>
+              </svg>
+              Manage Categories
+            </a>
+            <a href="/admin/plan/new" class="btn btn-primary d-none d-sm-inline-block">
+              <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                <path d="M12 5l0 14"></path>
+                <path d="M5 12l14 0"></path>
+              </svg>
+              Add New Plan
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Filtering and search -->
+    <div class="card mb-3">
+      <div class="card-body">
+        <form action="/admin/plans" method="get" class="row g-3">
+          <div class="col-md-4">
+            <label class="form-label">Search</label>
+            <input type="text" class="form-control" name="search" value="{{ search }}" placeholder="Search by name or description">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Category</label>
+            <select class="form-select" name="category_id">
+              <option value="">All Categories</option>
+              {% for category in categories %}
+              <option value="{{ category.id }}" {% if category_id == category.id %}selected{% endif %}>{{ category.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-2">
+            <label class="form-label">Status</label>
+            <select class="form-select" name="is_active">
+              <option value="">All</option>
+              <option value="true" {% if is_active == true %}selected{% endif %}>Active</option>
+              <option value="false" {% if is_active == false %}selected{% endif %}>Inactive</option>
+            </select>
+          </div>
+          <div class="col-md-3 d-flex align-items-end">
+            <div class="btn-list">
+              <button type="submit" class="btn btn-primary">
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-filter" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                  <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                  <path d="M4 4h16v2.172a2 2 0 0 1 -.586 1.414l-4.414 4.414v7l-6 2v-8.5l-4.48 -4.928a2 2 0 0 1 -.52 -1.345v-2.227z"></path>
+                </svg>
+                Filter
+              </button>
+              <a href="/admin/plans" class="btn btn-outline-secondary">
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-refresh" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                  <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                  <path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4"></path>
+                  <path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4"></path>
+                </svg>
+                Reset
+              </a>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Plans List -->
+    <div class="card">
+      <div class="card-header">
+        <h3 class="card-title">Service Plans</h3>
+      </div>
+      <div class="card-body">
+        <div class="table-responsive">
+          <table class="table table-vcenter card-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Category</th>
+                <th>Price</th>
+                <th>Duration</th>
+                <th>Traffic</th>
+                <th>Max Users</th>
+                <th>Usage</th>
+                <th>Status</th>
+                <th class="w-1">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% if plans %}
+                {% for plan in plans %}
+                <tr>
+                  <td class="text-muted">{{ plan.id }}</td>
+                  <td>
+                    <div class="d-flex align-items-center">
+                      {% if plan.is_featured %}
+                      <span class="badge bg-yellow me-2">Featured</span>
+                      {% endif %}
+                      <a href="/admin/plan/{{ plan.id }}" class="text-reset">{{ plan.name }}</a>
+                    </div>
+                    {% if plan.description %}
+                    <div class="text-muted text-truncate" style="max-width: 200px;">{{ plan.description }}</div>
+                    {% endif %}
+                  </td>
+                  <td>
+                    {% if plan.category_name %}
+                    <span class="badge bg-blue-lt">{{ plan.category_name }}</span>
+                    {% else %}
+                    <span class="badge bg-muted">None</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    <div>{{ "{:,.2f}".format(plan.price) }}</div>
+                    {% if plan.seller_price %}
+                    <div class="text-muted">Seller: {{ "{:,.2f}".format(plan.seller_price) }}</div>
+                    {% endif %}
+                  </td>
+                  <td>{{ plan.duration_days }} days</td>
+                  <td>
+                    {% if plan.traffic_limit_gb %}
+                    {{ plan.traffic_limit_gb }} GB
+                    {% else %}
+                    <span class="badge bg-green-lt">Unlimited</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    {% if plan.max_users %}
+                    {{ plan.max_users }}
+                    {% else %}
+                    <span class="badge bg-green-lt">Unlimited</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    <div class="d-flex align-items-center">
+                      <span class="me-2">{{ plan.active_subscriptions }}</span>
+                      {% if plan.max_users %}
+                      <div class="progress progress-sm flex-grow-1">
+                        <div class="progress-bar bg-primary" style="width: {{ (plan.active_subscriptions / plan.max_users * 100) | round }}%"></div>
+                      </div>
+                      {% if plan.is_full %}
+                      <span class="ms-2 badge bg-danger">Full</span>
+                      {% endif %}
+                      {% endif %}
+                    </div>
+                  </td>
+                  <td>
+                    {% if plan.is_active %}
+                    <span class="badge bg-success">Active</span>
+                    {% else %}
+                    <span class="badge bg-danger">Inactive</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    <div class="btn-list flex-nowrap">
+                      <a href="/admin/plan/{{ plan.id }}" class="btn btn-sm btn-outline-primary">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-edit" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                          <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                          <path d="M7 7h-1a2 2 0 0 0 -2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2 -2v-1"></path>
+                          <path d="M20.385 6.585a2.1 2.1 0 0 0 -2.97 -2.97l-8.415 8.385v3h3l8.385 -8.415z"></path>
+                          <path d="M16 5l3 3"></path>
+                        </svg>
+                        Edit
+                      </a>
+                      <button 
+                        class="btn btn-sm btn-outline-{{ 'warning' if plan.is_active else 'success' }}" 
+                        onclick="togglePlanStatus({{ plan.id }}, '{{ plan.name }}', {{ 'true' if plan.is_active else 'false' }})"
+                      >
+                        {% if plan.is_active %}
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-eye-off" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                          <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                          <path d="M10.585 10.587a2 2 0 0 0 2.829 2.828"></path>
+                          <path d="M16.681 16.673a8.717 8.717 0 0 1 -4.681 1.327c-3.6 0 -6.6 -2 -9 -6c1.272 -2.12 2.712 -3.678 4.32 -4.674m2.86 -1.146a9.055 9.055 0 0 1 1.82 -.18c3.6 0 6.6 2 9 6c-.666 1.11 -1.379 2.067 -2.138 2.87"></path>
+                          <path d="M3 3l18 18"></path>
+                        </svg>
+                        Deactivate
+                        {% else %}
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-eye" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                          <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                          <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0"></path>
+                          <path d="M21 12c-2.4 4 -5.4 6 -9 6c-3.6 0 -6.6 -2 -9 -6c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6"></path>
+                        </svg>
+                        Activate
+                        {% endif %}
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+                {% endfor %}
+              {% else %}
+                <tr>
+                  <td colspan="10" class="text-center py-4">
+                    <div class="empty">
+                      <div class="empty-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-package" width="40" height="40" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                          <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                          <path d="M12 3l8 4.5l0 9l-8 4.5l-8 -4.5l0 -9l8 -4.5"></path>
+                          <path d="M12 12l8 -4.5"></path>
+                          <path d="M12 12l0 9"></path>
+                          <path d="M12 12l-8 -4.5"></path>
+                        </svg>
+                      </div>
+                      <p class="empty-title">No plans found</p>
+                      <p class="empty-subtitle text-muted">
+                        Try adjusting your search or filter to find what you're looking for.
+                      </p>
+                      <div class="empty-action">
+                        <a href="/admin/plan/new" class="btn btn-primary">
+                          <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                            <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                            <path d="M12 5l0 14"></path>
+                            <path d="M5 12l14 0"></path>
+                          </svg>
+                          Add your first plan
+                        </a>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <!-- Pagination -->
+      <div class="card-footer d-flex align-items-center">
+        <p class="m-0 text-muted">Showing <span>{{ plans|length }}</span> items</p>
+        <ul class="pagination m-0 ms-auto">
+          <li class="page-item {% if current_page == 1 %}disabled{% endif %}">
+            <a class="page-link" href="?page={{ current_page - 1 }}&limit={{ limit }}&search={{ search }}&category_id={{ category_id if category_id else '' }}&is_active={{ is_active if is_active is not none else '' }}">
+              <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                <path d="M15 6l-6 6l6 6"></path>
+              </svg>
+              prev
+            </a>
+          </li>
+          <li class="page-item">
+            <a class="page-link">Page {{ current_page }}</a>
+          </li>
+          <li class="page-item {% if not has_more %}disabled{% endif %}">
+            <a class="page-link" href="?page={{ current_page + 1 }}&limit={{ limit }}&search={{ search }}&category_id={{ category_id if category_id else '' }}&is_active={{ is_active if is_active is not none else '' }}">
+              next
+              <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                <path d="M9 6l6 6l-6 6"></path>
+              </svg>
+            </a>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- JavaScript for toggling plan status -->
+<script>
+  // Function to toggle plan status
+  function togglePlanStatus(planId, planName, isCurrentlyActive) {
+    if (confirm(`Are you sure you want to ${isCurrentlyActive ? 'deactivate' : 'activate'} plan "${planName}"?`)) {
+      fetch(`/api/v1/plans/${planId}/toggle`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'same-origin'
+      })
+      .then(response => {
+        if (response.ok) {
+          // Refresh the page to see the updated status
+          window.location.reload();
+        } else {
+          response.json().then(data => {
+            alert(`Error: ${data.detail || 'Failed to update plan status'}`);
+          }).catch(() => {
+            alert('An unknown error occurred');
+          });
+        }
+      })
+      .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred while processing your request');
+      });
+    }
+  }
+</script>
+
+{% endblock %} 

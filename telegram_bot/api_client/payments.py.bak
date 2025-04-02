@@ -1,0 +1,64 @@
+from typing import Dict, Any, Optional, List
+
+from httpx import AsyncClient, HTTPStatusError, RequestError
+
+from app.app.schemas import PaymentRequestResponse # Assuming schema exists in shared location or copied
+from .base import BaseAPIClient, APIError
+from app.app.core.config import settings # Assuming bot has access to some shared config or gets URL from env
+from app.app.models.order import PaymentMethod # Assuming enum is shared or copied
+
+class PaymentsAPIClient(BaseAPIClient):
+    """API Client for payment related operations."""
+    
+    async def request_zarinpal_payment(self, order_id: int) -> str:
+        """
+        Requests a Zarinpal payment URL for the given order.
+
+        Args:
+            order_id: The ID of the order.
+
+        Returns:
+            The payment URL from Zarinpal.
+            
+        Raises:
+            APIError: If the API request fails.
+        """
+        endpoint = f"/payments/zarinpal/request/{order_id}"
+        try:
+            response = await self.post(endpoint)
+            response.raise_for_status()
+            data = response.json()
+            # Assuming the response schema is like: {"payment_url": "..."}
+            payment_url = data.get("payment_url")
+            if not payment_url:
+                 raise APIError(f"Payment URL not found in response for order {order_id}", status_code=response.status_code)
+            return payment_url
+        except HTTPStatusError as e:
+            error_detail = self._parse_error_response(e.response)
+            raise APIError(f"Failed to request Zarinpal payment for order {order_id}: {error_detail}", status_code=e.response.status_code)
+        except RequestError as e:
+            raise APIError(f"Network error requesting Zarinpal payment for order {order_id}: {e}")
+        except Exception as e:
+            # Catch unexpected errors
+             raise APIError(f"An unexpected error occurred requesting Zarinpal payment for order {order_id}: {e}")
+
+    # TODO: Add a function to get available payment methods, checking Zarinpal status
+    # Example structure:
+    # async def get_available_payment_methods(self) -> List[PaymentMethod]:
+    #     # Call an API endpoint that returns enabled methods based on server config
+    #     # Or have a dedicated endpoint/setting check for Zarinpal status
+    #     enabled_methods = [PaymentMethod.CARD_TO_CARD] # Always enabled?
+    #     try:
+    #         # Example: Call a settings endpoint or a specific check endpoint
+    #         zarinpal_status = await self.get("/settings/zarinpal-status") 
+    #         if zarinpal_status.json().get("enabled"): 
+    #              enabled_methods.append(PaymentMethod.ZARINPAL)
+    #     except APIError:
+    #         pass # Log error, assume Zarinpal disabled if check fails
+    #     # Add WALLET if implemented
+    #     return enabled_methods
+    pass # Placeholder for now
+
+
+# Instantiate the client
+payments_client = PaymentsAPIClient(base_url=settings.CORE_API_BASE_URL + "/api/v1") 

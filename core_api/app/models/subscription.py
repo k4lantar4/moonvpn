@@ -10,8 +10,8 @@ class Subscription(Base):
     Links to a user and keeps track of their subscription preferences.
     """
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("user.id"), nullable=False)
-    plan_id = Column(Integer, ForeignKey("plan.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    plan_id = Column(Integer, ForeignKey("plans.id"), nullable=False)
     
     # Order reference - the order that created this subscription
     order_id = Column(Integer, ForeignKey("orders.id"), nullable=True)

@@ -1,0 +1,414 @@
+{% extends "base.html" %}
+
+{% block title %}Manual Payment Verification{% endblock %}
+
+{% block page_title %}Manual Payment Verification{% endblock %}
+
+{% block content %}
+<div class="container-xl">
+  <!-- Page Header -->
+  <div class="page-header d-print-none">
+    <div class="row align-items-center">
+      <div class="col">
+        <h2 class="page-title">
+          Pending Payment Verifications
+        </h2>
+        <div class="text-muted mt-1">
+          Review and approve/reject submitted card-to-card payment proofs.
+        </div>
+      </div>
+      <div class="col-auto ms-auto d-print-none">
+         <button class="btn btn-outline-primary btn-sm" id="refresh-pending-btn">
+           <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4" /><path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4" /></svg>
+           Refresh List
+         </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pending Payments Table -->
+  <div class="row row-cards mt-3">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">Payments Awaiting Verification</h3>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-vcenter card-table">
+            <thead>
+              <tr>
+                <th>Order ID</th>
+                <th>User</th>
+                <th>Plan</th>
+                <th>Amount</th>
+                <th>Submitted At</th>
+                <th>Bank Card</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="pending-payments-table-body">
+              <!-- Pending payments will be loaded here via JavaScript -->
+              <tr id="pending-loading">
+                <td colspan="7" class="text-center py-4">
+                  <div class="spinner-border text-primary" role="status"></div>
+                  <p class="mt-2">Loading pending payments...</p>
+                </td>
+              </tr>
+              <tr class="d-none" id="pending-empty">
+                <td colspan="7" class="text-center py-4">
+                  <div class="empty">
+                    <div class="empty-icon">
+                       <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-check" width="40" height="40" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M5 12l5 5l10 -10" /></svg>
+                    </div>
+                    <p class="empty-title">No payments are currently awaiting verification.</p>
+                    <p class="empty-subtitle text-muted">
+                      All submitted payment proofs have been processed.
+                    </p>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+         <div class="card-footer d-flex align-items-center">
+            <p class="m-0 text-muted">Showing <span id="pending-count">0</span> entries</p>
+            <!-- Optional: Add pagination if needed later -->
+          </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- View Proof & Verify Modal -->
+<div class="modal modal-blur fade" id="verify-payment-modal" tabindex="-1" role="dialog" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Verify Payment Proof - Order #<span id="modal-order-id"></span></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="verify-order-id-input">
+        <div class="row">
+           <div class="col-md-6 mb-3">
+                <h5>Payment Details</h5>
+                <dl class="row">
+                    <dt class="col-5">User:</dt>
+                    <dd class="col-7" id="modal-user">...</dd>
+                    <dt class="col-5">Plan:</dt>
+                    <dd class="col-7" id="modal-plan">...</dd>
+                    <dt class="col-5">Amount:</dt>
+                    <dd class="col-7" id="modal-amount">...</dd>
+                    <dt class="col-5">Bank Card:</dt>
+                    <dd class="col-7" id="modal-bank-card">...</dd>
+                    <dt class="col-5">Submitted At:</dt>
+                    <dd class="col-7" id="modal-submitted-at">...</dd>
+                </dl>
+           </div>
+            <div class="col-md-6">
+                <h5>Payment Proof Image</h5>
+                <div id="modal-proof-image-container" class="text-center border rounded p-2 mb-3" style="min-height: 200px;">
+                    <span class="text-muted">Loading proof...</span>
+                    <!-- Image will be loaded here -->
+                </div>
+                 <a href="#" id="modal-proof-image-link" target="_blank" class="btn btn-sm btn-outline-secondary w-100 d-none">View Full Image</a>
+           </div>
+        </div>
+
+        <hr>
+
+        <div id="rejection-section" class="mt-3 d-none">
+          <label for="rejection-reason" class="form-label required">Reason for Rejection</label>
+          <textarea class="form-control" id="rejection-reason" rows="3" required placeholder="Explain why the payment is being rejected (e.g., unclear image, amount mismatch)..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+         <button type="button" class="btn btn-link link-secondary me-auto" data-bs-dismiss="modal">Cancel</button>
+         <button type="button" class="btn btn-danger" id="reject-button">
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-x" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M18 6l-12 12" /><path d="M6 6l12 12" /></svg>
+           Reject Payment
+         </button>
+         <button type="button" class="btn btn-success" id="approve-button">
+             <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-check" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M5 12l5 5l10 -10" /></svg>
+           Approve Payment
+         </button>
+      </div>
+        <div id="verification-spinner" class="modal-body text-center d-none">
+             <div class="spinner-border text-primary" role="status"></div>
+             <p class="mt-2">Processing verification...</p>
+        </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const pendingTableBody = document.getElementById('pending-payments-table-body');
+    const loadingRow = document.getElementById('pending-loading');
+    const emptyRow = document.getElementById('pending-empty');
+    const pendingCountSpan = document.getElementById('pending-count');
+    const refreshButton = document.getElementById('refresh-pending-btn');
+
+    const verifyModalElement = document.getElementById('verify-payment-modal');
+    const verifyModal = new bootstrap.Modal(verifyModalElement);
+    const modalOrderIdSpan = document.getElementById('modal-order-id');
+    const modalUserInput = document.getElementById('modal-user');
+    const modalPlanInput = document.getElementById('modal-plan');
+    const modalAmountInput = document.getElementById('modal-amount');
+    const modalBankCardInput = document.getElementById('modal-bank-card');
+    const modalSubmittedAtInput = document.getElementById('modal-submitted-at');
+    const modalProofImageContainer = document.getElementById('modal-proof-image-container');
+    const modalProofImageLink = document.getElementById('modal-proof-image-link');
+    const verifyOrderIdInput = document.getElementById('verify-order-id-input');
+    const approveButton = document.getElementById('approve-button');
+    const rejectButton = document.getElementById('reject-button');
+    const rejectionSection = document.getElementById('rejection-section');
+    const rejectionReasonTextarea = document.getElementById('rejection-reason');
+    const verificationSpinner = document.getElementById('verification-spinner');
+    const modalFooter = verifyModalElement.querySelector('.modal-footer');
+
+    // --- Helper Functions ---
+    function showAlert(message, type = 'danger') {
+        alert(`[${type.toUpperCase()}] ${message}`); // Simple alert for now
+    }
+
+     function showVerificationSpinner() {
+        modalFooter.classList.add('d-none');
+        verificationSpinner.classList.remove('d-none');
+    }
+
+    function hideVerificationSpinner() {
+        modalFooter.classList.remove('d-none');
+        verificationSpinner.classList.add('d-none');
+    }
+
+    function formatDateTime(isoString) {
+        if (!isoString) return 'N/A';
+        try {
+            const date = new Date(isoString);
+            return date.toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
+        } catch (e) {
+            return isoString; // Return original if parsing fails
+        }
+    }
+
+    // --- API Interaction ---
+    async function fetchPendingPayments() {
+        loadingRow.classList.remove('d-none');
+        emptyRow.classList.add('d-none');
+        pendingTableBody.querySelectorAll('tr:not(#pending-loading):not(#pending-empty)').forEach(row => row.remove());
+        pendingCountSpan.textContent = '0';
+
+        try {
+            console.log("Fetching pending payments...");
+            const response = await fetch('/api/v1/payment-proofs/pending', { // ADJUST API ENDPOINT IF NEEDED
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const pendingPayments = await response.json();
+            // Sample Data Structure (adjust based on actual API response):
+            // [ { order_id: 1, user: { username: 'user1' }, plan: { name: 'Basic' }, amount: 10000, submitted_at: '...', bank_card: { bank_name: 'Melli', card_number_masked: '****1111'}, proof_img_url: '...' }, ... ]
+
+            loadingRow.classList.add('d-none');
+            pendingCountSpan.textContent = pendingPayments.length;
+
+            if (pendingPayments.length === 0) {
+                emptyRow.classList.remove('d-none');
+                return;
+            }
+
+            pendingPayments.forEach(payment => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>#${payment.order_id}</td>
+                    <td>${payment.user?.username || 'N/A'}</td>
+                    <td>${payment.plan?.name || 'N/A'}</td>
+                    <td>${payment.amount ? payment.amount.toLocaleString() : 'N/A'}</td>
+                    <td>${formatDateTime(payment.submitted_at)}</td>
+                    <td>${payment.bank_card ? `${payment.bank_card.bank_name} (${payment.bank_card.card_number_masked || '****'})` : 'N/A'}</td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-primary view-proof-btn" data-order-id="${payment.order_id}" data-proof-url="${payment.payment_proof_img_url}">View Proof & Verify</button>
+                    </td>
+                `;
+                pendingTableBody.appendChild(row);
+            });
+
+        } catch (error) {
+            console.error("Failed to fetch pending payments:", error);
+            loadingRow.classList.add('d-none');
+            showAlert("Failed to load pending payments. Please check the console and try refreshing.", "danger");
+            const errorRow = document.createElement('tr');
+            errorRow.innerHTML = `<td colspan="7" class="text-center text-danger py-4">Failed to load pending payments.</td>`;
+            pendingTableBody.appendChild(errorRow);
+        }
+    }
+
+    async function submitVerification(orderId, isApproved, rejectionReason = null) {
+        showVerificationSpinner();
+        const payload = {
+            is_approved: isApproved
+        };
+        if (!isApproved) {
+            payload.rejection_reason = rejectionReason;
+        }
+
+        try {
+            console.log(`Submitting verification for order ${orderId}: Approved=${isApproved}`);
+            const response = await fetch(`/api/v1/payment-proofs/${orderId}/verify`, { // ADJUST API ENDPOINT
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
+            }
+
+            showAlert(`Payment for Order #${orderId} has been ${isApproved ? 'approved' : 'rejected'} successfully.`, "success");
+            verifyModal.hide();
+            fetchPendingPayments(); // Refresh the list
+
+        } catch (error) {
+            console.error("Verification failed:", error);
+            showAlert(`Failed to ${isApproved ? 'approve' : 'reject'} payment: ${error.message}`, "danger");
+        } finally {
+             hideVerificationSpinner();
+        }
+    }
+
+    // --- Event Listeners ---
+    refreshButton.addEventListener('click', fetchPendingPayments);
+
+    // Open Verification Modal
+    pendingTableBody.addEventListener('click', async (e) => {
+        if (e.target.classList.contains('view-proof-btn')) {
+            const button = e.target;
+            const orderId = button.dataset.orderId;
+            const proofUrl = button.dataset.proofUrl; // URL should be relative or absolute based on API response
+
+            // Reset modal state
+            rejectionSection.classList.add('d-none');
+            rejectionReasonTextarea.value = '';
+            rejectionReasonTextarea.required = false;
+            modalProofImageContainer.innerHTML = '<span class="text-muted">Loading proof...</span>';
+            modalProofImageLink.href = '#';
+            modalProofImageLink.classList.add('d-none');
+             hideVerificationSpinner();
+
+            verifyOrderIdInput.value = orderId;
+            modalOrderIdSpan.textContent = orderId;
+
+            // Fetch full order details maybe? Or just display what we have.
+            // For now, let's just display basic info from the table row if possible.
+             const row = button.closest('tr');
+             modalUserInput.textContent = row.cells[1].textContent;
+             modalPlanInput.textContent = row.cells[2].textContent;
+             modalAmountInput.textContent = row.cells[3].textContent;
+             modalBankCardInput.textContent = row.cells[5].textContent;
+             modalSubmittedAtInput.textContent = row.cells[4].textContent; // Already formatted
+
+            // Load image
+            if (proofUrl && proofUrl !== 'null' && proofUrl !== 'undefined') {
+                const img = document.createElement('img');
+                img.src = proofUrl; // Make sure this URL is accessible by the browser
+                img.alt = `Payment proof for Order #${orderId}`;
+                img.style.maxWidth = '100%';
+                img.style.maxHeight = '400px';
+                img.onload = () => {
+                    modalProofImageContainer.innerHTML = '';
+                    modalProofImageContainer.appendChild(img);
+                    modalProofImageLink.href = proofUrl;
+                    modalProofImageLink.classList.remove('d-none');
+                };
+                img.onerror = () => {
+                    modalProofImageContainer.innerHTML = '<span class="text-danger">Could not load proof image.</span>';
+                    modalProofImageLink.classList.add('d-none');
+                };
+            } else {
+                 modalProofImageContainer.innerHTML = '<span class="text-muted">No payment proof image submitted or URL is invalid.</span>';
+                 modalProofImageLink.classList.add('d-none');
+            }
+
+            verifyModal.show();
+        }
+    });
+
+    // Approve Button Click
+    approveButton.addEventListener('click', () => {
+        const orderId = verifyOrderIdInput.value;
+        submitVerification(orderId, true);
+    });
+
+    // Reject Button Click (Show reason field)
+    rejectButton.addEventListener('click', () => {
+        rejectionSection.classList.remove('d-none');
+        rejectionReasonTextarea.required = true;
+        rejectButton.textContent = 'Confirm Rejection';
+        rejectButton.removeEventListener('click', handleConfirmRejection); // Remove previous listener if any
+        rejectButton.addEventListener('click', handleConfirmRejection, { once: true }); // Add one-time listener
+
+        // Also change approve button to cancel rejection
+        approveButton.textContent = 'Cancel Rejection';
+        approveButton.classList.remove('btn-success');
+        approveButton.classList.add('btn-secondary');
+        approveButton.removeEventListener('click', handleApprove); // Use named function if needed
+        approveButton.addEventListener('click', handleCancelRejection, {once: true});
+
+    });
+
+     // Function to handle the actual rejection submission
+    function handleConfirmRejection() {
+        const orderId = verifyOrderIdInput.value;
+        const reason = rejectionReasonTextarea.value.trim();
+        if (!reason) {
+            showAlert('Please provide a reason for rejection.', 'warning');
+            rejectionReasonTextarea.focus();
+            // Re-attach the listener since 'once' removed it
+             rejectButton.addEventListener('click', handleConfirmRejection, { once: true });
+            return;
+        }
+        submitVerification(orderId, false, reason);
+    }
+
+    // Function to handle cancelling the rejection process
+    function handleCancelRejection() {
+         rejectionSection.classList.add('d-none');
+         rejectionReasonTextarea.required = false;
+         rejectButton.textContent = 'Reject Payment';
+         rejectButton.removeEventListener('click', handleConfirmRejection); // Clean up listener
+         // Re-attach original reject listener if needed or handle state differently
+
+         approveButton.textContent = 'Approve Payment';
+         approveButton.classList.remove('btn-secondary');
+         approveButton.classList.add('btn-success');
+         approveButton.removeEventListener('click', handleCancelRejection);
+         // Re-attach original approve listener
+         // approveButton.addEventListener('click', handleApprove, {once: true}); // Need to define handleApprove
+    }
+
+    // Reset modal on close
+    verifyModalElement.addEventListener('hidden.bs.modal', () => {
+         // Reset buttons and rejection section to initial state
+         handleCancelRejection(); // Call this to reset the UI elements
+         // You might need to re-attach the initial approve/reject listeners here
+         // if they were removed completely
+    });
+
+
+    // --- Initial Load ---
+    fetchPendingPayments();
+});
+</script>
+{% endblock %} 

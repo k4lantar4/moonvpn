@@ -1,0 +1,65 @@
+from typing import List, Dict, Any
+
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup
+
+# Callback data prefix for payment methods
+PAYMENT_METHOD_PREFIX = "payment_method_"
+
+# Assuming PaymentMethod enum is available here (e.g., copied or shared)
+from app.models.order import PaymentMethod 
+
+# Callback data patterns
+PAYMENT_METHOD_CALLBACK_PREFIX = "payment_method_"
+
+def generate_payment_method_keyboard(payment_methods: List[PaymentMethod]) -> List[List[InlineKeyboardButton]]:
+    """
+    Generate a keyboard with available payment methods.
+    
+    Args:
+        payment_methods: List of payment method dictionaries from API
+        
+    Returns:
+        List of lists of InlineKeyboardButton
+    """
+    keyboard = []
+    row = []
+
+    # Map enum values to button text and callback data
+    method_map = {
+        PaymentMethod.CARD_TO_CARD: ("💳 کارت به کارت", PAYMENT_METHOD_CALLBACK_PREFIX + PaymentMethod.CARD_TO_CARD.value),
+        PaymentMethod.WALLET: ("💰 کیف پول", PAYMENT_METHOD_CALLBACK_PREFIX + PaymentMethod.WALLET.value),
+        PaymentMethod.ZARINPAL: ("🌐 پرداخت آنلاین (زرین‌پال)", PAYMENT_METHOD_CALLBACK_PREFIX + PaymentMethod.ZARINPAL.value),
+        PaymentMethod.CRYPTO: ("💎 ارز دیجیتال", PAYMENT_METHOD_CALLBACK_PREFIX + PaymentMethod.CRYPTO.value),
+        PaymentMethod.MANUAL: ("👨‍💻 پرداخت دستی", PAYMENT_METHOD_CALLBACK_PREFIX + PaymentMethod.MANUAL.value),
+    }
+
+    # Define the desired order of buttons
+    display_order = [
+        PaymentMethod.ZARINPAL, 
+        PaymentMethod.CARD_TO_CARD,
+        PaymentMethod.WALLET, 
+        PaymentMethod.CRYPTO,
+        PaymentMethod.MANUAL,
+    ]
+
+    for method in display_order:
+        if method in payment_methods and method in method_map:
+            text, callback_data = method_map[method]
+            button = InlineKeyboardButton(text, callback_data=callback_data)
+            # Add button to row, create new row if necessary (e.g., max 2 buttons per row)
+            row.append(button)
+            if len(row) == 2: # Adjust number of buttons per row as needed
+                keyboard.append(row)
+                row = []
+
+    # Add the last row if it's not empty
+    if row:
+        keyboard.append(row)
+
+    return InlineKeyboardMarkup(keyboard)
+
+def get_cancel_keyboard():
+    """Return a simple cancel keyboard."""
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("❌ انصراف", callback_data="cancel_payment")]
+    ]) 

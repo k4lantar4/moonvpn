@@ -22,11 +22,11 @@ from telegram.ext import (
     filters
 )
 
-from app.api import api_client
-from app.utils.logger import get_logger
-from app.keyboards.payment import generate_payment_method_keyboard, get_cancel_keyboard
-from app.handlers.main_menu import show_main_menu
-from app.handlers.payment_notification_handlers import send_payment_notification_to_group
+from api import api_client
+from utils.logger import get_logger
+from keyboards.payment import generate_payment_method_keyboard, get_cancel_keyboard
+from handlers.main_menu import show_main_menu
+from handlers.payment_notification_handlers import send_payment_notification_to_group
 
 # Set up logging
 logger = get_logger(__name__)

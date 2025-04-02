@@ -1,6 +1,6 @@
 import logging
 import httpx
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 import aiohttp
 
 from app.utils.logger import get_logger
@@ -1258,4 +1258,33 @@ async def get_users_available_for_payment_admin() -> Optional[List[Dict]]:
                     return None
     except Exception as e:
         logger.error(f"Exception getting available payment admin users: {str(e)}")
+        return None
+
+async def get_user_orders(user_id: int) -> List[Dict[str, Any]]:
+    """
+    Get a list of orders for a specific user.
+    
+    Args:
+        user_id: The user's Telegram ID.
+        
+    Returns:
+        A list of order objects, or None if an error occurred.
+    """
+    try:
+        # First get the api user
+        api_user = await get_user_by_telegram_id(user_id)
+        if not api_user or 'id' not in api_user:
+            logger.error(f"Could not find API user for Telegram ID {user_id}")
+            return None
+            
+        # Then get orders using the real user ID from the API
+        api_user_id = api_user['id']
+        url = f"{BASE_URL}/orders/user/{api_user_id}"
+        
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, headers=get_auth_headers()) as response:
+                response.raise_for_status()
+                return await response.json()
+    except Exception as e:
+        logger.error(f"Error getting orders for user {user_id}: {e}")
         return None

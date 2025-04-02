@@ -12,6 +12,12 @@ from .crud_subscription import subscription
 from .crud_client import client
 from .crud_billing import billing
 from .crud_bank_card import bank_card
+from . import (
+    token,
+    payment,
+    log,
+    affiliate
+)
 
 # Import base CRUD class for inheritance when creating new CRUD operations
 from .base import CRUDBase
@@ -23,7 +29,11 @@ __all__ = [
     "subscription",
     "client",
     "billing",
-    "bank_card"
+    "bank_card",
+    "token",
+    "payment",
+    "log",
+    "affiliate"
 ]
 
 # You can optionally define a base CRUD class or utility functions here if needed

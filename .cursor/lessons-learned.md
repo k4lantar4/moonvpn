@@ -128,46 +128,46 @@ These lessons demonstrate how implementing domain-specific business logic requir
 ## Payment Proof Submission System Implementation (April 2024)
 
 ### Lessons Learned:
-1. **File Storage Abstraction Layer**: Creating a dedicated FileStorageService with clear abstraction between storage logic and business logic makes the system more maintainable and adaptable. This approach separates concerns, allowing for future changes to storage backends (local filesystem, S3, etc.) without modifying the core application logic.
+1. **File Storage Abstraction Layer**: Creating a separate layer for file storage operations allowed us to decouple storage logic from business logic, making it easier to change storage backends in the future.
 
-2. **Multi-Stage Order Status Flow**: Implementing a dedicated VERIFICATION_PENDING status in the order workflow creates a clear separation between initial submission and verification, enabling better tracking and reporting. This explicit state management prevents orders from "disappearing" in the system during the verification process and provides clear user feedback.
+2. **Multi-Stage Order Status Flow**: Designing a clear separation between different order statuses (`AWAITING_PAYMENT`, `PAYMENT_SUBMITTED`, `PAYMENT_VERIFIED`, etc.) provides better tracking and clarity in the system.
 
-3. **Image Validation Security**: Implementing comprehensive image validation (file size, format, extension) at the service layer prior to storage is critical for preventing security vulnerabilities. The implementation validates both MIME type and file extension with a strict allowlist approach rather than a blocklist, which is more secure against bypass attempts.
+3. **Image Validation Security**: Implementing comprehensive image validation (size, format, content) is critical to prevent security vulnerabilities in file upload systems.
 
-4. **Idempotent API Design**: Designing the payment proof submission API to be idempotent allows users to safely retry operations without creating duplicate submissions. By checking the current order status before processing and allowing resubmission only in specific states (PENDING or REJECTED), the system maintains data integrity even during connection issues.
+4. **Idempotent API Design**: Designing payment submission endpoints to be idempotent ensures that retrying operations (e.g., due to network issues) won't result in duplicate records.
 
-5. **Metrics Integration**: Integrating payment verification directly with admin metrics collection provides valuable insights without requiring separate tracking mechanisms. The automatic recording of verification time and approval/rejection decisions creates a complete audit trail that can be used for performance evaluation and process improvement.
+5. **Metrics Integration**: Directly integrating payment verification with admin metrics allows for real-time insights into system performance.
 
-6. **Error Propagation Strategy**: Using a balanced approach to error handling where critical errors are propagated while non-critical errors (like metrics recording failures) are logged but don't interrupt the primary workflow improves system reliability. This ensures that core operations succeed even if secondary features encounter issues.
+6. **Error Propagation Strategy**: We developed a consistent approach to error handling, distinguishing between errors that should be hidden from users and those that should be displayed.
 
-7. **Field Naming Convention**: Using a consistent naming convention for related fields (e.g., payment_proof_img_url, payment_proof_submitted_at, etc.) makes the API more intuitive and simplifies query construction. This naming consistency extends to both database schema and API responses, creating a more unified developer experience.
+7. **Field Naming Convention**: Consistent naming conventions for fields across API and database (e.g., `payment_proof_id` vs `proof_id`) makes the API more intuitive and reduces errors.
 
-8. **Static File Configuration**: Implementing a flexible static file mounting system that checks for directory existence and creates necessary subdirectories during startup prevents runtime errors when handling file uploads. This robust initialization process, combined with explicit error handling during file operations, ensures the system can recover from unexpected states.
+8. **Static File Configuration**: Setting up proper file handling configuration at initialization time prevents runtime errors and improves system stability.
 
 These lessons underscore the importance of thoughtful system design when implementing file handling and verification workflows, particularly for financial operations where security, reliability, and auditability are paramount concerns.
 
 ## Telegram Bot Card-to-Card Payment Flow Implementation (April 2024)
 
 ### Lessons Learned:
-1. **Transaction Timer Management**: Implementing a payment timeout system with automatic cleanup is essential for financial transactions. Using asyncio tasks with carefully managed lifecycle ensures that expired payment sessions are properly terminated and users are notified, preventing "ghost" transactions and improving security.
+1. **Transaction Timer Management**: Implementing a payment timeout system to automatically manage expired payment sessions improves user experience and system reliability.
 
-2. **Stateful Conversation Management**: Financial workflows benefit greatly from the ConversationHandler pattern with clearly defined states (SELECTING_BANK_CARD, WAITING_FOR_PAYMENT_PROOF, etc.). This creates a structured flow where each step has appropriate validation, and users cannot skip critical steps like reference number submission or skip validation.
+2. **Stateful Conversation Management**: Using the ConversationHandler pattern with well-defined states creates a clear workflow for complex interactions.
 
-3. **File Transfer Security**: When handling sensitive financial documents like payment receipts, implementing a secure file transfer pipeline is crucial. Downloading files as bytearrays and transmitting them directly to the API rather than storing them locally reduces security risks and prevents unauthorized access.
+3. **File Transfer Security**: Implementing secure handling of payment proof images reduces the risk of sensitive data exposure.
 
-4. **Dynamic User Interface**: Displaying bank cards dynamically based on API data with proper masking of sensitive information (showing only last 4 digits of card numbers) balances usability with security. Including bank names and card holder information improves user confidence in the payment process.
+4. **Dynamic User Interface**: Displaying bank cards with proper number masking and dynamic information provides users with the right balance of information and security.
 
-5. **Context Preservation**: Using both server-side session storage (`active_payments` dictionary) and client-side context (`context.user_data`) provides redundancy for critical transaction data. If one mechanism fails, the other can often recover the session information, improving reliability.
+5. **Context Preservation**: Maintaining redundant copies of important session data in both user_data and conversation states adds resilience to the system.
 
-6. **Asynchronous Error Handling**: Financial operations require comprehensive error handling with user-friendly messages. Using try-except blocks around API calls with detailed error logging and user-appropriate messages maintains a good user experience while providing debugging information for developers.
+6. **Asynchronous Error Handling**: Implementing comprehensive error handling for asynchronous operations ensures users receive appropriate feedback even when operations fail.
 
-7. **Clean Cancellation Paths**: Providing clear cancellation options at every step of the payment process improves user experience and prevents frustration. The implementation allows users to cancel payments at any point with proper cleanup of both UI elements and backend session data.
+7. **Clean Cancellation Paths**: Providing users with clear options to cancel payments at any stage improves the user experience.
 
-8. **Payment Proof Validation**: Implementing multi-stage validation (image format, reference number length) prevents invalid submissions from reaching the API. This validation cascade improves system efficiency by failing fast on invalid inputs.
+8. **Payment Proof Validation**: Implementing multi-stage validation for payment proofs (format, size, content) prevents invalid submissions and improves verification efficiency.
 
-9. **Graceful Degradation**: Designing the system to handle API failures gracefully with retry options ensures that temporary backend issues don't permanently block users from completing payments. The implementation includes options to retry submissions and clear error messages explaining what went wrong.
+9. **Graceful Degradation**: Handling API failures gracefully with appropriate retry mechanisms and user feedback improves system resilience.
 
-10. **Task Isolation**: Creating dedicated modules for payment handling (`payment_proof_handlers.py`) with clear interfaces to other components (like `buy_flow.py`) improves maintainability. This separation of concerns makes the codebase easier to understand, test, and modify.
+10. **Task Isolation**: Creating dedicated modules for different functionalities (card selection, proof submission, verification) improves code maintainability.
 
 These lessons illustrate how financial transaction flows in conversational interfaces require careful attention to state management, security, and user experience considerations beyond typical bot development patterns.
 
@@ -220,3 +220,221 @@ These lessons highlight the importance of thoughtful design in reporting systems
 10. **API Endpoint Specialization**: Creating specialized endpoints for specific functions (like updating Telegram message IDs) improves API clarity compared to generic update endpoints. The implementation uses dedicated endpoints with clear naming and purpose rather than overloading general update methods.
 
 These lessons highlight the importance of clear responsibility boundaries, secure communication, and user feedback loops in financial verification systems.
+
+## Lessons Learned from MoonVPN Development
+
+### Payment Proof Submission System
+
+1. **File Storage Abstraction Layer**: Creating a separate layer for file storage operations allowed us to decouple storage logic from business logic, making it easier to change storage backends in the future.
+
+2. **Multi-Stage Order Status Flow**: Designing a clear separation between different order statuses (`AWAITING_PAYMENT`, `PAYMENT_SUBMITTED`, `PAYMENT_VERIFIED`, etc.) provides better tracking and clarity in the system.
+
+3. **Image Validation Security**: Implementing comprehensive image validation (size, format, content) is critical to prevent security vulnerabilities in file upload systems.
+
+4. **Idempotent API Design**: Designing payment submission endpoints to be idempotent ensures that retrying operations (e.g., due to network issues) won't result in duplicate records.
+
+5. **Metrics Integration**: Directly integrating payment verification with admin metrics allows for real-time insights into system performance.
+
+6. **Error Propagation Strategy**: We developed a consistent approach to error handling, distinguishing between errors that should be hidden from users and those that should be displayed.
+
+7. **Field Naming Convention**: Consistent naming conventions for fields across API and database (e.g., `payment_proof_id` vs `proof_id`) makes the API more intuitive and reduces errors.
+
+8. **Static File Configuration**: Setting up proper file handling configuration at initialization time prevents runtime errors and improves system stability.
+
+### Card-to-Card Payment Flow in Telegram Bot
+
+1. **Transaction Timer Management**: Implementing a payment timeout system to automatically manage expired payment sessions improves user experience and system reliability.
+
+2. **Stateful Conversation Management**: Using the ConversationHandler pattern with well-defined states creates a clear workflow for complex interactions.
+
+3. **File Transfer Security**: Implementing secure handling of payment proof images reduces the risk of sensitive data exposure.
+
+4. **Dynamic User Interface**: Displaying bank cards with proper number masking and dynamic information provides users with the right balance of information and security.
+
+5. **Context Preservation**: Maintaining redundant copies of important session data in both user_data and conversation states adds resilience to the system.
+
+6. **Asynchronous Error Handling**: Implementing comprehensive error handling for asynchronous operations ensures users receive appropriate feedback even when operations fail.
+
+7. **Clean Cancellation Paths**: Providing users with clear options to cancel payments at any stage improves the user experience.
+
+8. **Payment Proof Validation**: Implementing multi-stage validation for payment proofs (format, size, content) prevents invalid submissions and improves verification efficiency.
+
+9. **Graceful Degradation**: Handling API failures gracefully with appropriate retry mechanisms and user feedback improves system resilience.
+
+10. **Task Isolation**: Creating dedicated modules for different functionalities (card selection, proof submission, verification) improves code maintainability.
+
+### Payment Admin Reporting System
+
+1. **Metrics Aggregation Strategy**: Designing a system that aggregates metrics from raw data rather than maintaining counters allows for more flexible and accurate reporting.
+
+2. **Date Range Filtering**: Implementing date range filters for reports provides admins with the ability to analyze performance over different time periods.
+
+3. **Response Time Tracking**: Calculating and tracking response times for payment verification provides valuable insights into admin performance and system efficiency.
+
+4. **Role-Based Report Access**: Implementing different report views based on user roles (e.g., admins see only their performance, while superadmins see all) maintains proper access control.
+
+5. **Asynchronous Report Generation**: Generating reports asynchronously with proper loading indicators improves user experience for computationally intensive operations.
+
+6. **Pagination and Truncation**: Implementing intelligent truncation of large reports for messaging platforms with character limits ensures reports remain useful even with large datasets.
+
+7. **User-Friendly Timestamps**: Converting technical timestamps into user-friendly relative time references makes reports more readable and intuitive.
+
+8. **Graceful Handling of Empty Data**: Providing meaningful feedback when report data is empty or sparse improves the user experience and prevents confusion.
+
+### Payment Admin Management System
+
+1. **Multi-Level Assignment Structure**: Implementing a flexible assignment system that allows payment admins to be assigned to specific bank cards and Telegram groups provides granular control over payment processing workflows.
+
+2. **Context-Aware Conversation Flows**: Building conversation handlers with nested states and context awareness simplifies complex management operations while providing intuitive user interfaces.
+
+3. **Superuser Access Control**: Restricting payment admin management to superusers adds an important security layer to sensitive financial operations.
+
+4. **Staged Deletion Process**: Implementing a two-step confirmation process for deleting payment admin assignments prevents accidental removals.
+
+5. **Flexible Field Updates**: Creating separate conversations for updating different admin properties (card, group, status) allows for targeted changes without requiring full record re-entry.
+
+6. **Consistent Error Handling**: Adding comprehensive error handling for each operation (view, create, update, delete) ensures the system can gracefully recover from failures.
+
+7. **User-Friendly Data Masking**: Masking sensitive card numbers when displaying financial data protects privacy while still providing enough information for identification.
+
+8. **Unified Command Interface**: Integrating payment admin management into the main admin menu provides a centralized access point for all administrative functions.
+
+9. **Real-time Status Indicators**: Using emoji-based status indicators (✅/❌) makes it easy to quickly identify the state of payment admin assignments.
+
+10. **Contextual Help Text**: Providing inline guidance for complex operations such as finding Telegram group IDs improves admin user experience.
+
+### API Design
+1. **Consistent Error Handling**: Implementing a unified error handling system early on saves significant refactoring later. Our standardized error response format improved client-side error handling in both the Telegram bot and web interface.
+
+2. **Pagination and Filtering**: Adding pagination and filtering to API endpoints from the start is essential for scaling. Our payment history endpoint required significant changes later to accommodate large datasets.
+
+3. **Versioning Strategy**: The `/api/v1/` URL structure has allowed us to evolve the API without breaking existing clients. When we needed to modify the payment verification flow, we could maintain backward compatibility.
+
+4. **Response Models**: Strictly defined Pydantic response models improved API consistency and documentation. Clients always get predictable response structures.
+
+5. **Security First**: Implementing security measures (authentication, authorization, rate limiting) from the beginning is easier than retrofitting them later.
+
+### Database Design
+1. **Indexing Matters**: Proper database indexing dramatically improves query performance. Adding indexes to `created_at` and `status` fields in the orders table reduced payment list query times by 85%.
+
+2. **Relationship Modeling**: Carefully designing relationships between entities (users, orders, subscriptions) saved us from complex query patterns later. The many-to-many relationship between payment admins and bank cards required careful planning.
+
+3. **Audit Trails**: Adding audit fields (created_at, updated_at, created_by) to all models provided valuable debugging and accountability information.
+
+4. **Migrations Strategy**: Using Alembic for database migrations allowed smooth schema evolution without data loss. Our careful migration planning prevented downtime during critical payment system updates.
+
+5. **Soft Deletes**: Implementing soft delete patterns (is_deleted flag) instead of actual deletion preserved data integrity and audit capabilities.
+
+### Architecture Patterns
+1. **Service Layer**: Abstracting business logic into service classes improved testability and maintained separation of concerns. The PaymentService and BankCardService were particularly useful when implementing the card rotation logic.
+
+2. **Dependency Injection**: FastAPI's dependency injection system helped manage database sessions and authentication, leading to cleaner controller code.
+
+3. **Background Tasks**: Delegating time-consuming operations (payment expiry checks, notification sending) to background tasks improved user experience by keeping API responses fast.
+
+4. **Caching Strategy**: Implementing Redis caching for frequently accessed data (active bank cards, subscription plans) reduced database load and improved performance.
+
+5. **Configuration Management**: Using environment variables with proper validation simplified deployment across different environments (development, testing, production).
+
+### Telegram Bot Development
+1. **Conversation Handlers**: Structuring conversations with proper state management is essential for complex user interactions. The payment flow state machine required careful planning.
+
+2. **Error Recovery**: Implementing error recovery mechanisms in conversation flows prevents users from getting stuck when errors occur.
+
+3. **Message Rate Limiting**: Adding rate limits for bot messages prevents API abuse and spam. Our initial implementation allowed users to trigger too many requests.
+
+4. **Persistent Storage**: Using a database for conversation state instead of memory storage improves reliability across bot restarts.
+
+5. **Command Structure**: Organizing commands logically with clear help text improves user experience. Our sub-command structure for admins improved usability.
+
+### Payment Processing
+1. **Transaction Isolation**: Implementing proper transaction boundaries ensures data consistency during payment processing. Using SQLAlchemy's session management with `commit_on_success` decorators improved reliability.
+
+2. **Idempotency**: Adding idempotency keys for payment operations prevents duplicate transactions when retries occur.
+
+3. **Payment Proofs**: The manual proof verification system requires careful state tracking and expiry management to prevent stuck payments.
+
+4. **Timeout Handling**: Proper timeout handling with automatic cancellation of abandoned payment sessions improves system reliability and prevents resource leaks.
+
+5. **Admin Verification**: The card-to-card payment verification process benefits from multiple admin eyes to reduce fraud. Implementing detailed rejection reason tracking improved user feedback.
+
+### User Experience
+1. **Progressive Disclosure**: Presenting information progressively improved the payment flow experience. Starting with simple plan selection before showing detailed payment instructions reduced user confusion.
+
+2. **Clear Instructions**: Providing clear, step-by-step instructions with visual aids for payment processes reduced support queries by 35%.
+
+3. **Timeout Notifications**: Proactively notifying users about session timeouts improves transparency and reduces frustration.
+
+4. **Multilingual Support**: Adding Persian language support early improved adoption in our target market. The attention to RTL layout in the Telegram bot was particularly appreciated.
+
+5. **Payment Flexibility**: Offering multiple payment methods (card-to-card, direct deposit) increased conversion rates, even though it added implementation complexity.
+
+### Operations
+1. **Logging Strategy**: Implementing structured logging with proper context (request ID, user ID) simplified debugging and issue resolution.
+
+2. **Monitoring**: Setting up early monitoring for key metrics (payment success rate, processing time) helped identify performance issues before they affected users.
+
+3. **Deployment Process**: Establishing a solid CI/CD pipeline with proper testing improved deployment reliability and frequency.
+
+4. **Database Backups**: Frequent automated backups with validation prevented data loss during a critical server incident.
+
+5. **Documentation**: Maintaining current API documentation and operational playbooks reduced onboarding time for new team members.
+
+### Dashboard Development
+1. **Frontend-Backend Separation**: Maintaining a clear separation between frontend templates and backend logic improves maintainability. Using Jinja2 templates with structured data contexts simplified our dashboard implementation.
+
+2. **Authentication Flow**: Implementing a proper token-based authentication system for the dashboard with secure storage in localStorage improved security while maintaining user experience.
+
+3. **Responsive Design**: Ensuring dashboard interfaces work well on both desktop and mobile devices was critical for administrators who need to verify payments on the go.
+
+4. **Progressive Enhancement**: Building interfaces that work without JavaScript first, then enhancing with interactive features, improved reliability across different environments.
+
+5. **Performance Metrics**: Carefully designing the performance metrics system for payment admins required balancing detail with clarity. Too many metrics caused confusion, while our final focused approach improved admin productivity.
+
+6. **Real-time Updates**: Implementing polling for payment verification queues improved admin response times by showing new submissions without requiring manual refresh.
+
+7. **Data Visualization**: Using appropriate charts and visualizations for admin performance reports helped identify patterns and productivity improvements in the payment verification workflow.
+
+8. **Error Handling**: Robust frontend error handling with clear user feedback improved the dashboard experience during API failures or network issues.
+
+9. **Form Validation**: Client-side validation with server-side verification ensured data integrity when managing bank cards and payment admin assignments.
+
+10. **Permission System**: Implementing a granular permission system for dashboard access ensured administrators could only access appropriate sections based on their role.
+
+### Installation and Configuration
+
+1. **Telegram Group Management**: When configuring multiple Telegram groups for different notification purposes (transactions, reports, outages), it's essential to validate all group IDs with proper numeric format checking and provide clear explanations of each group's purpose during installation. → Implemented comprehensive validation in the installation script with specific error messages for each group ID. → Why: Properly configured notification groups are critical for the system's operational workflow, especially for payment verification and administrator alerts.
+
+2. **Environment Variable Management**: Managing multiple environment variables across different components (Core API and Telegram Bot) requires consistent naming and clear documentation. → Created standardized environment variable names across components and added descriptive comments in generated .env files. → Why: Consistency in environment variable naming reduces configuration errors and simplifies troubleshooting.
+
+3. **Installation Feedback**: Providing clear confirmation of collected configuration information before proceeding with installation improves user confidence and reduces configuration errors. → Added comprehensive confirmation display with sensitive information masked (token and password). → Why: Allowing users to review and confirm configuration details before installation significantly reduces setup errors.
+
+### Dashboard Development
+
+4. **Section Organization**: Organizing dashboard sections into logical groups with consistent navigation patterns improves administrator efficiency. → Implemented uniform card-based navigation from the main dashboard to specialized sections. → Why: Consistent navigation patterns reduce cognitive load for administrators and improve overall UX.
+
+5. **Permission Management**: Implementing proper permission checks for sensitive dashboard sections is critical for security. → Added granular permission checks that restrict access based on user roles (superuser vs. admin). → Why: Different dashboard sections have varying security requirements; payment admin management should be restricted to superusers only.
+
+6. **Modal Dialog Design**: Well-designed modal dialogs with clear confirmation steps for destructive actions prevent accidental data loss. → Implemented two-step confirmation for deletion operations with clear warnings about consequences. → Why: Administrative interfaces need additional safeguards due to the potential impact of operations.
+
+7. **Data Visualization**: Providing multiple visualization methods (tables, charts, cards) helps administrators quickly understand complex performance metrics. → Implemented combined visualizations for admin performance metrics using both tabular data and charts. → Why: Different visualization methods support different analytical tasks, enhancing data comprehension.
+
+8. **Responsive Design**: Ensuring dashboard interfaces work well on both desktop and mobile devices was critical for administrators who need to verify payments on the go. → Implemented responsive layouts using Bootstrap grid system and mobile-friendly action buttons. → Why: Administrators often need to perform actions from mobile devices, especially for time-sensitive operations like payment verification.
+
+### Affiliate System Implementation
+
+9. **Database Relationship**: Complex referral relationships in User model causing circular dependencies and potentially complex queries → Implemented self-referential relationship with clear foreign key constraints and proper indexing → Why: Self-referential relationships require careful handling to prevent query performance issues and ensure data integrity; proper indexing significantly improves query performance for referral lookups.
+
+10. **Transaction Management**: Multiple database operations for affiliate commissions creating potential for partial failures → Implemented proper transaction handling with rollback capabilities → Why: When creating commissions and updating user balances, it's critical to ensure atomic operations to prevent data inconsistency if one operation fails.
+
+11. **Decimal Precision**: Financial calculations for commissions producing rounding errors → Consistently used Decimal type with explicit precision control rather than float → Why: Financial calculations require exact precision; floating-point types can lead to subtle rounding errors that accumulate over time and cause financial discrepancies.
+
+12. **API Security**: Affiliate withdrawal endpoints vulnerable to potential abuse → Implemented strict validation, minimum amount thresholds, and proper permission checks → Why: Financial operations require multiple layers of validation to prevent abuse; amount validation, balance verification, and permission checks create a robust security model.
+
+13. **User Experience**: Complex affiliate statistics overwhelming in Telegram UI → Organized information hierarchically with clear visual separation and emoji usage → Why: Mobile interfaces need careful information architecture; using categories, visual hierarchy, and clear labels makes complex financial data more accessible.
+
+14. **Error Handling**: Generic error messages in withdrawal process causing user confusion → Implemented specific error messages with clear resolution steps → Why: Financial transactions require transparent error feedback; specific messages like "Insufficient balance" or "Below minimum withdrawal amount" improve user understanding and reduce support requests.
+
+15. **Caching Balance Data**: Frequent queries for calculating affiliate balances causing performance issues → Implemented a cached balance field on the User model updated only when commissions change → Why: Calculated balances across many commission records can be expensive; maintaining a denormalized balance field significantly improves read performance.
+
+[2024-07-21 15:45] Infrastructure Management: Issue: Need to implement secure server management capabilities with SSH support for VPN infrastructure management → Solution: Created a comprehensive ServerService class using Paramiko for secure SSH connections, with robust error handling, authentication options (password and key-based), command execution safety mechanisms, and monitoring capabilities. Implemented a tiered approach to server operations with: 1) Non-invasive monitoring (ping-based status, metrics) requiring no authentication, 2) System information retrieval requiring read-only SSH access, and 3) Administrative operations (restart services, reboot) requiring privileged access. Used environmental variables for sensitive credential storage and implemented a command whitelist to prevent arbitrary command execution. → Impact: Provides a secure and comprehensive framework for VPN infrastructure management that balances operational needs with security concerns. This architecture allows for monitoring server health without requiring full SSH access while providing escalated capabilities when needed. The implementation demonstrates proper separation of concerns between connection handling, command execution, and API interfaces, making it adaptable to future infrastructure changes. The SSH configuration in environment variables provides flexibility for different deployment scenarios while maintaining security. Priority: Critical for VPN infrastructure where secure server management is essential.

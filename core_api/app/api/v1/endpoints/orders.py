@@ -1,4 +1,5 @@
 from typing import Any, List, Optional
+from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Body, Query, Path
 from sqlalchemy.orm import Session
@@ -51,22 +52,32 @@ def create_order(
     current_user: models.User = Depends(deps.get_current_active_user),
 ) -> Any:
     """
-    Create new order.
+    Create new order. Price is determined based on the plan and user role.
     
     Users can create orders for themselves.
     Admins can create orders for any user.
     """
-    # Check if the user is creating an order for themselves
+    # Check permissions
     is_self_order = order_in.user_id == current_user.id
-    # Check if user has admin permissions to create orders for others
-    is_admin = deps.check_user_permission(current_user, "admin:order:create")
+    is_admin_creating = deps.check_user_permission(current_user, "admin:order:create")
     
-    if not (is_self_order or is_admin):
+    if not (is_self_order or is_admin_creating):
         raise HTTPException(
             status_code=403,
             detail="You don't have permission to create orders for other users"
         )
-    
+        
+    # Determine the user for whom the order is being created
+    if is_admin_creating and not is_self_order:
+        ordering_user = crud.user.get(db, id=order_in.user_id)
+        if not ordering_user:
+             raise HTTPException(
+                 status_code=404,
+                 detail=f"User with ID {order_in.user_id} not found"
+             )
+    else:
+        ordering_user = current_user # User is creating for themselves or admin creating for self
+
     # Verify the plan exists
     plan = crud.plan.get(db, id=order_in.plan_id)
     if not plan:
@@ -74,7 +85,33 @@ def create_order(
             status_code=404,
             detail="Plan not found"
         )
+    if not plan.is_active:
+         raise HTTPException(
+            status_code=400,
+            detail="Selected plan is not active"
+        )
+
+    # Determine the correct price based on user role
+    # Ensure user role is loaded (adjust if necessary based on deps.get_current_active_user implementation)
+    db.refresh(ordering_user, attribute_names=['role']) 
     
+    user_price = plan.price # Default to regular price
+    is_seller = ordering_user.role and ordering_user.role.name == 'seller' # Check role name
+    
+    if is_seller and plan.seller_price is not None:
+        user_price = plan.seller_price # Use seller price if available
+        
+    # --- TODO: Apply Discount Code Logic Here --- 
+    # Fetch discount code if provided
+    # Validate discount code (expiration, usage limits, target audience/plan)
+    # Calculate discount_amount based on user_price
+    discount_amount = Decimal('0.00') # Placeholder
+    # ---------------------------------------------
+    
+    final_amount = user_price - discount_amount
+    if final_amount < 0:
+        final_amount = Decimal('0.00')
+
     # If panel_id is provided, verify it exists
     if order_in.panel_id:
         panel = crud.panel.get(db, id=order_in.panel_id)
@@ -83,16 +120,16 @@ def create_order(
                 status_code=404,
                 detail="Panel not found"
             )
-    
+
     # Use the OrderService to create the order
     try:
         order = order_service.create_order(
             db=db,
-            user_id=order_in.user_id,
+            user_id=order_in.user_id, # Use the ID from the input schema
             plan_id=order_in.plan_id,
-            amount=float(order_in.amount),
-            discount_amount=float(order_in.discount_amount),
-            discount_code=order_in.discount_code,
+            amount=user_price, # Pass the backend-determined price
+            discount_amount=discount_amount, # Pass the calculated discount
+            discount_code=order_in.discount_code, # Pass the code used
             panel_id=order_in.panel_id,
             config_protocol=order_in.config_protocol,
             config_days=order_in.config_days,
@@ -108,35 +145,22 @@ def create_order(
         )
 
 
-@router.get("/{order_id}", response_model=schemas.OrderDetail)
-def read_order(
-    *,
-    db: Session = Depends(deps.get_db),
+@router.get("/{order_id}", response_model=schemas.Order)
+def get_order(
     order_id: int = Path(..., title="The ID of the order to get"),
-    current_user: models.User = Depends(deps.get_current_active_user),
+    db: Session = Depends(deps.get_db),
+    current_user: models.User = Depends(deps.get_current_active_user)
 ) -> Any:
     """
     Get order by ID.
-    
-    Users can only access their own orders.
-    Admins can access any order.
     """
     order = crud.order.get(db, id=order_id)
     if not order:
-        raise HTTPException(
-            status_code=404, 
-            detail="Order not found"
-        )
+        raise HTTPException(status_code=404, detail="Order not found")
     
-    # Check if user is allowed to access this order
-    is_owner = order.user_id == current_user.id
-    is_admin = deps.check_user_permission(current_user, "admin:order:read")
-    
-    if not (is_owner or is_admin):
-        raise HTTPException(
-            status_code=403,
-            detail="Not enough permissions to access this order"
-        )
+    # Check permissions
+    if order.user_id != current_user.id and not deps.check_user_permission(current_user, "admin:order:read"):
+        raise HTTPException(status_code=403, detail="Not enough permissions to access this order")
     
     return order
 
@@ -206,52 +230,39 @@ def update_order(
     return order
 
 
-@router.delete("/{order_id}", response_model=schemas.Order)
+@router.post("/{order_id}/cancel", response_model=schemas.Order)
 def cancel_order(
-    *,
-    db: Session = Depends(deps.get_db),
     order_id: int = Path(..., title="The ID of the order to cancel"),
-    current_user: models.User = Depends(deps.get_current_active_user),
+    db: Session = Depends(deps.get_db),
+    current_user: models.User = Depends(deps.get_current_active_user)
 ) -> Any:
     """
-    Cancel an order.
-    
-    Users can cancel their own pending orders.
-    Admins can cancel any order.
+    Cancel a pending order that has not been paid yet.
+    Only the user who created the order or an admin can cancel it.
     """
     order = crud.order.get(db, id=order_id)
     if not order:
-        raise HTTPException(
-            status_code=404,
-            detail="Order not found"
-        )
+        raise HTTPException(status_code=404, detail="Order not found")
     
     # Check permissions
-    is_owner = order.user_id == current_user.id
-    is_admin = deps.check_user_permission(current_user, "admin:order:delete")
+    if order.user_id != current_user.id and not deps.check_user_permission(current_user, "admin:order:update"):
+        raise HTTPException(status_code=403, detail="Not enough permissions to cancel this order")
     
-    if not (is_owner or is_admin):
+    # Check if the order can be cancelled
+    if order.status != models.OrderStatus.PENDING:
         raise HTTPException(
-            status_code=403,
-            detail="Not enough permissions to cancel this order"
+            status_code=400, 
+            detail=f"Cannot cancel order with status {order.status.value}. Only PENDING orders can be cancelled."
         )
     
-    # Regular users can only cancel PENDING orders
-    if is_owner and not is_admin and order.status != OrderStatus.PENDING:
-        raise HTTPException(
-            status_code=400,
-            detail="Only pending orders can be canceled by users"
-        )
-    
-    # Cancel the order
-    order = crud.order.cancel_order(
+    # Update the order status to CANCELLED
+    updated_order = crud.order.update(
         db, 
-        order_id=order_id,
-        admin_id=current_user.id if is_admin else None,
-        admin_note="Canceled by user" if not is_admin else None
+        db_obj=order, 
+        obj_in={"status": models.OrderStatus.CANCELLED}
     )
     
-    return order
+    return updated_order
 
 
 @router.post("/{order_id}/process-payment", response_model=schemas.Order)
@@ -491,4 +502,32 @@ def get_client_config(
         raise HTTPException(
             status_code=400,
             detail=str(e)
-        ) 
+        )
+
+
+@router.get("/user/{user_id}", response_model=List[schemas.Order])
+def get_user_orders(
+    user_id: int,
+    db: Session = Depends(deps.get_db),
+    skip: int = 0,
+    limit: int = 100,
+    current_user: models.User = Depends(deps.get_current_active_user),
+):
+    """
+    Get orders for a specific user.
+    
+    - Regular users can only access their own orders
+    - Admins can access any user's orders
+    """
+    # Check if user is admin or the same user
+    is_admin = deps.check_user_permission(current_user, "admin:order:read")
+    is_same_user = current_user.id == user_id
+    
+    if not (is_admin or is_same_user):
+        raise HTTPException(
+            status_code=403,
+            detail="You don't have permission to access this user's orders"
+        )
+    
+    orders = crud.order.get_by_user(db, user_id=user_id, skip=skip, limit=limit)
+    return orders 

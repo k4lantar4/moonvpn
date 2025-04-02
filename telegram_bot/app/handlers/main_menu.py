@@ -1,8 +1,8 @@
 import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ContextTypes
+from telegram.ext import ContextTypes, MessageHandler, CommandHandler, filters
 
-from app.keyboards.main_menu import main_menu_keyboard, BTN_BUY_SERVICE
+from app.keyboards.main_menu import main_menu_keyboard, BTN_BUY_SERVICE, BTN_WALLET, BTN_MY_ORDERS
 from app.utils import api_client
 
 # Enable logging
@@ -144,4 +144,124 @@ async def handle_wallet(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 # async def handle_support(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 #     pass
 # async def handle_referral(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-#     pass 
+#     pass
+
+async def handle_my_orders(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handles the 'My Orders' button press. Fetches and displays user's orders."""
+    chat_id = update.effective_chat.id
+    user = update.effective_user
+    if not chat_id or not user:
+        logger.warning("handle_my_orders called without chat_id or user")
+        return
+
+    logger.info(f"User {user.id} requested to view their orders.")
+
+    # Send a waiting message
+    waiting_message = await context.bot.send_message(chat_id, "⏳ در حال دریافت سفارش‌های شما...")
+
+    orders = await api_client.get_user_orders(user.id)
+
+    # Delete the waiting message
+    try:
+        await context.bot.delete_message(chat_id=chat_id, message_id=waiting_message.message_id)
+    except Exception as e:
+        logger.warning(f"Could not delete waiting message: {e}")
+
+    if orders is None:
+        await context.bot.send_message(chat_id, "❌ خطایی در دریافت لیست سفارش‌ها رخ داد. لطفاً بعدا تلاش کنید.")
+        return
+
+    if not orders:
+        await context.bot.send_message(chat_id, "ℹ️ شما هنوز هیچ سفارشی ثبت نکرده‌اید.")
+        return
+
+    # Sort orders by created_at (newest first)
+    orders.sort(key=lambda x: x.get('created_at', ''), reverse=True)
+
+    # Show the most recent 5 orders
+    recent_orders = orders[:5]
+    
+    # Group orders by status for better presentation
+    orders_message = "📋 سفارش‌های اخیر شما:\n\n"
+    
+    for order in recent_orders:
+        order_id = order.get('id', 'نامشخص')
+        order_external_id = order.get('order_id', 'نامشخص')  # The UUID shown to users
+        created_at = order.get('created_at', 'نامشخص')
+        status = order.get('status', 'نامشخص')
+        amount = order.get('final_amount', 0)
+        payment_method = order.get('payment_method', 'نامشخص')
+        
+        # Format amount with commas
+        try:
+            formatted_amount = f"{int(amount):,} تومان"
+        except (ValueError, TypeError):
+            formatted_amount = f"{amount} تومان"
+        
+        # Format date to Persian-friendly format - Simple version
+        try:
+            # Just extracting date part for simplicity
+            date_part = created_at.split('T')[0] if 'T' in created_at else created_at
+        except:
+            date_part = created_at
+        
+        # Translate status to Persian
+        status_persian = {
+            'pending': "در انتظار پرداخت ⏳",
+            'paid': "پرداخت شده ✓",
+            'confirmed': "تأیید شده ✅",
+            'rejected': "رد شده ❌",
+            'expired': "منقضی شده ⏰",
+            'canceled': "لغو شده 🚫",
+            'failed': "ناموفق ⚠️",
+            'verification_pending': "در انتظار تأیید پرداخت 🔍"
+        }.get(status, f"نامشخص ({status})")
+        
+        # Translate payment method to Persian
+        payment_method_persian = {
+            'card_to_card': "کارت به کارت 💳",
+            'wallet': "کیف پول 💰",
+            'zarinpal': "زرین‌پال 🌐",
+            'crypto': "ارز دیجیتال 💎",
+            'manual': "پرداخت دستی 👨‍💻"
+        }.get(payment_method, f"نامشخص ({payment_method})")
+        
+        # Check if this is a Zarinpal payment that needs action
+        zarinpal_action = ""
+        if payment_method == 'zarinpal' and status == 'pending':
+            # If this is a pending Zarinpal payment, we might want to show a "Pay Now" button
+            # We'll add the order ID to context for callbacks
+            zarinpal_action = f"\n💠 این سفارش در انتظار پرداخت آنلاین است. لطفاً با فشردن 'پرداخت مجدد' اقدام کنید."
+        
+        orders_message += f"🔹 سفارش #{order_external_id[:8]}...\n"
+        orders_message += f"   📅 تاریخ: {date_part}\n"
+        orders_message += f"   💰 مبلغ: {formatted_amount}\n"
+        orders_message += f"   💳 روش پرداخت: {payment_method_persian}\n"
+        orders_message += f"   🔄 وضعیت: {status_persian}{zarinpal_action}\n\n"
+    
+    # Add a button for Zarinpal pending payments if needed
+    keyboard = []
+    for order in recent_orders:
+        if order.get('payment_method') == 'zarinpal' and order.get('status') == 'pending':
+            order_id = order.get('id')
+            keyboard.append([
+                InlineKeyboardButton(
+                    text=f"🔄 پرداخت مجدد سفارش #{order.get('order_id', '')[:8]}...",
+                    callback_data=f"retry_zarinpal_{order_id}"
+                )
+            ])
+    
+    if keyboard:
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await context.bot.send_message(chat_id, orders_message, reply_markup=reply_markup, parse_mode='Markdown')
+    else:
+        await context.bot.send_message(chat_id, orders_message, parse_mode='Markdown')
+
+# Main menu handler
+main_menu_handler = [
+    MessageHandler(filters.Text([BTN_BUY_SERVICE]), handle_buy_service),
+    MessageHandler(filters.Text([BTN_WALLET]), handle_wallet),
+    MessageHandler(filters.Text([BTN_MY_ORDERS]), handle_my_orders),
+    # Add more message handlers for other buttons as they are implemented
+    CommandHandler("menu", show_main_menu)  # Also accessible via /menu command
+] 

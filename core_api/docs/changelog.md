@@ -3,6 +3,15 @@
 ## [Unreleased]
 
 ### Added
+- Implemented server management system
+  - Created ServerService for secure SSH operations
+  - Added endpoints for server status monitoring
+  - Added server metrics and system information retrieval
+  - Implemented secure command execution with whitelist
+  - Added administrative actions (restart Xray, reboot server)
+  - Added batch status check for multiple servers
+  - Created documentation in docs/server_management.md
+
 - Implemented wallet management system
   - Added endpoints for deposits, withdrawals, and balance checking
   - Implemented transaction history and summary

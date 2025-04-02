@@ -2,15 +2,15 @@ from datetime import datetime, timedelta
 import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, ConversationHandler, CommandHandler, CallbackQueryHandler, MessageHandler, filters
-from app.keyboards.admin_keyboards import get_admin_main_keyboard, get_admin_reports_keyboard, get_report_date_range_keyboard, get_payment_admin_management_keyboard
-from app.api.api_client import (
+from keyboards.admin_keyboards import get_admin_main_keyboard, get_admin_reports_keyboard, get_report_date_range_keyboard, get_payment_admin_management_keyboard
+from api.api_client import (
     get_payment_admin_reports, get_payment_admin_assignments, 
     get_payment_admin_assignment, create_payment_admin_assignment,
     update_payment_admin_assignment, delete_payment_admin_assignment,
     get_users_available_for_payment_admin, get_bank_cards_for_payment
 )
-from app.utils.auth import admin_only, superuser_only
-from app.handlers.error_handler import handle_error
+from utils.auth import admin_only, superuser_only
+from handlers.error_handler import handle_error
 
 # Set up logging
 logger = logging.getLogger(__name__)

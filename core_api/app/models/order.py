@@ -44,17 +44,19 @@ class Order(Base):
     client_email = Column(String(100), nullable=True)  # Email/remark for client
     
     # Subscription reference
-    subscription_id = Column(Integer, ForeignKey("subscriptions.id", ondelete="SET NULL"), nullable=True)
+    # Uncomment the ForeignKey
+    subscription_id = Column(Integer, ForeignKey("subscriptions.id", ondelete="SET NULL"), nullable=True) 
     
     # Basic order information
     status = Column(Enum(OrderStatus), default=OrderStatus.PENDING, nullable=False)
     payment_method = Column(Enum(PaymentMethod), nullable=True)
-    payment_reference = Column(String(100), nullable=True)  # Reference number, transaction ID, etc.
-    payment_proof = Column(String(255), nullable=True)  # Path to payment proof image (legacy field)
+    payment_reference = Column(String(255), nullable=True)
+    payment_authority = Column(String(50), nullable=True, index=True) # Zarinpal authority token
+    payment_proof = Column(String(255), nullable=True) # Path or identifier for proof image
     
     # Enhanced payment proof fields
-    payment_proof_img_url = Column(String(255), nullable=True)  # URL to the uploaded proof image
-    payment_proof_submitted_at = Column(DateTime, nullable=True)  # When the proof was submitted
+    payment_proof_img_url = Column(String(512), nullable=True) # Full URL to access the proof image
+    payment_proof_submitted_at = Column(DateTime(timezone=True), nullable=True)
     payment_verified_at = Column(DateTime, nullable=True, index=True)  # When the proof was verified
     payment_verification_admin_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)  # Admin who verified the proof
     payment_rejection_reason = Column(Text, nullable=True)  # Reason for rejection if applicable
@@ -83,13 +85,19 @@ class Order(Base):
     admin_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)  # Admin who processed the order
     
     # Relationships
-    user = relationship("User", foreign_keys=[user_id], back_populates="orders")
+    user = relationship("User", back_populates="orders", foreign_keys=[user_id])
     plan = relationship("Plan", back_populates="orders")
     panel = relationship("Panel", back_populates="orders")
+    subscription = relationship("Subscription", back_populates="orders")
     admin = relationship("User", foreign_keys=[admin_id])
     payment_verification_admin = relationship("User", foreign_keys=[payment_verification_admin_id])
     transactions = relationship("Transaction", back_populates="order")
-    subscription = relationship("Subscription", back_populates="order", uselist=False, foreign_keys="Subscription.order_id")
+    
+    # Affiliate commissions relationship
+    commissions = relationship("AffiliateCommission", back_populates="order")
     
     def __str__(self):
-        return f"Order {self.order_id} - {self.status.value}" 
+        return f"Order {self.order_id} - {self.status.value}"
+
+    def __repr__(self):
+        return f"<Order {self.order_id}>" 

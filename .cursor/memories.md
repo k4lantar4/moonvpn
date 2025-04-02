@@ -71,3 +71,265 @@
 - Implemented a fallback mechanism to allow for manual processing when automatic account creation fails
 - Added appropriate notifications to both users and administrators throughout the payment confirmation process
 - Ensured proper cleanup of in-memory order tracking to maintain system integrity
+
+# MoonVPN Project Memory
+
+## Project Overview
+
+MoonVPN is a Persian VPN service with a unique Telegram-based user interface. The system allows users to register, subscribe to various VPN plans, and manage their VPN connections through both Telegram bot interactions and a web dashboard.
+
+### Architecture
+
+The project consists of three main components:
+1. **Core API (FastAPI)**: The central backend system that handles all business logic, database operations, and provides RESTful endpoints for both the Telegram bot and web interfaces.
+2. **Telegram Bot (Python-Telegram-Bot)**: The primary user interface for customers, allowing them to register, subscribe, manage accounts, and make payments.
+3. **Admin Dashboard (FastAPI with Jinja2)**: Web interface for administrators to manage VPN servers, subscriptions, users, payments, and view analytics.
+
+### Technology Stack
+
+#### Backend
+- **FastAPI**: Core API framework
+- **SQLAlchemy**: ORM for database operations
+- **Alembic**: Database migration tool
+- **PostgreSQL**: Primary database
+- **Redis**: Caching and temporary state storage
+- **Python-Telegram-Bot**: Telegram bot framework
+- **JWT**: Authentication mechanism
+- **Pydantic**: Data validation and settings management
+
+#### Frontend
+- **Jinja2**: Server-side templating for the admin dashboard
+- **Bootstrap 5**: UI framework for responsive design
+- **Chart.js**: Interactive charts for analytics
+- **Alpine.js**: Lightweight JavaScript framework for reactivity
+- **HTMX**: AJAX capabilities with minimal JavaScript
+
+## Key Features and Workflows
+
+1. **User Registration and Authentication**
+   - Telegram-based registration flow
+   - JWT-based authentication for API access
+   - Role-based permissions system
+
+2. **Subscription Management**
+   - Multiple subscription plans with different durations and features
+   - Automatic expiration and renewal notifications
+   - Subscription upgrade/downgrade capabilities
+
+3. **Payment Processing**
+   - Card-to-card payment method with manual verification
+   - Bank card rotation system for security
+   - Payment admin assignment system for verification
+   - Payment proof submission and verification workflow
+   - Zarinpal integration for automated online payments
+
+4. **VPN Server Management**
+   - Multiple VPN protocols support (V2Ray, OpenVPN, WireGuard)
+   - Server load balancing and health monitoring
+   - Automatic configuration generation for clients
+
+5. **Admin Dashboard**
+   - Comprehensive analytics and reporting
+   - User and subscription management
+   - Payment verification interface
+   - Server performance monitoring
+   - Bank card and payment admin management
+
+6. **Seller System**
+   - Special pricing for resellers
+   - Automatic role upgrades based on wallet balance
+   - Dedicated reseller dashboard
+   - Custom pricing management
+
+7. **Affiliate Program**
+   - Referral tracking with unique affiliate codes
+   - Commission-based earnings on referred purchases
+   - Multi-level commission tracking
+   - Withdrawal management system
+   - Performance statistics dashboard
+
+## Recent Tasks Completed
+
+### P3: Payment System Phase 3
+
+#### P3-T001: Admin Dashboard Setup
+- Implemented basic admin dashboard structure
+- Created login and authentication system
+- Set up navigation and layout templates
+- Established core API connectivity
+
+#### P3-T002: User and Subscription Management
+- Added user listing, filtering, and search
+- Implemented subscription creation and modification
+- Created detailed user profiles with subscription history
+- Added user blocking/unblocking functionality
+
+#### P3-T003: Manual Payment Verification Interface
+- Created payment queue for admin verification
+- Implemented proof review interface with image preview
+- Added approval/rejection workflow with reason selection
+- Implemented notification system for payment status updates
+
+#### P3-T004: Bank Card Rotation Logic
+- Implemented card selection algorithm based on usage count
+- Created card activation/deactivation toggle
+- Added card usage statistics and monitoring
+- Implemented automatic rotation based on configurable thresholds
+
+#### P3-T005: Payment Admin Performance Reports
+- Created detailed metrics for payment admin activity
+- Implemented reporting interface with filtering options
+- Added performance indicators including response time and approval rate
+- Created visualization for workload distribution
+
+#### P3-T006: VPN Server Management Interface
+- Implemented server listing with status indicators
+- Created server configuration editor
+- Added server performance metrics
+- Implemented user allocation monitoring
+
+#### P3-T007: System Analytics Dashboard
+- Created overview dashboard with key metrics
+- Implemented subscription trend analysis
+- Added payment success rate monitoring
+- Created user growth and retention visualizations
+
+#### P3-T008: Bank Card Management Commands
+- Implemented admin commands for adding/removing bank cards
+- Created card listing and details view
+- Added activation/deactivation toggle in Telegram
+- Implemented card statistics view
+
+#### P3-T009: Payment Admin Management
+- Created commands for assigning admin roles
+- Implemented card-to-admin assignment system
+- Added admin performance view in Telegram
+- Created notification system for new payment verification tasks
+
+#### P3-T010: Dashboard Sections for Payment Management
+- Created interface for managing bank cards (adding, editing, deactivating)
+- Implemented payment admin management section with performance metrics
+- Added manual payment verification interface with image previews
+- Created admin performance reports with detailed analytics
+- Implemented filtering and sorting for all payment-related views
+- Added data visualization for payment trends and admin performance
+- Created permission system for accessing different dashboard sections
+
+### P4: Seller System, Zarinpal Integration, and Affiliate System
+
+#### P4-T001: Seller Role Implementation
+- Added the "Seller" role to the Role model
+- Updated User model to include seller-specific fields
+- Implemented pricing logic for sellers (discount rate)
+- Created admin API endpoints for managing sellers
+- Built seller dashboard in Telegram Bot
+- Added "Become a Seller" section in Telegram Bot
+- Updated Order creation to handle seller pricing
+
+#### P4-T002: Affiliate System Implementation
+- Designed database schema for affiliates (referrals, commissions)
+- Created migration to add necessary tables and relationships
+- Updated User model to track referrals and affiliate status
+- Created affiliate models (Commission, Settings, Withdrawal)
+- Implemented CRUD operations for affiliate system
+- Created API endpoints for affiliate management
+- Added affiliate section to Telegram Bot
+- Implemented commission tracking for orders
+- Created withdrawal request system
+- Added admin tools for managing commissions and withdrawals
+
+#### P4-T003: Zarinpal API Integration
+- Researched Zarinpal API documentation
+- Implemented API client for Zarinpal
+- Created payment initiation endpoint
+- Implemented verification callback
+- Updated payment flow to support Zarinpal
+- Tested sandbox environment
+- Moved to production
+
+#### P4-T004: Payment Schema Updates for Zarinpal
+- Updated payment models to store Zarinpal-specific fields
+- Created Pydantic schemas for Zarinpal requests/responses
+- Implemented payment tracking for Zarinpal transactions
+
+## Current Task Status
+
+**Current Task**: P4-T002: Affiliate System Implementation  
+**Status**: Completed
+
+The task involved implementing a comprehensive affiliate system that allows users to refer others and earn commissions. Key components included:
+
+1. **Database Structure**
+   - Created a migration file (003_create_affiliate_system.py) to add all necessary tables
+   - Added affiliate-related fields to the User model to track referral relationships
+   - Implemented tables for commissions, withdrawals, and program settings
+
+2. **Data Models & Schemas**
+   - Created SQLAlchemy models for AffiliateCommission, AffiliateSettings, and AffiliateWithdrawal
+   - Defined enums for commission types (order, signup, bonus) and statuses
+   - Implemented Pydantic schemas for all affiliate-related API operations
+   - Added validation rules for data integrity and security
+
+3. **Business Logic**
+   - Implemented CRUD operations for all affiliate entities with proper relationship handling
+   - Created a centralized AffiliateHandler utility class to manage commission tracking
+   - Added automatic commission generation when orders are placed
+   - Built commission calculation logic based on percentage of order amount
+   - Implemented referral code generation and tracking system
+
+4. **API Endpoints**
+   - Created comprehensive REST API endpoints for affiliate management
+   - Implemented user-facing endpoints for tracking referrals and commissions
+   - Built admin endpoints for managing commissions and withdrawal requests
+   - Added reporting functionality for affiliate program performance
+
+5. **Telegram Bot Integration**
+   - Added a complete affiliate section to the Telegram bot
+   - Implemented affiliate dashboard with stats and referral tracking
+   - Created a user-friendly commission viewing interface
+   - Built a secure withdrawal request flow with validation
+   - Added notification system for referral events
+
+6. **Security & Validation**
+   - Implemented strict validation for withdrawal requests
+   - Added minimum withdrawal amount enforcement
+   - Created proper permission checks for admin operations
+   - Ensured data integrity through SQL constraints
+
+All components of the affiliate system have been successfully implemented and tested. The system is now fully operational, allowing users to generate affiliate codes, refer others, track commissions, and request withdrawals.
+
+## Next Planned Tasks
+
+With the completion of Phase 4, all major system components have been implemented. The focus will now shift to system optimization, additional features, and potential expansions:
+
+### P5-T001: System Optimization and Performance Tuning
+- Identify and optimize database query bottlenecks
+- Implement additional caching layers
+- Optimize Telegram bot response times
+- Add connection pooling for database operations
+
+### P5-T002: Enhanced Analytics Dashboard
+- Create comprehensive business intelligence dashboard
+- Implement revenue forecasting models
+- Add user behavior analytics
+- Create custom report generation system
+
+### P5-T003: Mobile App Development
+- Design and implement Android application
+- Create iOS application version
+- Implement push notification system
+- Add biometric authentication support
+
+## Key Metrics
+
+- Admin dashboard now includes comprehensive payment management sections
+- Seller system has been fully implemented with special pricing logic
+- Zarinpal payment gateway integration is complete with automated verification
+- Affiliate system allows users to earn commissions on referred purchases
+- Improved user acquisition through referral incentives
+- Enhanced payment options with both manual and automatic methods
+
+## Next Steps
+
+The project will focus on system optimization, enhanced analytics, and potential mobile app development in Phase 5.
+[v2.5.0] #feature #server-management Development: Implemented comprehensive server management functionality as part of Phase 5 task P5-T001. Created a robust ServerService class using Paramiko for secure SSH connections with proper error handling and credential management. Implemented tiered server operations with non-invasive monitoring (ping-based status checks), system information retrieval (CPU, memory, disk, OS info), and administrative actions (restart Xray, reboot server). Added secure command execution with a whitelist to prevent arbitrary commands. Updated server API endpoints with new functionality for system info, metrics, and server actions. Created Pydantic schemas for server data and command responses. Added environment variable configuration for SSH credentials with multiple authentication methods (password or key-based). This implementation enables secure infrastructure management for VPN servers while maintaining proper security boundaries and comprehensive error handling.

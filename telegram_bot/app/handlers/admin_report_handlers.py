@@ -21,9 +21,9 @@ from telegram.ext import (
     filters
 )
 
-from app.api import api_client
-from app.utils.logger import get_logger
-from app.utils.permissions import is_admin, admin_only
+from api import api_client
+from utils.logger import get_logger
+from utils.permissions import is_admin, admin_only
 
 # Set up logging
 logger = get_logger(__name__)

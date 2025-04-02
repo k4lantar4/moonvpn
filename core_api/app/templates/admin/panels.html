@@ -1,0 +1,614 @@
+{% extends "base.html" %}
+
+{% block title %}Panel Management{% endblock %}
+
+{% block content %}
+<div class="page-wrapper">
+    <div class="container-xl">
+        <div class="page-header d-print-none">
+            <div class="row align-items-center">
+                <div class="col">
+                    <h2 class="page-title">
+                        Panel Management
+                    </h2>
+                    <div class="text-muted mt-1">
+                        Manage VPN Panels
+                    </div>
+                </div>
+                <div class="col-auto ms-auto d-print-none">
+                    <div class="d-flex">
+                        <a href="/admin/servers" class="btn btn-outline-primary me-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-server" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                                <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                                <rect x="3" y="4" width="18" height="8" rx="1"></rect>
+                                <rect x="3" y="12" width="18" height="8" rx="1"></rect>
+                                <line x1="7" y1="8" x2="7" y2="8.01"></line>
+                                <line x1="7" y1="16" x2="7" y2="16.01"></line>
+                            </svg>
+                            Servers
+                        </a>
+                        <button class="btn btn-primary" id="btn-add-panel">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                                <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                                <path d="M12 5l0 14"></path>
+                                <path d="M5 12l14 0"></path>
+                            </svg>
+                            Add Panel
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="page-body">
+        <div class="container-xl">
+            <!-- Status Alert -->
+            <div class="alert alert-success d-none" id="status-alert">
+                <div class="d-flex">
+                    <div>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon alert-icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                            <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                            <path d="M5 12l5 5l10 -10"></path>
+                        </svg>
+                    </div>
+                    <div id="status-message">
+                        Operation completed successfully.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Panel List -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">VPN Panels</h3>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-vcenter card-table" id="panels-table">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>URL</th>
+                                    <th>Server</th>
+                                    <th>Type</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="panels-list">
+                                <tr>
+                                    <td colspan="6" class="text-center py-4">
+                                        <div class="spinner-border text-primary" role="status"></div>
+                                        <p class="mt-3">Loading panels...</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add/Edit Panel Modal -->
+<div class="modal modal-blur fade" id="modal-panel" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modal-title">Add New Panel</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="panel-form">
+                    <input type="hidden" id="panel-id" value="">
+                    <div class="mb-3">
+                        <label class="form-label required">Panel Name</label>
+                        <input type="text" class="form-control" id="panel-name" name="name" placeholder="Panel name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label required">Panel URL</label>
+                        <input type="url" class="form-control" id="panel-url" name="url" placeholder="https://example.com:54321" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label required">Admin Username</label>
+                        <input type="text" class="form-control" id="panel-admin-username" name="admin_username" placeholder="Admin username" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label required">Admin Password</label>
+                        <input type="password" class="form-control" id="panel-admin-password" name="admin_password" placeholder="Admin password" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Panel Type</label>
+                        <select class="form-select" id="panel-type" name="panel_type">
+                            <option value="3x-ui">3x-ui</option>
+                            <option value="x-ui">x-ui</option>
+                            <option value="v2-ui">v2-ui</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Server</label>
+                        <select class="form-select" id="panel-server-id" name="server_id">
+                            <option value="">Select a server</option>
+                            <!-- Server options will be dynamically loaded -->
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">API Path</label>
+                        <input type="text" class="form-control" id="panel-api-path" name="api_path" placeholder="Optional: custom API path">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Description</label>
+                        <textarea class="form-control" id="panel-description" name="description" rows="3" placeholder="Panel description"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="panel-is-active" name="is_active" checked>
+                            <span class="form-check-label">Active</span>
+                        </label>
+                    </div>
+                </form>
+                <div class="alert alert-danger d-none" id="form-error">
+                    An error occurred. Please try again.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn me-auto" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="btn-save-panel">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal modal-blur fade" id="modal-delete-panel" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-sm modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-body">
+                <div class="modal-title">Are you sure?</div>
+                <div>You are about to delete the panel "<span id="delete-panel-name"></span>". This action cannot be undone.</div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-link link-secondary me-auto" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="btn-confirm-delete" data-panel-id="">Yes, delete</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Test Connection Modal -->
+<div class="modal modal-blur fade" id="modal-test-connection" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Test Connection: <span id="test-panel-name"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="test-loading" class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <p class="mt-3">Testing connection...</p>
+                </div>
+                <div id="test-result" class="d-none">
+                    <div class="alert" id="test-result-alert">
+                        <h4 class="alert-title" id="test-result-title">Connection successful!</h4>
+                        <div class="text-muted" id="test-result-message">Connected to panel successfully.</div>
+                    </div>
+                    <div id="test-result-details" class="d-none">
+                        <p><strong>Panel URL:</strong> <span id="test-url"></span></p>
+                        <p><strong>Inbound Count:</strong> <span id="test-inbound-count"></span></p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Panel management JavaScript
+    document.addEventListener('DOMContentLoaded', function() {
+        // Elements
+        const panelsList = document.getElementById('panels-list');
+        const modalPanel = document.getElementById('modal-panel');
+        const modalTitle = document.getElementById('modal-title');
+        const panelForm = document.getElementById('panel-form');
+        const formError = document.getElementById('form-error');
+        const modalDeletePanel = document.getElementById('modal-delete-panel');
+        const deletePanelName = document.getElementById('delete-panel-name');
+        const btnConfirmDelete = document.getElementById('btn-confirm-delete');
+        const modalTestConnection = document.getElementById('modal-test-connection');
+        const testPanelName = document.getElementById('test-panel-name');
+        const testLoading = document.getElementById('test-loading');
+        const testResult = document.getElementById('test-result');
+        const testResultAlert = document.getElementById('test-result-alert');
+        const testResultTitle = document.getElementById('test-result-title');
+        const testResultMessage = document.getElementById('test-result-message');
+        const testResultDetails = document.getElementById('test-result-details');
+        const testUrl = document.getElementById('test-url');
+        const testInboundCount = document.getElementById('test-inbound-count');
+        const statusAlert = document.getElementById('status-alert');
+        const statusMessage = document.getElementById('status-message');
+
+        // Buttons
+        const btnAddPanel = document.getElementById('btn-add-panel');
+        const btnSavePanel = document.getElementById('btn-save-panel');
+
+        // Initialize Bootstrap modals
+        const panelModal = new bootstrap.Modal(modalPanel);
+        const deleteModal = new bootstrap.Modal(modalDeletePanel);
+        const testConnectionModal = new bootstrap.Modal(modalTestConnection);
+
+        // Load servers for dropdown
+        loadServers();
+
+        // Load panels
+        loadPanels();
+
+        // Add event listeners
+        btnAddPanel.addEventListener('click', showAddPanelModal);
+        btnSavePanel.addEventListener('click', savePanel);
+        btnConfirmDelete.addEventListener('click', deletePanel);
+
+        // Functions
+        function loadPanels() {
+            fetch('/api/v1/panels')
+                .then(response => response.json())
+                .then(panels => {
+                    displayPanels(panels);
+                })
+                .catch(error => {
+                    console.error('Error loading panels:', error);
+                    showAlert('Failed to load panels. Please try again.', 'danger');
+                    panelsList.innerHTML = `
+                        <tr>
+                            <td colspan="6" class="text-center text-danger">
+                                Error loading panels. Please try again.
+                            </td>
+                        </tr>
+                    `;
+                });
+        }
+
+        function loadServers() {
+            const serverSelect = document.getElementById('panel-server-id');
+            
+            fetch('/api/v1/servers')
+                .then(response => response.json())
+                .then(servers => {
+                    // Clear existing options except the first one
+                    while (serverSelect.options.length > 1) {
+                        serverSelect.remove(1);
+                    }
+                    
+                    // Add server options
+                    servers.forEach(server => {
+                        const option = document.createElement('option');
+                        option.value = server.id;
+                        option.textContent = `${server.name} (${server.ip_address})`;
+                        serverSelect.appendChild(option);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error loading servers:', error);
+                });
+        }
+
+        function displayPanels(panels) {
+            // Clear loading indicator
+            panelsList.innerHTML = '';
+            
+            if (!panels || panels.length === 0) {
+                panelsList.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="text-center py-4">
+                            <div class="empty">
+                                <div class="empty-img">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-server" width="100" height="100" viewBox="0 0 24 24" stroke-width="1" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                                        <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                                        <rect x="3" y="4" width="18" height="8" rx="1"></rect>
+                                        <rect x="3" y="12" width="18" height="8" rx="1"></rect>
+                                        <line x1="7" y1="8" x2="7" y2="8.01"></line>
+                                        <line x1="7" y1="16" x2="7" y2="16.01"></line>
+                                    </svg>
+                                </div>
+                                <p class="empty-title">No panels found</p>
+                                <p class="empty-subtitle text-muted">
+                                    Start by adding a new panel to manage your VPN connections.
+                                </p>
+                                <div class="empty-action">
+                                    <button class="btn btn-primary" id="btn-add-first-panel">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                                            <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                                            <path d="M12 5l0 14"></path>
+                                            <path d="M5 12l14 0"></path>
+                                        </svg>
+                                        Add First Panel
+                                    </button>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+                
+                document.getElementById('btn-add-first-panel').addEventListener('click', showAddPanelModal);
+                return;
+            }
+            
+            // Create panel rows
+            panels.forEach(panel => {
+                const row = document.createElement('tr');
+                
+                row.innerHTML = `
+                    <td>${panel.name}</td>
+                    <td><span class="text-muted">${panel.url}</span></td>
+                    <td>${panel.server_id ? `Server #${panel.server_id}` : 'None'}</td>
+                    <td>${panel.panel_type}</td>
+                    <td>
+                        <span class="badge ${panel.is_active ? 'bg-green' : 'bg-gray'}">
+                            ${panel.is_active ? 'Active' : 'Inactive'}
+                        </span>
+                    </td>
+                    <td>
+                        <div class="btn-list">
+                            <a href="#" class="btn btn-sm btn-outline-primary btn-test-connection" data-panel-id="${panel.id}" data-panel-name="${panel.name}">
+                                Test
+                            </a>
+                            <a href="/admin/panels/${panel.id}" class="btn btn-sm btn-primary">
+                                Details
+                            </a>
+                            <a href="#" class="btn btn-sm btn-outline-secondary btn-edit-panel" data-panel-id="${panel.id}">
+                                Edit
+                            </a>
+                            <a href="#" class="btn btn-sm btn-outline-danger btn-delete-panel" data-panel-id="${panel.id}" data-panel-name="${panel.name}">
+                                Delete
+                            </a>
+                        </div>
+                    </td>
+                `;
+                
+                panelsList.appendChild(row);
+            });
+            
+            // Add event listeners to buttons
+            document.querySelectorAll('.btn-edit-panel').forEach(btn => {
+                btn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const panelId = this.getAttribute('data-panel-id');
+                    showEditPanelModal(panelId);
+                });
+            });
+            
+            document.querySelectorAll('.btn-delete-panel').forEach(btn => {
+                btn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const panelId = this.getAttribute('data-panel-id');
+                    const panelName = this.getAttribute('data-panel-name');
+                    showDeleteConfirmation(panelId, panelName);
+                });
+            });
+            
+            document.querySelectorAll('.btn-test-connection').forEach(btn => {
+                btn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const panelId = this.getAttribute('data-panel-id');
+                    const panelName = this.getAttribute('data-panel-name');
+                    testPanelConnection(panelId, panelName);
+                });
+            });
+        }
+
+        function showAddPanelModal() {
+            // Reset form
+            panelForm.reset();
+            document.getElementById('panel-id').value = '';
+            formError.classList.add('d-none');
+            
+            // Make password required
+            document.getElementById('panel-admin-password').required = true;
+            
+            // Update modal title
+            modalTitle.textContent = 'Add New Panel';
+            
+            // Show modal
+            panelModal.show();
+        }
+
+        function showEditPanelModal(panelId) {
+            // Reset form
+            panelForm.reset();
+            formError.classList.add('d-none');
+            
+            // Password not required for edit
+            document.getElementById('panel-admin-password').required = false;
+            
+            // Update modal title
+            modalTitle.textContent = 'Edit Panel';
+            
+            // Load panel data
+            fetch(`/api/v1/panels/${panelId}`)
+                .then(response => response.json())
+                .then(panel => {
+                    // Populate form
+                    document.getElementById('panel-id').value = panel.id;
+                    document.getElementById('panel-name').value = panel.name;
+                    document.getElementById('panel-url').value = panel.url;
+                    document.getElementById('panel-admin-username').value = panel.admin_username;
+                    // Password is not returned for security
+                    document.getElementById('panel-admin-password').value = '';
+                    document.getElementById('panel-admin-password').placeholder = 'Leave empty to keep current password';
+                    document.getElementById('panel-type').value = panel.panel_type || '3x-ui';
+                    document.getElementById('panel-server-id').value = panel.server_id || '';
+                    document.getElementById('panel-api-path').value = panel.api_path || '';
+                    document.getElementById('panel-description').value = panel.description || '';
+                    document.getElementById('panel-is-active').checked = panel.is_active;
+                    
+                    // Show modal
+                    panelModal.show();
+                })
+                .catch(error => {
+                    console.error('Error loading panel details:', error);
+                    showAlert('Failed to load panel details. Please try again.', 'danger');
+                });
+        }
+
+        function savePanel() {
+            // Get form data
+            const panelId = document.getElementById('panel-id').value;
+            const formData = new FormData(panelForm);
+            
+            // Create panel data object
+            const panelData = {
+                name: formData.get('name'),
+                url: formData.get('url'),
+                admin_username: formData.get('admin_username'),
+                panel_type: formData.get('panel_type'),
+                server_id: formData.get('server_id') || null,
+                api_path: formData.get('api_path') || null,
+                description: formData.get('description') || null,
+                is_active: formData.get('is_active') === 'on'
+            };
+            
+            // Add password only if provided
+            const password = formData.get('admin_password');
+            if (password) {
+                panelData.admin_password = password;
+            }
+            
+            // Determine if this is an add or edit operation
+            const isEdit = panelId !== '';
+            const url = isEdit ? `/api/v1/panels/${panelId}` : '/api/v1/panels';
+            const method = isEdit ? 'PUT' : 'POST';
+            
+            // Send request
+            fetch(url, {
+                method: method,
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(panelData)
+            })
+                .then(response => {
+                    if (!response.ok) {
+                        return response.json().then(err => {
+                            throw new Error(err.detail || 'Failed to save panel');
+                        });
+                    }
+                    return response.json();
+                })
+                .then(result => {
+                    // Close modal
+                    panelModal.hide();
+                    
+                    // Show success message
+                    showAlert(isEdit ? 'Panel updated successfully.' : 'Panel added successfully.', 'success');
+                    
+                    // Reload panels
+                    loadPanels();
+                })
+                .catch(error => {
+                    console.error('Error saving panel:', error);
+                    formError.textContent = error.message;
+                    formError.classList.remove('d-none');
+                });
+        }
+
+        function showDeleteConfirmation(panelId, panelName) {
+            deletePanelName.textContent = panelName;
+            btnConfirmDelete.setAttribute('data-panel-id', panelId);
+            deleteModal.show();
+        }
+
+        function deletePanel() {
+            const panelId = btnConfirmDelete.getAttribute('data-panel-id');
+            
+            fetch(`/api/v1/panels/${panelId}`, {
+                method: 'DELETE'
+            })
+                .then(response => {
+                    if (!response.ok) {
+                        return response.json().then(err => {
+                            throw new Error(err.detail || 'Failed to delete panel');
+                        });
+                    }
+                    return response.json();
+                })
+                .then(() => {
+                    // Close modal
+                    deleteModal.hide();
+                    
+                    // Show success message
+                    showAlert('Panel deleted successfully.', 'success');
+                    
+                    // Reload panels
+                    loadPanels();
+                })
+                .catch(error => {
+                    console.error('Error deleting panel:', error);
+                    deleteModal.hide();
+                    showAlert(error.message, 'danger');
+                });
+        }
+
+        function testPanelConnection(panelId, panelName) {
+            testPanelName.textContent = panelName;
+            testLoading.classList.remove('d-none');
+            testResult.classList.add('d-none');
+            testResultDetails.classList.add('d-none');
+            
+            // Show modal
+            testConnectionModal.show();
+            
+            // Test connection
+            fetch(`/api/v1/panels/${panelId}/test-connection`)
+                .then(response => response.json())
+                .then(result => {
+                    testLoading.classList.add('d-none');
+                    testResult.classList.remove('d-none');
+                    
+                    if (result.success) {
+                        testResultAlert.className = 'alert alert-success';
+                        testResultTitle.textContent = 'Connection successful!';
+                        testResultMessage.textContent = result.message;
+                        
+                        // Show details
+                        testResultDetails.classList.remove('d-none');
+                        testUrl.textContent = result.url;
+                        testInboundCount.textContent = result.inbound_count || 0;
+                    } else {
+                        testResultAlert.className = 'alert alert-danger';
+                        testResultTitle.textContent = 'Connection failed!';
+                        testResultMessage.textContent = result.message;
+                        testResultDetails.classList.add('d-none');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error testing connection:', error);
+                    testLoading.classList.add('d-none');
+                    testResult.classList.remove('d-none');
+                    testResultAlert.className = 'alert alert-danger';
+                    testResultTitle.textContent = 'Connection test failed!';
+                    testResultMessage.textContent = 'An error occurred while testing the connection. Please try again.';
+                    testResultDetails.classList.add('d-none');
+                });
+        }
+
+        function showAlert(message, type = 'success') {
+            statusAlert.className = `alert alert-${type}`;
+            statusMessage.textContent = message;
+            statusAlert.classList.remove('d-none');
+            
+            // Auto-hide after 5 seconds
+            setTimeout(() => {
+                statusAlert.classList.add('d-none');
+            }, 5000);
+        }
+    });
+</script>
+{% endblock %} 

@@ -60,6 +60,30 @@ done
 # Validate comma-separated numbers (basic check)
 ADMIN_IDS=$(echo "$ADMIN_IDS_INPUT" | sed 's/[^0-9,]//g') # Remove non-numeric/comma chars
 
+read -p "Enter the numeric Telegram Group ID for Admin Management (MANAGE): " MANAGE_GROUP_ID
+while ! [[ "$MANAGE_GROUP_ID" =~ ^-?[0-9]+$ ]]; do
+    echo "Invalid input. Please enter the numeric group ID (e.g., -100123456789)."
+    read -p "Enter the numeric Telegram Group ID for Admin Management (MANAGE): " MANAGE_GROUP_ID
+done
+
+read -p "Enter the numeric Telegram Group ID for Payment Transactions/Proofs (TRANSACTIONS): " TRANSACTIONS_GROUP_ID
+while ! [[ "$TRANSACTIONS_GROUP_ID" =~ ^-?[0-9]+$ ]]; do
+    echo "Invalid input. Please enter the numeric group ID (e.g., -100123456789)."
+    read -p "Enter the numeric Telegram Group ID for Payment Transactions/Proofs (TRANSACTIONS): " TRANSACTIONS_GROUP_ID
+done
+
+read -p "Enter the numeric Telegram Group ID for Reports (REPORTS): " REPORTS_GROUP_ID
+while ! [[ "$REPORTS_GROUP_ID" =~ ^-?[0-9]+$ ]]; do
+    echo "Invalid input. Please enter the numeric group ID (e.g., -100123456789)."
+    read -p "Enter the numeric Telegram Group ID for Reports (REPORTS): " REPORTS_GROUP_ID
+done
+
+read -p "Enter the numeric Telegram Group ID for System Outages (OUTAGES): " OUTAGES_GROUP_ID
+while ! [[ "$OUTAGES_GROUP_ID" =~ ^-?[0-9]+$ ]]; do
+    echo "Invalid input. Please enter the numeric group ID (e.g., -100123456789)."
+    read -p "Enter the numeric Telegram Group ID for System Outages (OUTAGES): " OUTAGES_GROUP_ID
+done
+
 read -p "Enter a strong password for the MySQL database user 'moonvpn_user': " DB_PASSWORD
 while [[ -z "$DB_PASSWORD" ]]; do
     echo "Database password cannot be empty."
@@ -74,6 +98,10 @@ echo "Telegram Bot Token: [HIDDEN]"
 # echo "Telegram Bot Token: $TELEGRAM_BOT_TOKEN"
 echo "Required Channel ID: $REQUIRED_CHANNEL_ID"
 echo "Admin User IDs:     $ADMIN_IDS"
+echo "Manage Group ID:    $MANAGE_GROUP_ID"
+echo "Transactions Group ID: $TRANSACTIONS_GROUP_ID"
+echo "Reports Group ID:   $REPORTS_GROUP_ID"
+echo "Outages Group ID:   $OUTAGES_GROUP_ID"
 echo "Database Password:  [HIDDEN]"
 # echo "Database Password:  $DB_PASSWORD"
 
@@ -221,9 +249,16 @@ cat << EOF > "${TELEGRAM_BOT_ENV_FILE}"
 TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
 REQUIRED_CHANNEL_ID=${REQUIRED_CHANNEL_ID}
 ADMIN_IDS=${ADMIN_IDS}
+MANAGE_GROUP_ID=${MANAGE_GROUP_ID}
+TRANSACTIONS_GROUP_ID=${TRANSACTIONS_GROUP_ID}
+REPORTS_GROUP_ID=${REPORTS_GROUP_ID}
+OUTAGES_GROUP_ID=${OUTAGES_GROUP_ID}
 
 # Core API Base URL (Adjust if API runs elsewhere or on different port)
 CORE_API_BASE_URL=http://127.0.0.1:8000
+
+# Debug Mode (default to False for production)
+DEBUG_MODE=False
 
 # Internal Communication (If using HTTP callback from API)
 # INTERNAL_API_KEY=use_the_same_key_as_in_core_api_env

@@ -1,8 +1,8 @@
-from fastapi import FastAPI, Request, Depends
+from fastapi import FastAPI, Request, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, HTMLResponse, RedirectResponse
 import os
 import uvicorn
 import logging
@@ -10,9 +10,12 @@ import logging
 # Import routers
 from app.api.v1 import api_router
 from app.api.v1.endpoints import users, plans, panel, subscriptions
+from app.routes import admin as admin_routes
 from app.core.config import settings
 from app.services.wallet_service import WalletException, InsufficientFundsException, InvalidAmountException
-from app.api.deps import get_current_active_user
+from app.api.deps import get_current_active_user, get_current_active_superuser, get_current_user_optional
+from sqlalchemy.orm import Session
+from app.api import deps
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -101,6 +104,44 @@ app.include_router(
     tags=["subscriptions"],
     dependencies=[Depends(get_current_active_user)]
 )
+
+# --- Include Public Admin Routes (no auth required) ---
+app.include_router(
+    admin_routes.public_router,
+    prefix="/admin",
+    tags=["admin-public"],
+)
+
+# --- Include Protected Admin Dashboard Routes ---
+app.include_router(
+    admin_routes.router,
+    prefix="/admin",
+    tags=["admin"],
+    dependencies=[Depends(get_current_active_superuser)]
+)
+
+# --- Root Route ---
+@app.get("/", response_class=HTMLResponse)
+async def root(
+    request: Request, 
+    db: Session = Depends(deps.get_db),
+    current_user: dict = Depends(deps.get_current_user_optional)
+):
+    """Render the dashboard if logged in, otherwise redirect to login."""
+    if not current_user:
+        return RedirectResponse(url="/admin/login", status_code=status.HTTP_302_FOUND)
+    
+    return templates.TemplateResponse("dashboard.html", {"request": request})
+
+# --- Dashboard Route ---
+@app.get("/dashboard", response_class=HTMLResponse)
+async def dashboard(
+    request: Request, 
+    db: Session = Depends(deps.get_db),
+    current_user: dict = Depends(deps.get_current_active_user)
+):
+    """Render the dashboard."""
+    return templates.TemplateResponse("dashboard.html", {"request": request})
 
 # --- Health Check Endpoint --- (Useful for deployment checks)
 @app.get("/health", tags=["Health"])

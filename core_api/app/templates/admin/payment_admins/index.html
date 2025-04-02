@@ -1,0 +1,546 @@
+{% extends "base.html" %} {# Assuming base.html is the correct one, adjust if needed #}
+
+{% block title %}Payment Admin Management{% endblock %}
+
+{% block page_title %}Payment Admin Management{% endblock %}
+
+{% block content %}
+<div class="container-xl">
+  <!-- Page Header -->
+  <div class="page-header d-print-none">
+    <div class="row align-items-center">
+      <div class="col">
+        <h2 class="page-title">
+          Payment Admin Assignments
+        </h2>
+        <div class="text-muted mt-1">
+          Assign admin users to specific bank cards and Telegram notification groups.
+        </div>
+      </div>
+      <div class="col-auto ms-auto d-print-none">
+        <div class="btn-list">
+          <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#add-assignment-modal">
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 5l0 14" /><path d="M5 12l14 0" /></svg>
+            Add Assignment
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Assignments Table -->
+  <div class="row row-cards mt-3">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">Current Assignments</h3>
+          <div class="card-actions">
+            <button class="btn btn-outline-primary btn-sm" id="refresh-assignments-btn">
+              <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4" /><path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4" /></svg>
+              Refresh
+            </button>
+          </div>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-vcenter card-table">
+            <thead>
+              <tr>
+                <th>Admin User</th>
+                <th>Assigned Bank Cards</th>
+                <th>Telegram Group ID</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="assignments-table-body">
+              <!-- Assignments will be loaded here via JavaScript -->
+              <tr id="assignments-loading">
+                <td colspan="4" class="text-center py-4">
+                  <div class="spinner-border text-primary" role="status"></div>
+                  <p class="mt-2">Loading assignments...</p>
+                </td>
+              </tr>
+              <tr class="d-none" id="assignments-empty">
+                <td colspan="4" class="text-center py-4">
+                  <div class="empty">
+                    <div class="empty-icon">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-users-group" width="40" height="40" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                         <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+                         <path d="M10 13a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+                         <path d="M8 21v-1a2 2 0 0 1 2 -2h4a2 2 0 0 1 2 2v1" />
+                         <path d="M15 5a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+                         <path d="M17 10h2a2 2 0 0 1 2 2v1" />
+                         <path d="M5 5a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+                         <path d="M3 13v-1a2 2 0 0 1 2 -2h2" />
+                      </svg>
+                    </div>
+                    <p class="empty-title">No payment admin assignments found.</p>
+                    <p class="empty-subtitle text-muted">
+                      Assign admins to bank cards and notification groups to enable payment verification.
+                    </p>
+                    <div class="empty-action">
+                       <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#add-assignment-modal">
+                         Add Assignment
+                       </button>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Add Assignment Modal -->
+<div class="modal modal-blur fade" id="add-assignment-modal" tabindex="-1" role="dialog" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Add New Payment Admin Assignment</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <form id="add-assignment-form">
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label required">Admin User</label>
+            <select class="form-select" id="add-admin-user-select" required>
+              <option value="" disabled selected>Select an Admin User</option>
+              <!-- Admin users will be populated here -->
+            </select>
+            <small class="form-hint">Select the user who will verify payments.</small>
+          </div>
+          <div class="mb-3">
+            <label class="form-label required">Assigned Bank Cards</label>
+            <select class="form-select" id="add-bank-cards-select" multiple required>
+               <!-- Active bank cards will be populated here -->
+            </select>
+             <small class="form-hint">Select the bank card(s) this admin will manage. Hold Ctrl/Cmd to select multiple.</small>
+          </div>
+          <div class="mb-3">
+            <label class="form-label required">Telegram Group ID</label>
+            <input type="text" class="form-control" id="add-telegram-group-id" required placeholder="-1001234567890">
+            <small class="form-hint">Enter the numeric ID of the Telegram group for notifications.</small>
+          </div>
+           <div class="alert alert-info" role="alert">
+              <h4 class="alert-title">Important</h4>
+              <div class="text-muted">Ensure the bot is an administrator in the specified Telegram group to send notifications.</div>
+           </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-link link-secondary" data-bs-dismiss="modal">
+            Cancel
+          </button>
+          <button type="submit" class="btn btn-primary ms-auto" id="add-assignment-submit-btn">
+             <span class="spinner-border spinner-border-sm me-2 d-none" role="status"></span>
+            Add Assignment
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Assignment Modal (Structure similar to Add) -->
+<div class="modal modal-blur fade" id="edit-assignment-modal" tabindex="-1" role="dialog" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Edit Payment Admin Assignment</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <form id="edit-assignment-form">
+        <input type="hidden" id="edit-assignment-id">
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label required">Admin User</label>
+            <select class="form-select" id="edit-admin-user-select" required>
+               <option value="" disabled selected>Select an Admin User</option>
+               <!-- Admin users will be populated here -->
+            </select>
+            <small class="form-hint">Select the user who will verify payments.</small>
+          </div>
+          <div class="mb-3">
+            <label class="form-label required">Assigned Bank Cards</label>
+            <select class="form-select" id="edit-bank-cards-select" multiple required>
+               <!-- Active bank cards will be populated here -->
+            </select>
+             <small class="form-hint">Select the bank card(s) this admin will manage. Hold Ctrl/Cmd to select multiple.</small>
+          </div>
+          <div class="mb-3">
+            <label class="form-label required">Telegram Group ID</label>
+            <input type="text" class="form-control" id="edit-telegram-group-id" required>
+            <small class="form-hint">Enter the numeric ID of the Telegram group for notifications.</small>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-link link-secondary" data-bs-dismiss="modal">
+            Cancel
+          </button>
+          <button type="submit" class="btn btn-primary ms-auto" id="edit-assignment-submit-btn">
+             <span class="spinner-border spinner-border-sm me-2 d-none" role="status"></span>
+            Update Assignment
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal modal-blur fade" id="delete-assignment-modal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-sm modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            <div class="modal-status bg-danger"></div>
+            <div class="modal-body text-center py-4">
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon mb-2 text-danger icon-lg" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 9v2m0 4v.01" /><path d="M5 19h14a2 2 0 0 0 1.84 -2.75l-7.1 -12.25a2 2 0 0 0 -3.5 0l-7.1 12.25a2 2 0 0 0 1.75 2.75" /></svg>
+                <h3>Are you sure?</h3>
+                <div class="text-muted">Do you really want to remove this payment admin assignment? This action cannot be undone.</div>
+                <input type="hidden" id="delete-assignment-id-input">
+            </div>
+            <div class="modal-footer">
+                <div class="w-100">
+                    <div class="row">
+                        <div class="col"><a href="#" class="btn w-100" data-bs-dismiss="modal">
+                                Cancel
+                            </a></div>
+                        <div class="col"><a href="#" class="btn btn-danger w-100" id="confirm-delete-assignment-btn">
+                                Delete Assignment
+                            </a></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const assignmentsTableBody = document.getElementById('assignments-table-body');
+    const loadingRow = document.getElementById('assignments-loading');
+    const emptyRow = document.getElementById('assignments-empty');
+    const addAssignmentForm = document.getElementById('add-assignment-form');
+    const editAssignmentForm = document.getElementById('edit-assignment-form');
+    const deleteAssignmentModal = new bootstrap.Modal(document.getElementById('delete-assignment-modal'));
+    const deleteAssignmentIdInput = document.getElementById('delete-assignment-id-input');
+    const confirmDeleteBtn = document.getElementById('confirm-delete-assignment-btn');
+    const addAdminUserSelect = document.getElementById('add-admin-user-select');
+    const addBankCardsSelect = document.getElementById('add-bank-cards-select');
+    const editAdminUserSelect = document.getElementById('edit-admin-user-select');
+    const editBankCardsSelect = document.getElementById('edit-bank-cards-select');
+    const addModal = new bootstrap.Modal(document.getElementById('add-assignment-modal'));
+    const editModal = new bootstrap.Modal(document.getElementById('edit-assignment-modal'));
+    const addSubmitBtn = document.getElementById('add-assignment-submit-btn');
+    const editSubmitBtn = document.getElementById('edit-assignment-submit-btn');
+
+
+    // --- Helper Functions ---
+    function showSpinner(button) {
+        button.disabled = true;
+        const spinner = button.querySelector('.spinner-border');
+        if (spinner) spinner.classList.remove('d-none');
+    }
+
+    function hideSpinner(button) {
+        button.disabled = false;
+        const spinner = button.querySelector('.spinner-border');
+        if (spinner) spinner.classList.add('d-none');
+    }
+
+    function showAlert(message, type = 'danger') {
+        // Simple alert for now, consider a more robust notification system
+        alert(`[${type.toUpperCase()}] ${message}`);
+    }
+
+    async function fetchUsers() {
+        // Placeholder: Replace with actual API call to fetch users with admin roles
+        console.log("Fetching users...");
+        return [
+            { id: 1, username: 'admin_user_1' },
+            { id: 2, username: 'payment_verifier' },
+        ];
+    }
+
+    async function fetchBankCards() {
+        // Placeholder: Replace with actual API call to fetch active bank cards
+        console.log("Fetching active bank cards...");
+        // Ideally, fetch only active cards from API: /bank-cards/?is_active=true
+        return [
+            { id: 1, card_number: '**** **** **** 1111', bank_name: 'Melli' },
+            { id: 2, card_number: '**** **** **** 2222', bank_name: 'Saderat' },
+        ];
+    }
+
+    async function fetchAssignments() {
+        loadingRow.classList.remove('d-none');
+        emptyRow.classList.add('d-none');
+        assignmentsTableBody.querySelectorAll('tr:not(#assignments-loading):not(#assignments-empty)').forEach(row => row.remove()); // Clear existing rows
+
+        try {
+             // Placeholder: Replace with actual API call GET /payment-admins/assignments
+            console.log("Fetching assignments...");
+            await new Promise(resolve => setTimeout(resolve, 500)); // Simulate network delay
+
+            const response = await fetch('/api/v1/payment-admins/assignments', { // ADJUST API ENDPOINT
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const assignments = await response.json();
+
+
+            // const assignments = [ // Sample Data
+            //     { id: 1, user: { id: 1, username: 'admin_user_1'}, bank_cards: [{id: 1, card_number:'****1111'}, {id: 2, card_number:'****2222'}], telegram_group_id: '-100123456'},
+            //     { id: 2, user: { id: 2, username: 'payment_verifier'}, bank_cards: [{id: 2, card_number:'****2222'}], telegram_group_id: '-100987654'},
+            // ];
+
+            loadingRow.classList.add('d-none');
+
+            if (assignments.length === 0) {
+                emptyRow.classList.remove('d-none');
+                return;
+            }
+
+            assignments.forEach(assignment => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${assignment.user?.username || 'N/A'}</td>
+                    <td>${assignment.bank_cards?.map(card => `<span class="badge bg-blue-lt me-1">${card.bank_name || 'Card'} ${card.card_number ? card.card_number.slice(-4) : card.id}</span>`).join('') || 'None'}</td>
+                    <td><code>${assignment.telegram_group_id || 'N/A'}</code></td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-secondary edit-btn me-1" data-id="${assignment.id}">Edit</button>
+                        <button class="btn btn-sm btn-outline-danger delete-btn" data-id="${assignment.id}">Delete</button>
+                    </td>
+                `;
+                assignmentsTableBody.appendChild(row);
+            });
+
+        } catch (error) {
+            console.error("Failed to fetch assignments:", error);
+            loadingRow.classList.add('d-none');
+            showAlert("Failed to load payment admin assignments. Please check the console and try refreshing.", "danger");
+            // Optionally show an error row
+             const errorRow = document.createElement('tr');
+             errorRow.innerHTML = `<td colspan="4" class="text-center text-danger py-4">Failed to load assignments.</td>`;
+             assignmentsTableBody.appendChild(errorRow);
+        }
+    }
+
+    async function populateSelects() {
+        try {
+            const [users, cards] = await Promise.all([fetchUsers(), fetchBankCards()]);
+
+            // Populate User Selects
+            [addAdminUserSelect, editAdminUserSelect].forEach(select => {
+                select.innerHTML = '<option value="" disabled selected>Select an Admin User</option>'; // Reset
+                users.forEach(user => {
+                    const option = document.createElement('option');
+                    option.value = user.id;
+                    option.textContent = user.username;
+                    select.appendChild(option);
+                });
+            });
+
+            // Populate Bank Card Selects
+             [addBankCardsSelect, editBankCardsSelect].forEach(select => {
+                select.innerHTML = ''; // Reset
+                cards.forEach(card => {
+                    const option = document.createElement('option');
+                    option.value = card.id;
+                    option.textContent = `${card.bank_name} (**** ${card.card_number.slice(-4)})`;
+                    select.appendChild(option);
+                });
+            });
+
+        } catch (error) {
+            console.error("Failed to populate select options:", error);
+            showAlert("Could not load necessary data (users/cards) for forms.", "warning");
+        }
+    }
+
+
+    // --- Event Listeners ---
+
+    // Refresh Button
+    document.getElementById('refresh-assignments-btn').addEventListener('click', fetchAssignments);
+
+    // Add Assignment Form Submission
+    addAssignmentForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        showSpinner(addSubmitBtn);
+        const formData = {
+            user_id: document.getElementById('add-admin-user-select').value,
+            bank_card_ids: Array.from(document.getElementById('add-bank-cards-select').selectedOptions).map(opt => parseInt(opt.value)),
+            telegram_group_id: document.getElementById('add-telegram-group-id').value.trim()
+        };
+
+        try {
+             // Placeholder: Replace with actual API call POST /payment-admins/assignments
+            console.log("Submitting new assignment:", formData);
+            // const response = await fetch('/api/v1/payment-admins/assignments', { // ADJUST API ENDPOINT
+            //     method: 'POST',
+            //     headers: {
+            //         'Content-Type': 'application/json',
+            //         'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+            //     },
+            //     body: JSON.stringify(formData)
+            // });
+
+            // if (!response.ok) {
+            //     const errorData = await response.json();
+            //     throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
+            // }
+
+            showAlert("Assignment added successfully!", "success");
+            addModal.hide();
+            addAssignmentForm.reset();
+            fetchAssignments(); // Refresh table
+
+        } catch (error) {
+            console.error("Failed to add assignment:", error);
+            showAlert(`Error adding assignment: ${error.message}`, "danger");
+        } finally {
+             hideSpinner(addSubmitBtn);
+        }
+    });
+
+    // Edit Assignment Logic (Open Modal)
+    assignmentsTableBody.addEventListener('click', async (e) => {
+        if (e.target.classList.contains('edit-btn')) {
+            const assignmentId = e.target.dataset.id;
+            document.getElementById('edit-assignment-id').value = assignmentId;
+
+            try {
+                 // Placeholder: Fetch assignment details GET /payment-admins/assignments/{id}
+                console.log(`Fetching details for assignment ${assignmentId}...`);
+                 // const response = await fetch(`/api/v1/payment-admins/assignments/${assignmentId}`, { // ADJUST API ENDPOINT
+                 //    headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
+                 // });
+                 // if (!response.ok) throw new Error('Failed to fetch assignment details');
+                 // const assignment = await response.json();
+
+                 const assignment = { // Sample data
+                     id: assignmentId,
+                     user: { id: 1 },
+                     bank_cards: [{id: 1}, {id: 2}],
+                     telegram_group_id: '-100123456'
+                 };
+
+
+                // Pre-populate edit form
+                document.getElementById('edit-admin-user-select').value = assignment.user?.id || '';
+                document.getElementById('edit-telegram-group-id').value = assignment.telegram_group_id || '';
+
+                // Pre-select bank cards
+                const cardIds = assignment.bank_cards?.map(card => card.id.toString()) || [];
+                Array.from(document.getElementById('edit-bank-cards-select').options).forEach(option => {
+                     option.selected = cardIds.includes(option.value);
+                });
+
+
+                editModal.show();
+
+            } catch (error) {
+                console.error("Failed to load assignment for editing:", error);
+                showAlert("Could not load assignment details for editing.", "danger");
+            }
+        }
+
+        // Delete Assignment Logic (Open Modal)
+        if (e.target.classList.contains('delete-btn')) {
+            const assignmentId = e.target.dataset.id;
+            deleteAssignmentIdInput.value = assignmentId;
+            deleteAssignmentModal.show();
+        }
+    });
+
+     // Edit Assignment Form Submission
+    editAssignmentForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        showSpinner(editSubmitBtn);
+        const assignmentId = document.getElementById('edit-assignment-id').value;
+         const formData = {
+            user_id: document.getElementById('edit-admin-user-select').value,
+            bank_card_ids: Array.from(document.getElementById('edit-bank-cards-select').selectedOptions).map(opt => parseInt(opt.value)),
+            telegram_group_id: document.getElementById('edit-telegram-group-id').value.trim()
+        };
+
+        try {
+             // Placeholder: Replace with actual API call PUT /payment-admins/assignments/{id}
+            console.log(`Submitting update for assignment ${assignmentId}:`, formData);
+            // const response = await fetch(`/api/v1/payment-admins/assignments/${assignmentId}`, { // ADJUST API ENDPOINT
+            //     method: 'PUT',
+            //     headers: {
+            //         'Content-Type': 'application/json',
+            //         'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+            //     },
+            //     body: JSON.stringify(formData)
+            // });
+
+            // if (!response.ok) {
+            //     const errorData = await response.json();
+            //     throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
+            // }
+
+            showAlert("Assignment updated successfully!", "success");
+            editModal.hide();
+            fetchAssignments(); // Refresh table
+
+        } catch (error) {
+            console.error("Failed to update assignment:", error);
+            showAlert(`Error updating assignment: ${error.message}`, "danger");
+        } finally {
+             hideSpinner(editSubmitBtn);
+        }
+    });
+
+
+    // Confirm Deletion
+    confirmDeleteBtn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        const assignmentId = deleteAssignmentIdInput.value;
+        showSpinner(confirmDeleteBtn); // Might need to adapt spinner logic for links
+
+        try {
+             // Placeholder: Replace with actual API call DELETE /payment-admins/assignments/{id}
+            console.log(`Deleting assignment ${assignmentId}...`);
+            // const response = await fetch(`/api/v1/payment-admins/assignments/${assignmentId}`, { // ADJUST API ENDPOINT
+            //     method: 'DELETE',
+            //     headers: {
+            //         'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+            //     }
+            // });
+
+            // if (!response.ok) {
+            //      const errorData = await response.json();
+            //     throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
+            // }
+
+            showAlert("Assignment deleted successfully!", "success");
+            deleteAssignmentModal.hide();
+            fetchAssignments(); // Refresh table
+
+        } catch (error) {
+            console.error("Failed to delete assignment:", error);
+             showAlert(`Error deleting assignment: ${error.message}`, "danger");
+        } finally {
+             // Hide spinner logic might need adjustment for link/button type
+             hideSpinner(confirmDeleteBtn);
+             deleteAssignmentModal.hide(); // Ensure modal closes even on error
+        }
+    });
+
+    // --- Initial Load ---
+    populateSelects(); // Load users and cards for modals
+    fetchAssignments(); // Load assignments table
+  });
+</script>
+{% endblock %} 
