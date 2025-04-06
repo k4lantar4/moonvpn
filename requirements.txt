@@ -1,0 +1,15 @@
+fastapi
+uvicorn[standard]
+python-telegram-bot[ext]
+sqlalchemy
+alembic
+mysql-connector-python
+redis
+python-dotenv
+pydantic-settings
+passlib[bcrypt]
+python-jose[cryptography]
+httpx
+pytest
+pytest-asyncio
+# Add other dependencies as needed

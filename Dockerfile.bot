@@ -1,0 +1,51 @@
+# --- Build Stage / مرحله ساخت ---
+FROM python:3.9-slim as builder
+
+# Set working directory / تنظیم دایرکتوری کاری
+WORKDIR /app
+
+# Install build dependencies / نصب وابستگی‌های ساخت
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies / نصب وابستگی‌های پایتون
+COPY requirements.txt .
+RUN pip wheel --no-cache-dir --no-deps --wheel-dir /app/wheels -r requirements.txt
+
+# --- Final Stage / مرحله نهایی ---
+FROM python:3.9-slim
+
+# Set environment variables / تنظیم متغیرهای محیطی
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONPATH=/app
+
+# Set working directory / تنظیم دایرکتوری کاری
+WORKDIR /app
+
+# Install runtime dependencies / نصب وابستگی‌های اجرایی
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libmariadb3 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy wheels from builder / کپی فایل‌های wheel از مرحله ساخت
+COPY --from=builder /app/wheels /wheels
+RUN pip install --no-cache /wheels/*
+
+# Copy project files / کپی فایل‌های پروژه
+COPY . .
+
+# Create necessary directories / ایجاد دایرکتوری‌های مورد نیاز
+RUN mkdir -p /var/log/moonvpn
+
+# Set permissions / تنظیم دسترسی‌ها
+RUN chmod +x /app/scripts/*.sh
+
+# Health check / بررسی سلامت سرویس
+HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
+    CMD python -c "from bot.utils.health import check_health; check_health()" || exit 1
+
+# Run the application / اجرای برنامه
+CMD ["python", "bot/main.py"] 

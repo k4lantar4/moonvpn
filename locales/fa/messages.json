@@ -1,0 +1,40 @@
+{
+    "welcome": {
+        "message": "🌟 سلام! به MoonVPN خوش آمدید ✨",
+        "description": "Welcome message shown to new users"
+    },
+    "start_command": {
+        "message": "🚀 برای شروع، یکی از گزینه‌های زیر را انتخاب کنید:",
+        "description": "Message shown after /start command"
+    },
+    "buy_plan": {
+        "message": "💫 خرید اشتراک",
+        "description": "Buy subscription button text"
+    },
+    "my_account": {
+        "message": "👤 حساب کاربری من",
+        "description": "My account button text"
+    },
+    "support": {
+        "message": "🎯 پشتیبانی",
+        "description": "Support button text"
+    },
+    "settings": {
+        "message": "⚙️ تنظیمات",
+        "description": "Settings button text"
+    },
+    "language_changed": {
+        "message": "✅ زبان شما به فارسی تغییر کرد",
+        "description": "Message shown when language is changed to Persian"
+    },
+    "error": {
+        "general": {
+            "message": "❌ متأسفانه خطایی رخ داد. لطفاً دوباره تلاش کنید.",
+            "description": "General error message"
+        },
+        "not_found": {
+            "message": "⚠️ موردی یافت نشد",
+            "description": "Not found error message"
+        }
+    }
+} 

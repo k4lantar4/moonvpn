@@ -1,0 +1,40 @@
+{
+    "welcome": {
+        "message": "🌟 Welcome to MoonVPN! ✨",
+        "description": "Welcome message shown to new users"
+    },
+    "start_command": {
+        "message": "🚀 To get started, please choose one of the options below:",
+        "description": "Message shown after /start command"
+    },
+    "buy_plan": {
+        "message": "💫 Buy Subscription",
+        "description": "Buy subscription button text"
+    },
+    "my_account": {
+        "message": "👤 My Account",
+        "description": "My account button text"
+    },
+    "support": {
+        "message": "🎯 Support",
+        "description": "Support button text"
+    },
+    "settings": {
+        "message": "⚙️ Settings",
+        "description": "Settings button text"
+    },
+    "language_changed": {
+        "message": "✅ Your language has been changed to English",
+        "description": "Message shown when language is changed to English"
+    },
+    "error": {
+        "general": {
+            "message": "❌ Sorry, an error occurred. Please try again.",
+            "description": "General error message"
+        },
+        "not_found": {
+            "message": "⚠️ Not found",
+            "description": "Not found error message"
+        }
+    }
+} 

@@ -1,0 +1,51 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"terminal.integrated.profiles.linux": {
+			"bash": {
+				"path": "bash",
+				"args": ["--login"],
+				"icon": "terminal-bash"
+			}
+		},
+		"terminal.integrated.defaultProfile.linux": "bash",
+		"terminal.integrated.shellIntegration.enabled": true,
+		"terminal.integrated.commandsToSkipShell": [
+			"exit",
+			"quit"
+		],
+		"terminal.integrated.cwd": "/root/moonvpn",
+		"terminal.integrated.inheritEnv": true,
+		"terminal.integrated.persistentSessionReviveProcess": "never",
+		"terminal.integrated.allowChords": false,
+		"terminal.integrated.confirmOnExit": "never",
+		"terminal.integrated.autoReplies": {
+			"Do you want to exit the Python shell?": "yes",
+			"Do you really want to exit [y/N]": "y",
+			">>>": "!exit"
+		},
+		"terminal.integrated.enableMultiLinePasteWarning": false,
+		"terminal.integrated.defaultLocation": "editor",
+		"terminal.integrated.autoExitBehavior": "always",
+		"terminal.integrated.exitBehavior": "close",
+		
+		"ai.experimental.stickyTerminal": false,
+		"ai.experimental.terminalIsolation": true,
+		"ai.experimental.terminal.autoCloseOnVirtualEnv": true,
+
+		"ai.logging.maxLines": 100,
+		"ai.logging.autoExpand": true,
+		"ai.logging.enabled": true,
+		"ai.logging.expandThreshold": 50
+	},
+	"extensions": {
+		"recommendations": [
+			"davidanson.vscode-markdownlint",
+			"ms-azuretools.vscode-docker"
+		]
+	}
+}

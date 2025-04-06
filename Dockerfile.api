@@ -1,0 +1,55 @@
+# --- Build Stage / مرحله ساخت ---
+FROM python:3.9-slim as builder
+
+# Set working directory / تنظیم دایرکتوری کاری
+WORKDIR /app
+
+# Install build dependencies / نصب وابستگی‌های ساخت
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    gcc \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements / کپی نیازمندی‌ها
+COPY requirements.txt .
+
+# Build wheels / ساخت چرخ‌ها
+RUN pip wheel --no-cache-dir --no-deps --wheel-dir /app/wheels -r requirements.txt
+
+# --- Final Stage / مرحله نهایی ---
+FROM python:3.9-slim
+
+# Set environment variables / تنظیم متغیرهای محیطی
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONPATH=/app
+
+# Set working directory / تنظیم دایرکتوری کاری
+WORKDIR /app
+
+# Install runtime dependencies / نصب وابستگی‌های اجرایی
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libmariadb3 \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy wheels and install / کپی و نصب چرخ‌ها
+COPY --from=builder /app/wheels /wheels
+RUN pip install --no-cache /wheels/*
+
+# Copy project / کپی پروژه
+COPY . .
+
+# Create log directory / ایجاد دایرکتوری لاگ
+RUN mkdir -p /var/log/moonvpn
+
+# Make scripts executable / اجرایی کردن اسکریپت‌ها
+RUN chmod +x /app/scripts/*.sh
+
+# Health check / بررسی سلامت
+HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+# Run command / دستور اجرا
+CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"] 
