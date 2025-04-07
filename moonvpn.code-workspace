@@ -20,32 +20,67 @@
 		],
 		"terminal.integrated.cwd": "/root/moonvpn",
 		"terminal.integrated.inheritEnv": true,
-		"terminal.integrated.persistentSessionReviveProcess": "never",
 		"terminal.integrated.allowChords": false,
 		"terminal.integrated.confirmOnExit": "never",
 		"terminal.integrated.autoReplies": {
 			"Do you want to exit the Python shell?": "yes",
 			"Do you really want to exit [y/N]": "y",
-			">>>": "!exit"
+			">>>": "!exit",
+			"Press any key to continue...": "\r",
+			"Type 'exit' to exit": "exit"
 		},
-		"terminal.integrated.enableMultiLinePasteWarning": false,
 		"terminal.integrated.defaultLocation": "editor",
 		"terminal.integrated.autoExitBehavior": "always",
 		"terminal.integrated.exitBehavior": "close",
-		
-		"ai.experimental.stickyTerminal": false,
-		"ai.experimental.terminalIsolation": true,
-		"ai.experimental.terminal.autoCloseOnVirtualEnv": true,
+		"terminal.integrated.env.linux": {
+			"TERM": "xterm-256color"
+		},
+		"terminal.integrated.gpuAcceleration": "on",
+		"terminal.integrated.scrollback": 5000,
 
-		"ai.logging.maxLines": 100,
-		"ai.logging.autoExpand": true,
-		"ai.logging.enabled": true,
-		"ai.logging.expandThreshold": 50
+		// 🌙 ظاهر و نمایش
+		"workbench.colorTheme": "Default Dark+",
+		"workbench.startupEditor": "none",
+		"window.density.editorTabHeight": "default",
+
+		// ⚙️ ادیتور
+		"editor.suggestSelection": "first",
+		"editor.tabSize": 4,
+		"editor.insertSpaces": true,
+		"editor.formatOnSave": true,
+
+		// 🐍 پایتون
+		"python.linting.enabled": true,
+		"python.linting.pylintEnabled": true,
+		"python.formatting.provider": "black",
+
+		// 🌐 فارسی و فونت
+		"editor.rtlDetect": true,
+		"editor.renderControlCharacters": true,
+		"editor.fontFamily": "Vazirmatn, Fira Code, Consolas, 'Courier New', monospace",
+		"editor.fontLigatures": false,
+
+		"terminal.integrated.fontFamily": "monospace",
+
+		// 📄 پیش‌نمایش‌ها و مارک‌داون
+		"markdown.preview.fontFamily": "Vazirmatn, sans-serif",
+		"markdown.preview.lineHeight": 1.8,
+		"markdown.preview.scrollPreviewWithEditor": true,
+		"markdown.preview.scrollEditorWithPreview": true,
+		"markdown.preview.markEditorSelection": true,
+
+		// 🪄 رفع نهایی مشکلات BiDi
+		"editor.unicodeHighlight.allowedCharacters": {
+			"\u200c": true, // ZWNJ
+			"\u200e": true, // LRM
+			"\u200f": true  // RLM
+		},
+		"editor.unicodeHighlight.invisibleCharacters": false
 	},
 	"extensions": {
 		"recommendations": [
-			"davidanson.vscode-markdownlint",
-			"ms-azuretools.vscode-docker"
+			"dbaeumer.vscode-eslint",
+			"shd101wyy.markdown-preview-enhanced"
 		]
 	}
 }
