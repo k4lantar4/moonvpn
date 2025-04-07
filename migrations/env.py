@@ -1,3 +1,7 @@
+"""
+This module configures Alembic environment for database migrations.
+"""
+
 import os
 import sys
 from logging.config import fileConfig

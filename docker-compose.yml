@@ -10,6 +10,7 @@ services:
     restart: unless-stopped
     env_file: .env
     volumes:
+      - ./:/app
       - ./logs:/var/log/moonvpn
     ports:
       - "${API_PORT}:8000"
@@ -36,6 +37,7 @@ services:
     restart: unless-stopped
     env_file: .env
     volumes:
+      - ./:/app
       - ./logs:/var/log/moonvpn
     depends_on:
       db:
@@ -59,15 +61,17 @@ services:
     container_name: moonvpn_db
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: root123
-      MYSQL_DATABASE: moonvpn_db
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
     volumes:
       - mysql_data:/var/lib/mysql
       - ./scripts/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "3306:3306"
     networks:
       - moonvpn_network
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot123"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -86,6 +90,8 @@ services:
     command: redis-server --requirepass "${REDIS_PASSWORD}" --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
     volumes:
       - redis_data:/data
+    ports:
+      - "6379:6379"
     networks:
       - moonvpn_network
     healthcheck:
@@ -100,7 +106,6 @@ services:
     image: phpmyadmin/phpmyadmin
     container_name: moonvpn_phpmyadmin
     restart: unless-stopped
-    env_file: .env
     environment:
       PMA_HOST: db
       PMA_PORT: 3306

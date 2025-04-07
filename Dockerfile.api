@@ -9,6 +9,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     gcc \
     curl \
+    default-libmysqlclient-dev \
+    pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements / کپی نیازمندی‌ها
@@ -30,7 +32,7 @@ WORKDIR /app
 
 # Install runtime dependencies / نصب وابستگی‌های اجرایی
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libmariadb3 \
+    default-libmysqlclient-dev \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
@@ -45,7 +47,7 @@ COPY . .
 RUN mkdir -p /var/log/moonvpn
 
 # Make scripts executable / اجرایی کردن اسکریپت‌ها
-RUN chmod +x /app/scripts/*.sh
+RUN chmod +x /app/scripts/*.sh || echo "No shell scripts to make executable"
 
 # Health check / بررسی سلامت
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \

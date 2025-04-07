@@ -20,23 +20,37 @@
 		],
 		"terminal.integrated.cwd": "/root/moonvpn",
 		"terminal.integrated.inheritEnv": true,
-		"terminal.integrated.allowChords": false,
+		"terminal.integrated.allowChords": true,
 		"terminal.integrated.confirmOnExit": "never",
 		"terminal.integrated.autoReplies": {
 			"Do you want to exit the Python shell?": "yes",
 			"Do you really want to exit [y/N]": "y",
 			">>>": "!exit",
 			"Press any key to continue...": "\r",
-			"Type 'exit' to exit": "exit"
+			"Type 'exit' to exit": "exit",
+			"--More--": "q"
 		},
-		"terminal.integrated.defaultLocation": "editor",
-		"terminal.integrated.autoExitBehavior": "always",
-		"terminal.integrated.exitBehavior": "close",
+		"terminal.integrated.defaultLocation": "view",
+		"terminal.integrated.autoExitBehavior": "never",
+		"terminal.integrated.exitBehavior": "always",
 		"terminal.integrated.env.linux": {
 			"TERM": "xterm-256color"
 		},
 		"terminal.integrated.gpuAcceleration": "on",
-		"terminal.integrated.scrollback": 5000,
+		"terminal.integrated.scrollback": 10000,
+		"terminal.integrated.enablePersistentSessions": false,
+		"terminal.integrated.persistentSessionReviveProcess": "never",
+		"terminal.integrated.shellArgs.linux": ["--login"],
+		"terminal.integrated.copyOnSelection": true,
+		"terminal.integrated.cursorBlinking": true,
+		"terminal.integrated.cursorStyle": "line",
+		"terminal.integrated.rightClickBehavior": "default",
+		"terminal.integrated.sendKeybindingsToShell": true,
+		"terminal.integrated.tabs.enabled": true,
+		"terminal.integrated.tabs.location": "right",
+		"terminal.integrated.detectLocale": "auto",
+		"terminal.integrated.macOptionIsMeta": true,
+		"terminal.integrated.showExitAlert": false,
 
 		// 🌙 ظاهر و نمایش
 		"workbench.colorTheme": "Default Dark+",
@@ -48,11 +62,6 @@
 		"editor.tabSize": 4,
 		"editor.insertSpaces": true,
 		"editor.formatOnSave": true,
-
-		// 🐍 پایتون
-		"python.linting.enabled": true,
-		"python.linting.pylintEnabled": true,
-		"python.formatting.provider": "black",
 
 		// 🌐 فارسی و فونت
 		"editor.rtlDetect": true,
@@ -75,12 +84,26 @@
 			"\u200e": true, // LRM
 			"\u200f": true  // RLM
 		},
-		"editor.unicodeHighlight.invisibleCharacters": false
+		"editor.unicodeHighlight.invisibleCharacters": false,
+		
+		// تنظیمات اضافی برای بهبود عملکرد ترمینال در SSH
+		"remote.SSH.useLocalServer": false,
+		"remote.SSH.showLoginTerminal": true,
+		"remote.SSH.remotePlatform": "linux",
+		"remote.SSH.connectTimeout": 60,
+		"remote.SSH.defaultExtensions": [
+			"ms-vscode.remote-explorer"
+		],
+		"remote.SSH.enableDynamicForwarding": true,
+		"remote.SSH.enableRemoteCommand": true,
+		"remote.SSH.localServerDownload": "auto"
 	},
 	"extensions": {
 		"recommendations": [
 			"dbaeumer.vscode-eslint",
-			"shd101wyy.markdown-preview-enhanced"
+			"ms-vscode-remote.remote-ssh",
+			"ms-vscode-remote.remote-containers",
+			"ms-azuretools.vscode-docker"
 		]
 	}
 }

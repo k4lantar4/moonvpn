@@ -1,8 +1,14 @@
+"""
+Database configuration and utilities for the API.
+
+This module provides database connection management, session handling,
+and utility functions for database operations.
+"""
+
 from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import sessionmaker, Session
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.engine import Engine
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.engine import Engine
 from typing import Generator, Optional
 import redis
 import logging
@@ -11,6 +17,7 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from contextlib import asynccontextmanager
 
 from core.config import get_settings
+from api.models import Base
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -30,9 +37,6 @@ engine = create_engine(
 
 # Create session factory
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-# Base class for SQLAlchemy models
-Base = declarative_base()
 
 # --- MySQL Event Listeners / رویدادهای MySQL ---
 
@@ -189,4 +193,4 @@ async def get_db_session():
         return db
     except Exception as e:
         logger.error(f"Error creating synchronous database session: {str(e)}")
-        raise
+        raise 

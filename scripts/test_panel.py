@@ -1,167 +1,285 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 """
-Panel Connection Test Script
+3x-ui Panel Test Script
 
-A simple command-line tool to test connectivity to a 3x-ui panel.
-This script can be run directly to verify panel configuration and connectivity.
+This script tests connection and operations with a 3x-ui panel.
+It can be used to verify that the panel client works correctly.
+
+Usage:
+    python test_panel.py [--panel URL] [--username USERNAME] [--password PASSWORD]
 """
 
 import asyncio
 import argparse
-import json
 import sys
-import os
+import json
 import logging
-from typing import Dict, Any, Optional
+import os
+import time
+from typing import Dict, Any, Optional, List
+from datetime import datetime
 
-# Add the project root to the Python path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+# Add parent directory to path so we can import from modules
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from integrations.panels.client import test_panel_connection, test_default_panel_connection
-from core.logging import setup_logging
+from integrations.panels.client import XuiPanelClient, test_panel_connection
 from core.config import get_settings
 
-# Setup logging
-setup_logging()
-logger = logging.getLogger("test_panel")
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[logging.StreamHandler()]
+)
+logger = logging.getLogger("panel_test")
 settings = get_settings()
 
 
-async def run_panel_test(
-    url: Optional[str] = None,
-    username: Optional[str] = None,
-    password: Optional[str] = None,
-    use_default: bool = False
-) -> Dict[str, Any]:
-    """Run panel connection test using the provided credentials or defaults.
+async def test_basic_connection(url: str, username: str, password: str) -> Dict[str, Any]:
+    """Test basic connection to a 3x-ui panel.
     
     Args:
-        url: Panel URL (optional if use_default is True)
-        username: Admin username (optional if use_default is True)
-        password: Admin password (optional if use_default is True)
-        use_default: Use default panel configuration from environment
-    
-    Returns:
-        Dict[str, Any]: Test results
-    """
-    if use_default:
-        return await test_default_panel_connection()
-    else:
-        if not all([url, username, password]):
-            return {
-                "success": False,
-                "status": "missing_parameters",
-                "error": "Panel URL, username, and password are required"
-            }
+        url: Panel URL
+        username: Admin username
+        password: Admin password
         
-        return await test_panel_connection(url, username, password)
+    Returns:
+        Dict[str, Any]: Connection test result
+    """
+    logger.info(f"Testing connection to panel: {url}")
+    start_time = time.time()
+    
+    result = await test_panel_connection(url, username, password)
+    
+    end_time = time.time()
+    logger.info(f"Connection test completed in {end_time - start_time:.2f} seconds")
+    logger.info(f"Status: {result['status']}")
+    
+    if result["success"]:
+        logger.info("✅ Connection test successful!")
+        if result.get("panel_info"):
+            logger.info(f"Panel info: {json.dumps(result['panel_info'], indent=2)}")
+    else:
+        logger.error(f"❌ Connection test failed: {result.get('error')}")
+    
+    return result
 
 
-def print_result(result: Dict[str, Any], json_output: bool = False) -> None:
-    """Pretty-print the test results.
+async def test_inbound_operations(client: XuiPanelClient) -> bool:
+    """Test inbound operations.
     
     Args:
-        result: Test results dictionary
-        json_output: If True, output raw JSON instead of formatted text
+        client: XuiPanelClient instance
+        
+    Returns:
+        bool: True if all tests passed, False otherwise
     """
-    if json_output:
-        print(json.dumps(result, indent=2, ensure_ascii=False))
+    logger.info("\n=== Testing Inbound Operations ===")
+    
+    # Get all inbounds
+    success, inbounds = await client.get_inbounds()
+    if not success:
+        logger.error(f"❌ Failed to get inbounds: {inbounds.get('error')}")
+        return False
+    
+    logger.info(f"✅ Retrieved {len(inbounds)} inbounds")
+    
+    if not inbounds:
+        logger.warning("⚠️ No inbounds found, skipping inbound tests")
+        return True
+    
+    # Get first inbound details
+    inbound_id = inbounds[0]["id"]
+    logger.info(f"Testing with inbound ID: {inbound_id}")
+    
+    success, inbound = await client.get_inbound(inbound_id)
+    if not success:
+        logger.error(f"❌ Failed to get inbound details: {inbound.get('error')}")
+        return False
+    
+    logger.info(f"✅ Retrieved inbound details: {inbound.get('remark', 'Unnamed')}")
+    
+    return True
+
+
+async def test_client_operations(client: XuiPanelClient) -> bool:
+    """Test client operations.
+    
+    Args:
+        client: XuiPanelClient instance
+        
+    Returns:
+        bool: True if all tests passed, False otherwise
+    """
+    logger.info("\n=== Testing Client Operations ===")
+    
+    # Get all inbounds first
+    success, inbounds = await client.get_inbounds()
+    if not success or not inbounds:
+        logger.error("❌ Cannot test client operations: No inbounds available")
+        return False
+    
+    # Find an inbound with clients
+    inbound_with_clients = None
+    for inbound in inbounds:
+        if inbound.get("clientStats") and len(inbound.get("clientStats", [])) > 0:
+            inbound_with_clients = inbound
+            break
+    
+    if not inbound_with_clients:
+        logger.warning("⚠️ No inbounds with clients found, skipping client tests")
+        return True
+    
+    inbound_id = inbound_with_clients["id"]
+    client_email = inbound_with_clients["clientStats"][0]["email"]
+    
+    logger.info(f"Testing with inbound ID: {inbound_id}, client: {client_email}")
+    
+    # Get client traffic
+    success, traffic = await client.get_client_traffics(client_email)
+    if not success:
+        logger.error(f"❌ Failed to get client traffic: {traffic.get('error')}")
+        return False
+    
+    logger.info(f"✅ Retrieved traffic for client {client_email}")
+    
+    # Get client IPs
+    success, ips = await client.get_client_ips(client_email)
+    if not success:
+        logger.error(f"❌ Failed to get client IPs: {ips.get('error')}")
+        return False
+    
+    logger.info(f"✅ Retrieved IPs for client {client_email}")
+    
+    return True
+
+
+async def test_online_clients(client: XuiPanelClient) -> bool:
+    """Test getting online clients.
+    
+    Args:
+        client: XuiPanelClient instance
+        
+    Returns:
+        bool: True if test passed, False otherwise
+    """
+    logger.info("\n=== Testing Online Clients ===")
+    
+    success, onlines = await client.get_online_clients()
+    if not success:
+        logger.error(f"❌ Failed to get online clients: {onlines.get('error')}")
+        return False
+    
+    logger.info(f"✅ Retrieved {len(onlines)} online clients")
+    return True
+
+
+async def test_system_operations(client: XuiPanelClient) -> bool:
+    """Test system operations.
+    
+    Args:
+        client: XuiPanelClient instance
+        
+    Returns:
+        bool: True if all tests passed, False otherwise
+    """
+    logger.info("\n=== Testing System Operations ===")
+    
+    # Get panel status
+    success, status = await client.get_status()
+    if not success:
+        logger.error(f"❌ Failed to get panel status: {status.get('error')}")
+        return False
+    
+    logger.info(f"✅ Panel status: {json.dumps(status, indent=2)}")
+    
+    return True
+
+
+async def run_all_tests(url: str, username: str, password: str):
+    """Run all panel tests.
+    
+    Args:
+        url: Panel URL
+        username: Admin username
+        password: Admin password
+    """
+    logger.info("Starting 3x-ui Panel Test Suite")
+    logger.info("=" * 50)
+    
+    # Test basic connection
+    connection_result = await test_basic_connection(url, username, password)
+    if not connection_result["success"]:
+        logger.error("Basic connection test failed, aborting further tests.")
         return
     
-    # Format the output as text
-    success = result.get("success", False)
-    status = result.get("status", "unknown")
-    url = result.get("url", "N/A")
-    response_time = result.get("response_time_ms")
-    error = result.get("error")
-    panel_info = result.get("panel_info", {})
-    
-    # Print header
-    print("\n" + "="*50)
-    print(f"📡 PANEL CONNECTION TEST: {'✅ SUCCESS' if success else '❌ FAILED'}")
-    print("="*50)
-    
-    # Print basic information
-    print(f"🔗 URL: {url}")
-    print(f"🏷️ Status: {status}")
-    if response_time:
-        print(f"⏱️ Response Time: {response_time} ms")
-    
-    # Print error if any
-    if error:
-        print(f"❌ Error: {error}")
-    
-    # Print panel info if available
-    if panel_info and isinstance(panel_info, dict):
-        print("\n📊 PANEL INFORMATION:")
-        print("-"*50)
+    # Run detailed tests with client
+    logger.info("\nRunning detailed operation tests...")
+    async with XuiPanelClient(url, username, password) as client:
+        # Test login
+        login_success = await client.login()
+        if not login_success:
+            logger.error("❌ Login failed, aborting further tests.")
+            return
         
-        # CPU
-        if "cpu" in panel_info:
-            print(f"🔄 CPU Usage: {panel_info['cpu']}%")
+        logger.info("✅ Login successful")
         
-        # Memory
-        if "mem" in panel_info and isinstance(panel_info["mem"], dict):
-            mem = panel_info["mem"]
-            total_mem = mem.get("total", 0)
-            used_mem = mem.get("used", 0)
-            
-            if total_mem > 0:
-                percent = (used_mem / total_mem) * 100
-                print(f"💾 Memory: {used_mem} MB / {total_mem} MB ({percent:.1f}%)")
+        # Run all test suites
+        test_results = {
+            "inbound_operations": await test_inbound_operations(client),
+            "client_operations": await test_client_operations(client),
+            "online_clients": await test_online_clients(client),
+            "system_operations": await test_system_operations(client)
+        }
         
-        # Disk
-        if "disk" in panel_info and isinstance(panel_info["disk"], dict):
-            disk = panel_info["disk"]
-            total_disk = disk.get("total", 0)
-            used_disk = disk.get("used", 0)
-            
-            if total_disk > 0:
-                percent = (used_disk / total_disk) * 100
-                print(f"💿 Disk: {used_disk} GB / {total_disk} GB ({percent:.1f}%)")
+        # Summary
+        logger.info("\n" + "=" * 50)
+        logger.info("Test Summary:")
         
-        # Xray status
-        if "xray" in panel_info:
-            xray_status = panel_info["xray"]
-            print(f"🚀 Xray Status: {'✅ Running' if xray_status == 'running' else '❌ Not Running'}")
+        all_passed = True
+        for test_name, result in test_results.items():
+            status = "✅ PASSED" if result else "❌ FAILED"
+            if not result:
+                all_passed = False
+            logger.info(f"{test_name}: {status}")
         
-        # Uptime
-        if "uptime" in panel_info:
-            print(f"⏰ Uptime: {panel_info['uptime']}")
-        
-        # Other info
-        for key, value in panel_info.items():
-            if key not in ["cpu", "mem", "disk", "xray", "uptime"]:
-                print(f"ℹ️ {key}: {value}")
-    
-    print("="*50 + "\n")
+        if all_passed:
+            logger.info("\n🎉 All tests passed successfully!")
+        else:
+            logger.error("\n⚠️ Some tests failed. See logs above for details.")
 
 
-def main():
-    """Main entry point for the script."""
-    parser = argparse.ArgumentParser(
-        description="Test connectivity to a 3x-ui panel",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter
-    )
+def parse_args():
+    """Parse command line arguments."""
+    parser = argparse.ArgumentParser(description="Test connection to a 3x-ui panel")
+    parser.add_argument("--panel", help="Panel URL (e.g., http://example.com:54321)")
+    parser.add_argument("--username", help="Admin username")
+    parser.add_argument("--password", help="Admin password")
+    return parser.parse_args()
+
+
+async def main():
+    """Main entry point."""
+    args = parse_args()
     
-    # Define arguments
-    parser.add_argument("-u", "--url", help="Panel URL (e.g., https://example.com:54321)")
-    parser.add_argument("-n", "--username", help="Admin username")
-    parser.add_argument("-p", "--password", help="Admin password")
-    parser.add_argument("-d", "--default", action="store_true", help="Use default panel from environment variables")
-    parser.add_argument("-j", "--json", action="store_true", help="Output raw JSON instead of formatted text")
+    # Use command line args if provided, otherwise use env vars
+    panel_url = args.panel or os.getenv("PANEL_URL") or settings.PANEL1_URL
+    username = args.username or os.getenv("PANEL_USERNAME") or settings.PANEL1_USERNAME
+    password = args.password or os.getenv("PANEL_PASSWORD") or settings.PANEL1_PASSWORD
     
-    args = parser.parse_args()
+    if not all([panel_url, username, password]):
+        logger.error(
+            "Missing panel credentials. Provide them via command line arguments "
+            "or environment variables (PANEL_URL, PANEL_USERNAME, PANEL_PASSWORD)"
+        )
+        sys.exit(1)
     
-    # Run the test
-    result = asyncio.run(run_panel_test(args.url, args.username, args.password, args.default))
-    
-    # Print the result
-    print_result(result, args.json)
-    
-    # Exit with appropriate status code
-    sys.exit(0 if result.get("success", False) else 1)
+    try:
+        await run_all_tests(panel_url, username, password)
+    except Exception as e:
+        logger.exception(f"Error during tests: {str(e)}")
+        sys.exit(1)
 
 
 if __name__ == "__main__":
-    main() 
+    asyncio.run(main()) 

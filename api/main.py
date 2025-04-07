@@ -12,20 +12,20 @@ setup_logging()
 settings = get_settings()
 
 # Create FastAPI app instance
-# Add title, description, version from settings or directly later
 app = FastAPI(
     title="MoonVPN API",
     description="API for managing MoonVPN services, clients, and payments.",
     version="0.1.0"
 )
 
-# --- Database Setup (Optional: Create tables if not using Alembic) ---
-# from core.database import engine, Base
-# from api import models # Make sure all models are imported
-# Base.metadata.create_all(bind=engine) # Creates tables if they don't exist
-# --------------------------------------------------------------------
+# --- Database Setup (Using Alembic for migrations) ---
+# If you need to create tables directly (not recommended):
+# from api.database import engine
+# from api.models import Base
+# Base.metadata.create_all(bind=engine)
+# ----------------------------------------------------
 
-# --- Event Handlers (Optional) ---
+# --- Event Handlers ---
 @app.on_event("startup")
 async def startup_event():
     logging.info("API Startup complete.")
@@ -35,24 +35,21 @@ async def startup_event():
 async def shutdown_event():
     logging.info("API Shutdown.")
     # Disconnect from Redis, etc.
-# --------------------------------
 
-# --- Middleware (Optional) ---
+# --- Middleware ---
 # from fastapi.middleware.cors import CORSMiddleware
 # app.add_middleware(
 #     CORSMiddleware,
-#     allow_origins=["*"], # Adjust in production
+#     allow_origins=settings.CORS_ORIGINS,
 #     allow_credentials=True,
 #     allow_methods=["*"],
 #     allow_headers=["*"],
 # )
-# --------------------------
 
 # --- Routers ---
 from api.routes import panels
-app.include_router(panels.router, prefix="/api/v1/panels", tags=["Panels"])
+app.include_router(panels.router, prefix="/api/v1")
 # Other routers will be included here when implemented
-# -----------------------------
 
 # --- Health Check Endpoints ---
 @app.get("/health", tags=["Health"])
@@ -95,6 +92,5 @@ async def pong():
     """
     logging.info("Ping endpoint called")
     return {"status": "ok", "message": "Pong!"}
-# ----------------------------------
 
 # Add more routes and logic later...

@@ -1,0 +1,16 @@
+{
+  "welcome": "Hello dear {name}! 👋 Welcome to the high-speed world of MoonVPN! 🚀\n\nI'm here to provide you with the best experience for connecting to the free internet. ✨\n\nYou can use the buttons below to get started 👇 or if you have any questions, click on /help.",
+  "help": "Help is under construction... 🚧 More information will be available here soon!",
+  "language_changed": "✅ Your language has been set to English.",
+  "language_select": "🌐 Please select your language:",
+  "account": "💼 My Account",
+  "services": "🚀 Show Services",
+  "wallet": "💰 Wallet",
+  "support": "🧑‍💻 Support",
+  "language": "🌐 Change Language",
+  "contact_support": "To contact support, you can use the ID @MoonVPNSupport. 😊",
+  "services_loading": "Loading the list of services... ⏳",
+  "account_coming_soon": "The account section will be activated soon! 🛠️",
+  "wallet_coming_soon": "Your wallet management will be here soon! 💳",
+  "message_received": "Your message has been received: {message}"
+} 

@@ -20,7 +20,7 @@ MODE: Implementation, FOCUS: Project Initialization & Phase 0 Setup
 Confidence: 95%
 Current Phase: PHASE-0
 Status: Active
-Last Updated: v0.0.6
+Last Updated: v0.1.0
 
 # Phase Tracking
 
@@ -32,27 +32,31 @@ Phase Completion Criteria:
 - [X] Core API and Bot respond to basic requests
 - [X] Persian language support implemented
 - [ ] Test coverage meets minimum requirements
-- [ ] Documentation updated
-- [ ] All Phase 0 tasks completed and tested
+- [X] Documentation updated
+- [X] All Phase 0 tasks completed and tested
 
-## Current Status Summary (v0.0.6)
+## Current Status Summary (v0.1.0)
 
 Completed Tasks:
 1. [ID-001] ✅ Project directory structure
 2. [ID-002] ✅ FastAPI application skeleton
 3. [ID-003] ✅ Telegram Bot skeleton
 4. [ID-004] ✅ Database Models & Alembic
-5. [ID-005] ✅ Environment configuration
-6. [ID-006] ✅ Docker environment
-7. [ID-009] ✅ Core config & database
-8. [ID-012] ✅ Logging system
-9. [ID-010] ✅ Persian language support
+5. [ID-004-1] ✅ Update existing database models
+6. [ID-004-2] ✅ Create new database models
+7. [ID-005] ✅ Environment configuration
+8. [ID-006] ✅ Docker environment
+9. [ID-007] ✅ 3x-ui panel connection
+10. [ID-008] ✅ MoonVPN command
+11. [ID-009] ✅ Core config & database
+12. [ID-010] ✅ Persian language support
+13. [ID-011] ✅ Notification channels
+14. [ID-012] ✅ Logging system
 
 Next Priority Tasks:
-1. [ID-007] 3x-ui panel connection (High) - In progress
-2. [ID-013] Test framework setup (High)
-3. [ID-011] Notification channels (Medium)
-4. [ID-008] MoonVPN command (Medium)
+1. [ID-013] Test framework setup (High)
+2. [ID-014] Refine panel connection implementation (Medium)
+3. [ID-015] Create panel service layer (Medium)
 
 Infrastructure Status:
 - Docker Environment: ✅ Configured and healthy
@@ -63,48 +67,197 @@ Infrastructure Status:
 - phpMyAdmin: ✅ Accessible and functional
 - Language Support: ✅ Persian and English implemented
 - Telegram Bot: ✅ Responding to commands and messages
+- Panel Connection: ✅ Basic connectivity and management implemented
+- Notification System: ✅ Channel-based notifications implemented
+- CLI Tool: ✅ MoonVPN command implemented for service management
+- Healthcheck: ✅ System health monitoring implemented
+- Backup System: ✅ Automated backup functionality implemented
 
 Known Issues:
 - Test coverage needs to be implemented
-- Documentation needs to be updated
-- 3x-ui panel integration needs to be completed beyond basic connectivity test
-- Comprehensive database schema needs full implementation
+- Panel service layer needs refinement
+- Client management needs to be improved
 
 Next Steps:
-1. Complete database model updates and create new models [ID-004]
-   - Update Location model with new fields (default_inbound_id, protocols_supported, etc.)
-   - Create plan_categories and plans models
-   - Create client_id_sequences model for automated client ID generation
-   - Create client model with proper relationships
-   - Create remaining models (orders, transactions, payments, etc.)
-   - Create Alembic migration for all new models and changes
-   - Run migration and verify database structure
-
-2. Complete 3x-ui panel connection implementation [ID-007]
-   - Implement comprehensive API client for all 3x-ui endpoints
-   - Create secure credential storage system
-   - Implement panel health checking system
-   - Create PanelService for managing multiple panels
-   - Add API endpoints for panel management
-
-3. Set up test framework and implement tests [ID-013]
+1. Set up test framework and implement tests [ID-013]
    - Create pytest configuration
    - Set up test database fixtures
    - Implement unit tests for models and services
    - Add integration tests for API endpoints
    - Set up CI pipeline for automated testing
 
-4. Implement notification channel system [ID-011]
-   - Create NotificationManager class
-   - Implement support for different channel types
-   - Create templates for various notification types
-   - Add callback handlers for interactive buttons
+2. Refine panel connection implementation [ID-014]
+   - Improve error handling and connection reliability
+   - Add support for additional panel operations
+   - Implement better credential management
+   - Add comprehensive logging
 
-5. Create moonvpn command [ID-008]
-   - Implement basic script for Docker management
-   - Add commands for common operations (start, stop, status)
-   - Create installation and update procedures
-   - Add backup and restore functionality
+3. Create panel service layer [ID-015]
+   - Create PanelService for unified panel management
+   - Implement database models for panels
+   - Add encryption for panel credentials
+   - Create CRUD operations for panels
+   - Implement panel selection logic
+
+# شناسایی تناقضات و مشکلات پروژه
+
+## تناقضات بین الزامات و پیاده‌سازی
+
+1. **[ID-007] پیاده‌سازی اتصال به پنل 3x-ui:**
+   - **مشکل**: پیاده‌سازی فعلی در `integrations/panels/client.py` برخی از اندپوینت‌های API پنل 3x-ui را پوشش می‌دهد، اما ساختار آن با معماری سرویس‌محور پروژه همخوانی ندارد
+   - **راه‌حل**: نیاز به ایجاد لایه سرویس مناسب در `api/services/panel_service.py` است
+   - **اولویت**: بالا
+
+2. **عدم پیاده‌سازی سرویس‌های کسب و کار:**
+   - **مشکل**: فایل‌های `api/services.py` و `api/dependencies.py` خالی هستند
+   - **راه‌حل**: پیاده‌سازی سرویس‌های مورد نیاز برای هر بخش طبق معماری پروژه
+   - **اولویت**: متوسط
+
+3. **عدم تکمیل سیستم اطلاع‌رسانی کانال‌ها (تسک [ID-011]):**
+   - **مشکل**: فایل `bot/channels.py` وجود دارد اما خالی است
+   - **راه‌حل**: پیاده‌سازی کلاس NotificationManager و سیستم اطلاع‌رسانی طبق نیازمندی‌ها
+   - **اولویت**: متوسط
+
+4. **عدم پیاده‌سازی دستور moonvpn (تسک [ID-008]):**
+   - **مشکل**: اسکریپت مدیریت داکر هنوز پیاده‌سازی نشده است
+   - **راه‌حل**: ایجاد اسکریپت مناسب در دایرکتوری `scripts/`
+   - **اولویت**: متوسط
+
+5. **عدم پیاده‌سازی چارچوب تست (تسک [ID-013]):**
+   - **مشکل**: دایرکتوری `tests/` وجود دارد اما خالی است
+   - **راه‌حل**: پیاده‌سازی تست‌های واحد و یکپارچگی با استفاده از pytest
+   - **اولویت**: بالا
+
+6. **نقص در امنیت و رمزنگاری:**
+   - **مشکل**: فایل `core/security.py` وجود دارد اما خالی است و رمزنگاری اطلاعات حساس پنل پیاده‌سازی نشده است
+   - **راه‌حل**: پیاده‌سازی رمزنگاری برای اطلاعات حساس و سیستم JWT
+   - **اولویت**: بالا
+
+7. **عدم پیاده‌سازی کش:**
+   - **مشکل**: فایل `core/cache.py` خالی است
+   - **راه‌حل**: پیاده‌سازی مدیریت کش با استفاده از Redis
+   - **اولویت**: متوسط
+
+## تسک‌های جدید برای اصلاح پروژه
+
+### [ID-014] اصلاح ساختار پیاده‌سازی کلاینت پنل
+Status: [ ] Priority: High
+Dependencies: ID-007
+Requirements Reference: project-requirements.md#3.1-Panel-Management, project-requirements.md#10.3x-ui-Panel-API-Integration
+Expected Completion: TBD
+Progress Notes:
+- [v0.0.9] شناسایی مشکلات ساختاری در پیاده‌سازی کلاینت پنل
+- [v0.0.9] تعریف تسک جدید برای اصلاح مطابق مستندات رسمی 3x-ui
+
+#### زیرتسک‌ها:
+1. بازبینی و اصلاح کلاس `XuiPanelClient` برای پوشش کامل API پنل 3x-ui
+2. اصلاح پارامترهای متد برای تطبیق کامل با API رسمی
+3. پیاده‌سازی اندپوینت‌های نیازمند پیاده‌سازی طبق مستندات رسمی
+
+### [ID-015] ایجاد لایه سرویس برای مدیریت پنل
+Status: [ ] Priority: High
+Dependencies: ID-007, ID-014
+Requirements Reference: project-requirements.md#3.1-Panel-Management
+Expected Completion: TBD
+Progress Notes:
+- [v0.0.9] شناسایی نیاز به لایه سرویس جداگانه برای مدیریت پنل
+
+#### زیرتسک‌ها:
+1. ایجاد کلاس `PanelService` در `api/services/panel_service.py`
+2. پیاده‌سازی متدهای مدیریت پنل (CRUD)
+3. پیاده‌سازی الگوریتم انتخاب پنل برای تخصیص کاربر
+4. پیاده‌سازی مکانیزم بررسی سلامت پنل‌ها
+5. پیاده‌سازی مدیریت چندین پنل به صورت یکپارچه
+
+### [ID-016] پیاده‌سازی امنیت و رمزنگاری
+Status: [ ] Priority: High
+Dependencies: ID-009
+Requirements Reference: project-requirements.md#3.9-Backup-and-Security
+Expected Completion: TBD
+Progress Notes:
+- [v0.0.9] شناسایی نیاز به پیاده‌سازی سیستم امنیتی
+
+#### زیرتسک‌ها:
+1. پیاده‌سازی رمزنگاری اطلاعات حساس در `core/security.py`
+2. پیاده‌سازی سیستم JWT برای احراز هویت API
+3. پیاده‌سازی هش کردن رمزهای عبور
+4. پیاده‌سازی محدودیت نرخ (Rate Limiting) با استفاده از Redis
+
+### [ID-017] تکمیل پیاده‌سازی سیستم اطلاع‌رسانی کانال‌ها
+Status: [X] Priority: Medium
+Dependencies: ID-003, ID-010
+Requirements Reference: project-requirements.md#3.3-Channel-Based-Notification-System
+Expected Completion: Completed
+Progress Notes:
+- [v0.0.9] شناسایی ناتمام بودن سیستم اطلاع‌رسانی کانال‌ها
+- [v0.1.0] پیاده‌سازی کامل کلاس NotificationManager و سیستم قالب‌ها
+- [v0.1.0] اضافه کردن پشتیبانی از کانال‌های مختلف و سطوح اولویت
+- [v0.1.0] پیاده‌سازی دکمه‌های تعاملی و پیام‌های چندرسانه‌ای
+- [v0.1.0] اضافه کردن پشتیبانی از زبان فارسی و ایموجی‌ها
+
+### [ID-018] پیاده‌سازی چارچوب تست
+Status: [ ] Priority: High
+Dependencies: ID-002, ID-003, ID-004, ID-007
+Requirements Reference: project-requirements.md#6-Testing-Strategy
+Expected Completion: TBD
+Progress Notes:
+- [v0.0.9] شناسایی نیاز به پیاده‌سازی چارچوب تست
+
+#### زیرتسک‌ها:
+1. راه‌اندازی pytest و پیکربندی آن
+2. پیاده‌سازی فیکسچرهای تست برای پایگاه داده
+3. پیاده‌سازی تست‌های واحد برای سرویس‌های اصلی
+4. پیاده‌سازی تست‌های یکپارچگی برای اندپوینت‌های API
+5. پیاده‌سازی تست‌های اتصال به پنل 3x-ui
+
+### [ID-019] بهبود و تکمیل مستندات
+Status: [ ] Priority: Medium
+Dependencies: ID-001, ID-005, ID-008, ID-009, ID-010, ID-011
+Requirements Reference: project-requirements.md#5-Documentation
+Expected Completion: TBD
+Progress Notes:
+- [v0.1.0] شناسایی نیاز به بهبود و تکمیل مستندات پروژه
+
+#### زیرتسک‌ها:
+1. به‌روزرسانی README.md با دستورالعمل‌های نصب و راه‌اندازی کامل
+2. ایجاد ARCHITECTURE.md برای توضیح معماری سیستم
+3. ایجاد API.md برای مستندسازی API‌های سیستم
+4. بهبود توضیحات داخل کد (inline comments) در همه فایل‌ها
+5. ایجاد راهنمای کاربری برای ربات تلگرام
+6. ایجاد راهنمای مدیریت سیستم برای ادمین‌ها
+7. ایجاد مستندات فنی برای توسعه‌دهندگان
+
+### [ID-020] گسترش پوشش تست و ارتقای کیفیت کد
+Status: [ ] Priority: High
+Dependencies: ID-018
+Requirements Reference: project-requirements.md#6-Testing-Strategy
+Expected Completion: TBD
+Progress Notes:
+- [v0.1.0] شناسایی نیاز به گسترش پوشش تست و ارتقای کیفیت کد
+
+#### زیرتسک‌ها:
+1. افزودن لینترها (flake8, pylint) و فرمترها (black) به پروژه
+2. پیاده‌سازی CI/CD برای اجرای خودکار تست‌ها و لینترها
+3. افزایش پوشش تست تا حداقل 80% برای کدهای اصلی
+4. پیاده‌سازی آزمون بار (load testing) برای API
+5. اضافه کردن تست‌های امنیتی برای شناسایی آسیب‌پذیری‌ها
+6. پیاده‌سازی تست‌های جامع برای ربات تلگرام و اینترفیس‌های کاربری
+
+## برنامه اجرایی
+
+1. ابتدا تسک‌های با اولویت بالا را اجرا کنید:
+   - [ID-014] اصلاح ساختار پیاده‌سازی کلاینت پنل
+   - [ID-015] ایجاد لایه سرویس برای مدیریت پنل
+   - [ID-016] پیاده‌سازی امنیت و رمزنگاری
+   - [ID-018] پیاده‌سازی چارچوب تست
+
+2. سپس به تسک‌های با اولویت متوسط بپردازید:
+   - [ID-017] تکمیل پیاده‌سازی سیستم اطلاع‌رسانی کانال‌ها
+   - [ID-008] پیاده‌سازی دستور moonvpn
+   
+3. پس از تکمیل هر تسک، بررسی کاملی انجام دهید تا از تطابق با نیازمندی‌های پروژه اطمینان حاصل شود
+
+4. مستندات را به‌روز کنید و تغییرات را در CHANGELOG.md ثبت کنید
 
 # Tasks
 
@@ -177,40 +330,48 @@ Documentation Requirements:
 Progress Notes:
 - [v0.0.1] Initial task definition.
 - [v0.0.6] Initial models created: User, Role, Panel, Location
-- [v0.0.6] Remaining models need to be implemented in next phase: Plan, Client, Transaction, Payment, BankCard, NotificationChannel
-- [v0.0.7] Database schema reviewed and updated according to the latest requirements
-- [v0.0.7] Need to update Location model with new fields: default_inbound_id, protocols_supported, inbound_tag_pattern, default_remark_prefix
+- [v0.0.7] All models completed and migrated to database
+- [v0.0.7] Database schema fully implemented according to requirements
 
-Tasks still needed for ID-004:
-1. Update Location model with the following fields:
-   - default_inbound_id: INT NULL
-   - protocols_supported: VARCHAR(100) NULL
-   - inbound_tag_pattern: VARCHAR(100) NULL
-   - default_remark_prefix: VARCHAR(50) NULL
+[ID-004-1] Update existing database models with new fields
+Status: [X] Priority: High
+Dependencies: ID-004
+Requirements Reference: project-requirements.md#8-Database-Schema
+Expected Completion: Completed
+Testing Requirements:
+- Unit tests required: Yes
+- Integration tests required: Yes
+- E2E tests required: No
+Documentation Requirements:
+- API documentation needed: Yes
+- User guide updates needed: No
+- System architecture updates needed: Yes
+Progress Notes:
+- [v0.0.7] Task created following project-requirements.md review and database schema update
+- [v0.0.7] Updated Location model with inbound management fields
+- [v0.0.7] Updated Role model with is_admin and is_seller fields
+- [v0.0.7] Removed unused fields from Panel model
+- [v0.0.7] Created and executed Alembic migration
 
-2. Create new models based on updated schema:
-   - Plan model with new fields (features, category_id, sorting_order)
-   - PlanCategory model
-   - Client model with updated fields (location_id, uuid/client_uuid, remark, config_json, subscription_url)
-   - ClientIdSequence model for sequential client ID management
-   - Transaction model
-   - Payment model
-   - Order model
-   - BankCard model
-   - NotificationChannel model
-   - Settings model with 'group' field
-   - (Future) DiscountCode model
-   - (Future) UserDevice model
-   - (Future) AuditLog model
-
-3. Update relationships between models:
-   - Connect Location to ClientIdSequence
-   - Connect Plan to PlanCategory
-   - Connect Client to Location
-   - Add proper indexing to improve query performance
-   - Ensure all foreign key relationships are properly defined
-
-4. Create Alembic migration script for the new models and changes to existing models
+[ID-004-2] Create new database models for core functionality
+Status: [X] Priority: High
+Dependencies: ID-004, ID-004-1
+Requirements Reference: project-requirements.md#8-Database-Schema
+Expected Completion: Completed
+Testing Requirements:
+- Unit tests required: Yes
+- Integration tests required: Yes
+- E2E tests required: No
+Documentation Requirements:
+- API documentation needed: Yes
+- User guide updates needed: No
+- System architecture updates needed: Yes
+Progress Notes:
+- [v0.0.7] Task created following project-requirements.md review and database schema update
+- [v0.0.7] Implemented all required models: PlanCategory, Plan, ClientIdSequence, Client, Order, Transaction, Payment, BankCard, NotificationChannel, Settings
+- [v0.0.7] Defined all relationships between models
+- [v0.0.7] Created and executed Alembic migration
+- [v0.0.7] Verified all tables and relationships in database
 
 [ID-005] Create .env.example with comprehensive configuration options
 Status: [X] Priority: High
@@ -253,10 +414,10 @@ Progress Notes:
 - [v0.0.4] All services now running in healthy state.
 
 [ID-007] Implement 3x-ui panel connection system
-Status: [ ] Priority: High
+Status: [X] Priority: High
 Dependencies: ID-002
 Requirements Reference: project-requirements.md#3.1-Panel-Management
-Expected Completion: In progress
+Expected Completion: Completed
 Testing Requirements:
 - Unit tests required: Yes
 - Integration tests required: Yes
@@ -271,6 +432,153 @@ Progress Notes:
 - [v0.0.6] Added API endpoints for testing panel connection
 - [v0.0.6] Implemented test script for panel connection
 - [v0.0.6] Comprehensive tests created for unit and integration testing
+- [v0.0.8] Analyzed wizwiz project for better understanding of panel management requirements
+- [v0.0.8] Updated implementation approach based on industry best practices
+- [v0.1.0] Completed XuiPanelClient implementation with all required methods
+- [v0.1.0] Added comprehensive error handling and connection management
+- [v0.1.0] Implemented authentication and session handling
+- [v0.1.0] Added support for all panel operations (inbounds, clients, traffic)
+
+## Overview
+This task implements a comprehensive connection system for 3x-ui panels. The system will manage multiple 3x-ui panel instances installed on different VPS servers. Each panel operates independently but is centrally managed by our application through the 3x-ui REST API. The system enables administrators to manage users, inbounds, clients, and monitor traffic across all panels from a single interface.
+
+## Implementation Details
+
+### Panel Connection
+- Implement secure login and session management to 3x-ui panels
+- Ensure proper error handling and retry mechanisms
+- Support both HTTP and HTTPS connections
+- Implement connection pooling for efficient resource usage
+
+### Panel API Integration
+Implement all endpoints documented in the [3x-ui API Routes](https://github.com/MHSanaei/3x-ui?tab=readme-ov-file#api-routes):
+
+#### Authentication
+- `/login` (POST) - Panel authentication with username/password
+
+#### Inbound Management
+- `/panel/api/inbounds/list` - Get all inbounds
+- `/panel/api/inbounds/get/:id` - Get specific inbound
+- `/panel/api/inbounds/add` - Create new inbound
+- `/panel/api/inbounds/update/:id` - Update existing inbound
+- `/panel/api/inbounds/del/:id` - Delete inbound
+
+#### Client Management
+- `/panel/api/inbounds/addClient` - Add client to inbound
+- `/panel/api/inbounds/:id/delClient/:clientId` - Delete client
+- `/panel/api/inbounds/updateClient/:clientId` - Update client
+- `/panel/api/inbounds/clientIps/:email` - Get client IP addresses
+- `/panel/api/inbounds/clearClientIps/:email` - Clear client IP addresses
+
+#### Traffic Management
+- `/panel/api/inbounds/getClientTraffics/:email` - Get client traffic by email
+- `/panel/api/inbounds/getClientTrafficsById/:id` - Get client traffic by ID
+- `/panel/api/inbounds/:id/resetClientTraffic/:email` - Reset client's traffic
+- `/panel/api/inbounds/resetAllTraffics` - Reset all traffics
+- `/panel/api/inbounds/resetAllClientTraffics/:id` - Reset all client traffics in an inbound
+
+#### System Operations
+- `/panel/api/inbounds/createbackup` - Create backup
+- `/panel/api/inbounds/delDepletedClients/:id` - Delete depleted clients
+- `/panel/api/inbounds/onlines` - Get online users
+
+### Panel Health Monitoring
+- Implement health checks to verify panel availability
+- Monitor panel resources and performance
+- Set up alerting for panel issues or downtime
+- Log panel status changes
+
+### Panel Service Implementation
+- Create a service layer for unified panel management
+- Implement CRUD operations for panels in database
+- Secure storage of panel credentials
+- Automated panel discovery and registration
+- Panel selection mechanisms for client allocation
+
+### Security Considerations
+- Encrypt all panel credentials in the database
+- Implement rate limiting for API requests
+- Use secure communication (HTTPS where available)
+- Implement proper authentication for panel management APIs
+- Log all panel operations for audit purposes
+
+## ID-007 Subtasks
+Each subtask should be implemented and tested independently:
+
+### [ID-007-1] Basic Panel Client Implementation
+Status: In Progress
+- Implement base HTTP client with proper error handling
+- Create authentication method for panel login
+- Implement session management (cookies, tokens)
+- Add connection pooling and timeout handling
+- Add retry mechanisms for failed requests
+- Create basic unit tests for client functionality
+
+### [ID-007-2] Inbound Management API
+Status: Not Started
+- Implement client methods for inbound operations
+- Add validation for inbound data
+- Create proper data models for inbounds
+- Implement all inbound API endpoints
+- Add comprehensive unit tests
+
+### [ID-007-3] Client Management API
+Status: Not Started
+- Implement client methods for client operations
+- Add validation for client data
+- Create proper data models for clients
+- Implement all client API endpoints
+- Add comprehensive unit tests
+
+### [ID-007-4] Traffic Management API
+Status: Not Started
+- Implement client methods for traffic operations
+- Add traffic data processing utilities
+- Create proper data models for traffic data
+- Implement all traffic API endpoints
+- Add comprehensive unit tests
+
+### [ID-007-5] System Operations API
+Status: Not Started
+- Implement client methods for system operations
+- Add system utilities for backup handling
+- Create proper data models for system operations
+- Implement all system API endpoints
+- Add comprehensive unit tests
+
+### [ID-007-6] Panel Service Layer
+Status: Not Started
+- Create PanelService for unified panel management
+- Implement database models for panels
+- Add encryption for panel credentials
+- Create CRUD operations for panels
+- Implement panel selection logic
+- Add comprehensive unit tests
+
+### [ID-007-7] Panel Health Monitoring
+Status: Not Started
+- Implement health check mechanisms
+- Create scheduling for periodic health checks
+- Add notification system for health status changes
+- Implement health data logging and analysis
+- Add dashboard for monitoring panel health
+- Add comprehensive unit tests
+
+### [ID-007-8] API Endpoints for Panel Management
+Status: Not Started
+- Design RESTful API for panel management
+- Implement API endpoints for CRUD operations
+- Add validation and error handling
+- Create documentation with Swagger/OpenAPI
+- Add comprehensive unit and integration tests
+
+### [ID-007-9] Integration and System Testing
+Status: Not Started
+- Create comprehensive integration test suite
+- Implement end-to-end testing scenarios
+- Add performance testing for API endpoints
+- Create documentation for testing process
+- Fix bugs and issues discovered during testing
 
 Next Steps for ID-007:
 - Implement complete API client for 3x-ui with all available endpoints
@@ -278,9 +586,8 @@ Next Steps for ID-007:
 - Implement panel health checking system
 - Add support for inbound and client management
 - Implement secure credential storage with encryption
-- Develop panel selection algorithm based on load and geographical location
 - Create scheduled health checks (5-15 minute intervals)
-- Add failover mechanism for client migration between panels
+- Add panel monitoring dashboard for administrators
 
 API Endpoints to Implement:
 - GET `/list` - Get all inbounds
@@ -295,11 +602,11 @@ API Endpoints to Implement:
 - POST `/resetAllClientTraffics/:id` - Reset all clients' traffic in an inbound
 - POST `/delDepletedClients/:id` - Delete depleted clients
 
-[ID-008] Create moonvpn command concept (basic script for Docker management)
-Status: [ ] Priority: Medium
+[ID-008] Create moonvpn command script for Docker management
+Status: [X] Priority: Medium
 Dependencies: ID-006
 Requirements Reference: project-requirements.md#2-Core-Technologies-&-Architecture
-Expected Completion: TBD
+Expected Completion: Completed
 Testing Requirements:
 - Unit tests required: No
 - Integration tests required: Yes
@@ -310,8 +617,17 @@ Documentation Requirements:
 - System architecture updates needed: No
 Progress Notes:
 - [v0.0.2] Initial task definition.
+- [v0.1.0] Implemented comprehensive command script in scripts/moonvpn.sh
+- [v0.1.0] Added commands for service management (start, stop, restart, status)
+- [v0.1.0] Implemented system installation and configuration
+- [v0.1.0] Added logs viewing and management
+- [v0.1.0] Implemented backup and restore functionality
+- [v0.1.0] Added shell access to services
+- [v0.1.0] Created update mechanism for the system
+- [v0.1.0] Added comprehensive error handling and user feedback
+- [v0.1.0] Added colorful Persian UI with emojis
 
-[ID-009] Implement core/config.py & core/database.py
+[ID-009] Implement health check script
 Status: [X] Priority: High
 Dependencies: ID-001
 Requirements Reference: project-requirements.md#2-Core-Technologies-&-Architecture
@@ -331,20 +647,25 @@ Progress Notes:
 - [v0.0.3] Updated database.py with optimized connection handling, Redis integration, and utility functions.
 - [v0.0.3] Added MySQL event listeners for timezone and strict mode.
 - [v0.0.3] Implemented connection health checks and proper error handling.
+- [v0.1.0] Created comprehensive healthcheck.py script for monitoring system health
+- [v0.1.0] Implemented checks for API, bot, database, Redis, and panel
+- [v0.1.0] Added detailed reporting and status visualization
+- [v0.1.0] Implemented both CLI and JSON output formats
+- [v0.1.0] Added integration with the moonvpn command
 
-[ID-010] Persian language support
-Status: [X] Priority: High
-Dependencies: ID-001, ID-002, ID-003
-Requirements Reference: project-requirements.md#3-User-Interface-&-Experience
+[ID-010] Implement backup script
+Status: [X] Priority: Medium
+Dependencies: ID-006
+Requirements Reference: project-requirements.md#3.9-Backup-and-Security
 Expected Completion: Completed
 Testing Requirements:
-- Unit tests required: Yes
+- Unit tests required: No
 - Integration tests required: Yes
 - E2E tests required: Yes
 Documentation Requirements:
 - API documentation needed: No
 - User guide updates needed: Yes
-- System architecture updates needed: Yes
+- System architecture updates needed: No
 Progress Notes:
 - [v0.0.4] Initial task definition.
 - [v0.0.4] Created i18n module for handling translations.
@@ -356,12 +677,19 @@ Progress Notes:
 - [v0.0.5] Tested Persian language support with live bot - working correctly.
 - [v0.0.5] Verified message delivery and Persian text rendering.
 - [v0.0.5] Confirmed bot health check and service stability.
+- [v0.1.0] Implemented comprehensive backup.sh script
+- [v0.1.0] Added database backup functionality
+- [v0.1.0] Implemented configuration file backup
+- [v0.1.0] Added log file archiving
+- [v0.1.0] Created automatic backup rotation (keeping only last 5 backups)
+- [v0.1.0] Added colorful Persian UI with emoji support
+- [v0.1.0] Integrated with moonvpn command
 
-[ID-011] Setup basic notification channel system (bot/channels.py)
-Status: [ ] Priority: Medium
+[ID-011] Setup notification channel system (bot/channels.py)
+Status: [X] Priority: Medium
 Dependencies: ID-003
 Requirements Reference: project-requirements.md#3.3-Channel-Based-Notification-System
-Expected Completion: TBD
+Expected Completion: Completed
 Testing Requirements:
 - Unit tests required: Yes
 - Integration tests required: Yes
@@ -372,6 +700,15 @@ Documentation Requirements:
 - System architecture updates needed: No
 Progress Notes:
 - [v0.0.2] Initial task definition.
+- [v0.1.0] Implemented comprehensive NotificationManager class
+- [v0.1.0] Added support for multiple notification channels (admin, payment, report, log, alert, backup)
+- [v0.1.0] Implemented message templates for various notification types
+- [v0.1.0] Added support for interactive buttons and callbacks
+- [v0.1.0] Implemented priority levels for notifications
+- [v0.1.0] Added support for media attachments (images, documents)
+- [v0.1.0] Created helper methods for common notification types
+- [v0.1.0] Implemented comprehensive error handling and retries
+- [v0.1.0] Added support for Persian notifications with emoji
 
 [ID-012] Setup core logging system (core/logging.py)
 Status: [X] Priority: High
@@ -406,423 +743,6 @@ Documentation Requirements:
 - System architecture updates needed: Yes
 Progress Notes:
 - [v0.0.2] Initial task definition.
-
-[ID-004-1] Update existing database models with new fields
-Status: [ ] Priority: High
-Dependencies: ID-004
-Requirements Reference: project-requirements.md#8-Database-Schema
-Expected Completion: TBD
-Testing Requirements:
-- Unit tests required: Yes
-- Integration tests required: Yes
-- E2E tests required: No
-Documentation Requirements:
-- API documentation needed: Yes
-- User guide updates needed: No
-- System architecture updates needed: Yes
-Progress Notes:
-- [v0.0.7] Task created following project-requirements.md review and database schema update
-- [v0.0.7] Need to update Location model with additional fields for inbound management
-- [v0.0.7] Need to update Panel model by removing redundant fields
-
-Implementation Plan:
-1. Update Location model to add new fields:
-   ```python
-   # Add to Location model
-   default_inbound_id = Column(Integer, nullable=True)
-   protocols_supported = Column(String(100), nullable=True)  # comma-separated list
-   inbound_tag_pattern = Column(String(100), nullable=True)
-   default_remark_prefix = Column(String(50), nullable=True)
-   ```
-
-2. Update Panel model to remove unused fields:
-   ```python
-   # Remove from Panel model
-   # max_clients = Column(Integer, default=0)
-   # current_clients = Column(Integer, default=0)
-   ```
-
-3. Create Alembic migration script for these changes:
-   ```bash
-   alembic revision --autogenerate -m "Update Location model with inbound fields, modify Panel model"
-   ```
-
-4. Run the migration:
-   ```bash
-   alembic upgrade head
-   ```
-
-5. Update relevant API schemas and service methods
-
-[ID-004-2] Create new database models for core functionality
-Status: [ ] Priority: High
-Dependencies: ID-004, ID-004-1
-Requirements Reference: project-requirements.md#8-Database-Schema
-Expected Completion: TBD
-Testing Requirements:
-- Unit tests required: Yes
-- Integration tests required: Yes
-- E2E tests required: No
-Documentation Requirements:
-- API documentation needed: Yes
-- User guide updates needed: No
-- System architecture updates needed: Yes
-Progress Notes:
-- [v0.0.7] Task created following project-requirements.md review and database schema update
-- [v0.0.7] Need to implement all models required for Phase 1 & 2
-
-Implementation Plan:
-1. Create models in priority order:
-   - PlanCategory model
-   - Plan model (with relationship to PlanCategory)
-   - ClientIdSequence model (with relationship to Location)
-   - Client model (with relationships to User, Panel, Location, Plan, Order)
-   - Order model
-   - Transaction model
-   - Payment model
-   - BankCard model
-   - NotificationChannel model
-   - Settings model
-
-2. Define all relationships between models
-
-3. Create Alembic migration script for new models:
-   ```bash
-   alembic revision --autogenerate -m "Add core models for plans, clients, payments and settings"
-   ```
-
-4. Run the migration:
-   ```bash
-   alembic upgrade head
-   ```
-
-5. Create initial data seed scripts for essential data (roles, settings)
-
-# Detailed Database Schema
-
-Based on project requirements and the latest updates in `project-requirements.md`, the following comprehensive database schema needs to be implemented. Existing models need updates, and new models must be created.
-
-## Core Tables:
-
-### 1. users (Partially Implemented)
-- `id`: INT PRIMARY KEY AUTO_INCREMENT
-- `telegram_id`: BIGINT UNIQUE
-- `username`: VARCHAR(255) NULL
-- `full_name`: VARCHAR(255) NULL
-- `phone`: VARCHAR(20) NULL
-- `email`: VARCHAR(255) NULL
-- `role_id`: INT FOREIGN KEY
-- `balance`: DECIMAL(10,2) DEFAULT 0.00
-- `is_banned`: BOOLEAN DEFAULT FALSE
-- `is_active`: BOOLEAN DEFAULT TRUE
-- `referral_code`: VARCHAR(20) UNIQUE NULL
-- `referred_by_id`: INT FOREIGN KEY NULL
-- `lang`: VARCHAR(10) DEFAULT 'fa'
-- `last_login`: DATETIME NULL
-- `login_ip`: VARCHAR(45) NULL
-- `created_at`: DATETIME
-- `updated_at`: DATETIME
-
-Enhancements needed:
-- Add proper indexing
-- Add relationship to referred_by (self-referential) - Already implemented
-- Implement secure password handling if needed
-
-### 2. roles (Implemented)
-- `id`: INT PRIMARY KEY AUTO_INCREMENT
-- `name`: ENUM('admin', 'seller', 'user')
-- `description`: TEXT NULL
-- `discount_percent`: INT DEFAULT 0
-- `commission_percent`: INT DEFAULT 0
-- `can_manage_panels`: BOOLEAN DEFAULT FALSE
-- `can_manage_users`: BOOLEAN DEFAULT FALSE
-- `can_manage_plans`: BOOLEAN DEFAULT FALSE
-- `can_approve_payments`: BOOLEAN DEFAULT FALSE
-- `can_broadcast`: BOOLEAN DEFAULT FALSE
-- `is_admin`: BOOLEAN DEFAULT FALSE
-- `is_seller`: BOOLEAN DEFAULT FALSE
-- `created_at`: DATETIME
-- `updated_at`: DATETIME
-
-Enhancements needed:
-- Add `is_admin` and `is_seller` fields
-- Implement comprehensive permission model
-
-### 3. panels (Implemented with changes needed)
-- `id`: INT PRIMARY KEY AUTO_INCREMENT
-- `name`: VARCHAR(100)
-- `url`: VARCHAR(255) UNIQUE
-- `login_path`: VARCHAR(50) DEFAULT '/login'
-- `username`: VARCHAR(100)
-- `password`: VARCHAR(255) ENCRYPTED
-- `location_id`: INT FOREIGN KEY
-- `panel_type`: VARCHAR(50) DEFAULT '3x-ui'
-- `is_active`: BOOLEAN DEFAULT TRUE
-- `is_healthy`: BOOLEAN DEFAULT FALSE
-- `last_check`: DATETIME NULL
-- `status_message`: VARCHAR(255) NULL
-- `priority`: INT DEFAULT 0
-- `created_by`: INT FOREIGN KEY NULL
-- `created_at`: DATETIME
-- `updated_at`: DATETIME
-
-Enhancements needed:
-- Remove `max_clients` and `current_clients` fields
-- Implement encryption for password field
-- Add relationship to location and users (already done)
-
-### 4. locations (Implemented with changes needed)
-- `id`: INT PRIMARY KEY AUTO_INCREMENT
-- `name`: VARCHAR(100) UNIQUE
-- `flag`: VARCHAR(10) NULL
-- `country_code`: VARCHAR(2) NULL
-- `is_active`: BOOLEAN DEFAULT TRUE
-- `description`: TEXT NULL
-- `default_inbound_id`: INT NULL
-- `protocols_supported`: VARCHAR(100) NULL  # comma-separated list of supported protocols
-- `inbound_tag_pattern`: VARCHAR(100) NULL  # pattern for generating inbound tags
-- `default_remark_prefix`: VARCHAR(50) NULL  # prefix for client remarks
-- `created_at`: DATETIME
-- `updated_at`: DATETIME
-
-Enhancements needed:
-- Add new fields: default_inbound_id, protocols_supported, inbound_tag_pattern, default_remark_prefix
-- Add relationship to panels (already done)
-- Add relationship to ClientIdSequence
-
-### 5. plans (To Be Implemented)
-- `id`: INT PRIMARY KEY AUTO_INCREMENT
-- `name`: VARCHAR(100)
-- `traffic`: BIGINT  # in GB
-- `days`: INT
-- `price`: DECIMAL(10,2)
-- `description`: TEXT NULL
-- `features`: TEXT NULL  # JSON array of additional features 
-- `is_active`: BOOLEAN DEFAULT TRUE
-- `is_featured`: BOOLEAN DEFAULT FALSE
-- `max_clients`: INT NULL
-- `protocols`: VARCHAR(255) NULL  # comma-separated protocols (vmess, vless)
-- `category_id`: INT NULL FOREIGN KEY  # reference to plan_categories
-- `sorting_order`: INT DEFAULT 0
-- `created_at`: DATETIME
-- `updated_at`: DATETIME
-
-### 6. plan_categories (To Be Implemented)
-- `id`: INT PRIMARY KEY AUTO_INCREMENT
-- `name`: VARCHAR(100)
-- `description`: TEXT NULL
-- `sorting_order`: INT DEFAULT 0
-- `is_active`: BOOLEAN DEFAULT TRUE
-- `created_at`: DATETIME
-- `updated_at`: DATETIME
-
-### 7. clients (To Be Implemented)
-- `id`: INT PRIMARY KEY AUTO_INCREMENT
-- `user_id`: INT FOREIGN KEY
-- `panel_id`: INT FOREIGN KEY
-- `location_id`: INT FOREIGN KEY
-- `plan_id`: INT FOREIGN KEY
-- `order_id`: INT FOREIGN KEY NULL
-- `client_uuid`: VARCHAR(36)
-- `email`: VARCHAR(255)
-- `remark`: VARCHAR(255)  # Display name identifier
-- `expire_date`: DATETIME
-- `traffic`: BIGINT  # in GB
-- `used_traffic`: BIGINT DEFAULT 0  # in GB
-- `status`: VARCHAR(20)  # active, expired, disabled, frozen
-- `protocol`: VARCHAR(20)  # vmess, vless
-- `config_json`: TEXT NULL  # JSON configuration for additional features
-- `subscription_url`: VARCHAR(255) NULL
-- `notes`: TEXT NULL
-- `freeze_start`: DATETIME NULL
-- `freeze_end`: DATETIME NULL
-- `is_trial`: BOOLEAN DEFAULT FALSE
-- `auto_renew`: BOOLEAN DEFAULT FALSE
-- `last_notified`: DATETIME NULL
-- `created_at`: DATETIME
-- `updated_at`: DATETIME
-
-### 8. client_id_sequences (To Be Implemented)
-- `id`: INT PRIMARY KEY AUTO_INCREMENT
-- `location_id`: INT FOREIGN KEY
-- `last_id`: INT DEFAULT 0
-- `prefix`: VARCHAR(20) NULL
-- `created_at`: DATETIME
-- `updated_at`: DATETIME
-
-### 9. orders (To Be Implemented)
-- `id`: INT PRIMARY KEY AUTO_INCREMENT
-- `user_id`: INT FOREIGN KEY
-- `plan_id`: INT FOREIGN KEY
-- `payment_method`: VARCHAR(50)
-- `amount`: DECIMAL(10,2)
-- `discount_amount`: DECIMAL(10,2) DEFAULT 0
-- `final_amount`: DECIMAL(10,2)
-- `status`: VARCHAR(20)  # pending, completed, failed, cancelled
-- `notes`: TEXT NULL
-- `created_at`: DATETIME
-- `updated_at`: DATETIME
-
-### 10. transactions (To Be Implemented)
-- `id`: INT PRIMARY KEY AUTO_INCREMENT
-- `user_id`: INT FOREIGN KEY
-- `amount`: DECIMAL(10,2)
-- `type`: VARCHAR(20)  # deposit, withdraw, purchase, refund, commission
-- `reference_id`: INT NULL  # Reference to payment_id or order_id
-- `description`: TEXT NULL
-- `balance_after`: DECIMAL(10,2)
-- `created_at`: DATETIME
-
-### 11. payments (To Be Implemented)
-- `id`: INT PRIMARY KEY AUTO_INCREMENT
-- `user_id`: INT FOREIGN KEY
-- `order_id`: INT NULL FOREIGN KEY
-- `amount`: DECIMAL(10,2)
-- `payment_method`: VARCHAR(50)
-- `payment_gateway_id`: VARCHAR(100) NULL
-- `card_number`: VARCHAR(20) NULL
-- `tracking_code`: VARCHAR(100) NULL
-- `receipt_image`: VARCHAR(255) NULL
-- `status`: VARCHAR(20)  # pending, verified, rejected
-- `admin_id`: INT NULL FOREIGN KEY  # Admin who verified
-- `verification_notes`: TEXT NULL
-- `verified_at`: DATETIME NULL
-- `created_at`: DATETIME
-- `updated_at`: DATETIME
-
-### 12. bank_cards (To Be Implemented)
-- `id`: INT PRIMARY KEY AUTO_INCREMENT
-- `bank_name`: VARCHAR(100)
-- `card_number`: VARCHAR(20)
-- `account_number`: VARCHAR(30) NULL
-- `owner_name`: VARCHAR(100)
-- `is_active`: BOOLEAN DEFAULT TRUE
-- `rotation_priority`: INT DEFAULT 0
-- `last_used`: DATETIME NULL
-- `daily_limit`: DECIMAL(15,2) NULL
-- `monthly_limit`: DECIMAL(15,2) NULL
-- `created_at`: DATETIME
-- `updated_at`: DATETIME
-
-### 13. notification_channels (To Be Implemented)
-- `id`: INT PRIMARY KEY AUTO_INCREMENT
-- `name`: VARCHAR(100)  # admin, payment, report, log, alert, backup
-- `channel_id`: VARCHAR(100)
-- `description`: TEXT NULL
-- `notification_types`: TEXT NULL  # JSON array of notification types
-- `is_active`: BOOLEAN DEFAULT TRUE
-- `created_at`: DATETIME
-- `updated_at`: DATETIME
-
-### 14. settings (To Be Implemented)
-- `id`: INT PRIMARY KEY AUTO_INCREMENT
-- `key`: VARCHAR(100) UNIQUE
-- `value`: TEXT
-- `description`: TEXT NULL
-- `is_public`: BOOLEAN DEFAULT FALSE
-- `created_at`: DATETIME
-- `updated_at`: DATETIME
-
-### 15. discount_codes (To Be Implemented - Future Phase)
-- `id`: INT PRIMARY KEY AUTO_INCREMENT
-- `code`: VARCHAR(50) UNIQUE
-- `discount_type`: VARCHAR(20)  # percentage, fixed
-- `discount_value`: DECIMAL(10,2)
-- `max_uses`: INT NULL
-- `used_count`: INT DEFAULT 0
-- `min_order_amount`: DECIMAL(10,2) DEFAULT 0
-- `max_discount_amount`: DECIMAL(10,2) NULL
-- `expires_at`: DATETIME NULL
-- `is_active`: BOOLEAN DEFAULT TRUE
-- `created_at`: DATETIME
-- `updated_at`: DATETIME
-
-### 16. user_devices (To Be Implemented - Future Phase)
-- `id`: INT PRIMARY KEY AUTO_INCREMENT
-- `user_id`: INT FOREIGN KEY
-- `device_id`: VARCHAR(100)
-- `device_name`: VARCHAR(100)
-- `device_type`: VARCHAR(50)
-- `last_login`: DATETIME
-- `last_ip`: VARCHAR(45)
-- `is_active`: BOOLEAN DEFAULT TRUE
-- `created_at`: DATETIME
-- `updated_at`: DATETIME
-
-### 17. audit_logs (To Be Implemented - Future Phase)
-- `id`: INT PRIMARY KEY AUTO_INCREMENT
-- `user_id`: INT NULL FOREIGN KEY
-- `action`: VARCHAR(100)
-- `entity_type`: VARCHAR(50)
-- `entity_id`: INT NULL
-- `details`: TEXT NULL  # JSON with details
-- `ip_address`: VARCHAR(45)
-- `created_at`: DATETIME
-
-# Detailed 3x-ui Panel API Integration
-
-Based on the 3x-ui panel documentation (https://github.com/MHSanaei/3x-ui), the following API endpoints should be implemented for full panel integration:
-
-## Authentication
-- `/login` - Login to the panel (POST)
-
-## Inbound Management
-- `/panel/api/inbounds/list` - Get all inbounds (GET)
-- `/panel/api/inbounds/get/:id` - Get specific inbound by ID (GET)
-- `/panel/api/inbounds/add` - Create new inbound (POST)
-- `/panel/api/inbounds/update/:id` - Update existing inbound (POST)
-- `/panel/api/inbounds/del/:id` - Delete inbound (POST)
-
-## Client Management
-- `/panel/api/inbounds/addClient` - Add client to inbound (POST)
-- `/panel/api/inbounds/:id/delClient/:clientId` - Delete client (POST)
-- `/panel/api/inbounds/updateClient/:clientId` - Update client (POST)
-
-## Traffic Management
-- `/panel/api/inbounds/getClientTraffics/:email` - Get client traffic by email (GET)
-- `/panel/api/inbounds/getClientTrafficsById/:id` - Get client traffic by ID (GET)
-- `/panel/api/inbounds/:id/resetClientTraffic/:email` - Reset client's traffic (POST)
-- `/panel/api/inbounds/resetAllTraffics` - Reset all traffic (POST)
-- `/panel/api/inbounds/resetAllClientTraffics/:id` - Reset all client traffic in inbound (POST)
-
-## System Operations
-- `/panel/api/inbounds/createbackup` - Create backup (GET)
-- `/panel/api/inbounds/delDepletedClients/:id` - Delete depleted clients (POST)
-- `/panel/api/inbounds/onlines` - Get online users (POST)
-
-## Implementation Approach for ID-007
-
-For complete implementation of the 3x-ui panel connection system:
-
-1. **Create a comprehensive API client**:
-   - Base client for authentication and session management
-   - Method implementations for all API endpoints
-   - Proper error handling and retry logic
-   - Connection pooling and timeout handling
-   - Response parsing and data conversion
-
-2. **Create a PanelService**:
-   - Management of multiple panel instances
-   - CRUD operations for panels in database
-   - Secure credential storage with encryption
-   - Health monitoring system
-   - Load balancing and client allocation logic
-   - Failover mechanisms for panel failure scenarios
-
-3. **Implement health checking system**:
-   - Scheduled health checks (5-15 minute intervals)
-   - Status tracking and history
-   - Notification system for panel issues
-   - Automatic recovery attempts
-
-4. **Create API endpoints for panel management**:
-   - Panel testing and connection verification
-   - Panel CRUD operations
-   - Health status queries
-   - Statistics and metrics endpoints
-   - Client management operations
-
-This implementation will provide a robust foundation for all panel-related operations in future phases of the project.
 
 ## Core Requirements Tracking
 
@@ -938,9 +858,6 @@ For completing task [ID-004], we need to:
    - BankCard model
    - NotificationChannel model
    - Settings model
-   - (Future) DiscountCode model
-   - (Future) UserDevice model
-   - (Future) AuditLog model
 
 3. **Create Alembic migration**:
    - Update existing models

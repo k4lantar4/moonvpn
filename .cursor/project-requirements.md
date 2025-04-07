@@ -12,7 +12,7 @@ MoonVPN aims to be a comprehensive, user-friendly, and robust system for managin
 - **Database GUI:** phpMyAdmin - To be installed alongside MySQL for visual management.
 - **Caching:** Redis - For performance optimization, session management, and rate limiting.
 - **Deployment:** Docker & Docker Compose - For containerization, easy setup, and scalability.
-- **Installation:** Custom Bash Script (`moonvpn` command) - For Ubuntu 22.04 LTS, handling dependencies and setup.
+- **Installation:** Custom Bash Script (`moonvpn` command) - For Ubuntu 22.04/24.04 LTS, handling dependencies and setup.
 - **Monitoring:** Prometheus & Grafana - For system metrics and visualization (Future Phase).
 
 ### 2.1 Key Implementation Considerations
@@ -23,6 +23,13 @@ MoonVPN aims to be a comprehensive, user-friendly, and robust system for managin
 - **Code Organization**: Keep files under 300 lines when possible to maintain readability. Break larger components into smaller, reusable modules.
 - **Versioning**: Use semantic versioning for API endpoints to allow for future changes without breaking existing clients.
 - **Performance Optimization**: Implement caching where appropriate, especially for frequently accessed data like user details and panel stats.
+
+### 2.2 Architectural Principles
+- **Service-Layer Architecture**: Implement business logic in dedicated service classes, separated from API routes and data models.
+- **Dependency Injection**: Use FastAPI's dependency injection system for clean, testable code.
+- **Repository Pattern**: Create repository classes to abstract database operations from business logic.
+- **Clean Architecture**: Separate concerns between presentation, business logic, and data access layers.
+- **Event-Driven Design**: Use events and background tasks for asynchronous processing.
 
 **Project Structure:**
 ```
@@ -53,6 +60,8 @@ moonvpn/
 │
 ├── integrations/        # External service integrations
 │   ├── panels/          # 3x-ui panel API client & logic
+│   │   ├── client.py    # XuiPanelClient class for API communication
+│   │   └── __init__.py  # Module exports
 │   ├── payments/        # ZarinPal API client & logic
 │   └── sms.py           # SMS verification service client (Future Phase)
 │
@@ -90,7 +99,9 @@ moonvpn/
 - **(Enhanced) Automated Failover:** Basic mechanism to re-assign clients to a healthy panel in the same location if their current panel fails (manual trigger initially, potential automation later).
 
 **Technical Implementation Details:**
-- Create a dedicated API client for 3x-ui in `integrations/panels/` that handles authentication, connection pooling, and request formatting.
+- Create a dedicated API client (`XuiPanelClient`) in `integrations/panels/client.py` that handles authentication, connection pooling, and request formatting. This client will focus solely on HTTP communication with the panel API.
+- Implement a separate `PanelService` class in `api/services/panel_service.py` that acts as an abstraction layer between the application and the panel API client. The service will manage business logic, handle multiple panels, and provide high-level operations.
+- Use dependency injection in FastAPI to provide the service to route handlers.
 - Implement retry logic with exponential backoff for transient failures.
 - Store encrypted panel credentials in the database with a secure encryption key stored in environment variables.
 - Create a scheduler for periodic health checks (recommended interval: 5-15 minutes).
@@ -113,6 +124,7 @@ moonvpn/
 - Define clear keyboard layouts in keyboards.py with named constants for each menu/action type.
 - Use python-telegram-bot v20+ with Application builder pattern for modern, async implementation.
 - Implement proper timeout handling for user interactions to prevent stale conversations.
+- Follow Service Layer architecture pattern by creating bot-specific service classes that interact with core business services rather than directly accessing models or external APIs.
 
 ### 3.3. Channel-Based Notification System
 - **Single Bot, Multiple Channels:** One bot manages notifications across specialized channels.
@@ -129,11 +141,13 @@ moonvpn/
 
 **Technical Implementation Details:**
 - Create a NotificationManager class in `bot/channels.py` to centralize all channel notifications.
+- Implement a `NotificationService` in `api/services/notification_service.py` to provide a service layer for notification-related business logic.
 - Design template system for different notification types with standardized formats.
 - Implement a callback query handler for interactive buttons in channels.
 - Store channel IDs in database with default values in environment variables.
 - Create helper methods for different message formats (alerts, reports, logs, receipts).
 - Use Python's logging module integration to send log messages to the appropriate channel based on severity.
+- Implement a queue-based system for notification delivery to handle high-volume situations and prevent rate limiting.
 
 ### 3.4. Client Account Management (V2Ray Focus)
 - **Protocols:** Support VMESS & VLESS initially.
@@ -151,13 +165,16 @@ moonvpn/
 - **(Enhanced) Intelligent Panel Selection:** Automatically suggest or select the least loaded panel within the chosen location for new clients.
 
 **Technical Implementation Details:**
-- Create ClientService in `api/services/` with methods for creating, updating, and monitoring clients.
+- Create `ClientService` in `api/services/client_service.py` with methods for creating, updating, and monitoring clients.
+- Implement `UserService` in `api/services/user_service.py` to manage user-related operations.
+- Separate business logic from data access by implementing Repository classes for database operations.
 - Implement scheduled jobs to update client usage statistics (recommended: hourly updates).
-- Generate QR codes using a library like segno or qrcode.
+- Create a `QrCodeService` for generating QR codes using a library like segno or qrcode.
 - Store client configuration data in the database, not just relying on the panel.
 - Calculate expiration dates accurately, accounting for frozen time periods.
 - Create protocol-specific configuration generation for VMESS and VLESS.
 - Define load balancing algorithm for new client allocation across panels.
+- Implement the service layer in a way that allows for easy testing and mocking in unit tests.
 
 ### 3.5. Payment System
 - **Manual Card-to-Card:**
@@ -177,13 +194,16 @@ moonvpn/
 - **(Enhanced) AI Receipt Pre-Verification (Future Idea):** Explore OCR/AI tools to perform basic checks on receipts before admin review (e.g., matching amount, checking for duplicates).
 
 **Technical Implementation Details:**
-- Create a WalletService in `api/services/` to handle all wallet operations.
-- Implement a TransactionManager to record all financial transactions with proper types and references.
-- Design a secure BankCardManager for rotating card selection with configurable rules.
-- Store receipt images securely with proper access controls.
-- Create ZarinPal integration that follows their API documentation for proper security.
-- Implement proper locking mechanisms for financial operations to prevent race conditions.
+- Create a `WalletService` in `api/services/wallet_service.py` to handle all wallet operations.
+- Implement a `PaymentService` in `api/services/payment_service.py` to manage payment processes including verification.
+- Develop a `TransactionService` to record and manage all financial transactions with proper types and references.
+- Design a secure `BankCardService` for rotating card selection with configurable rules.
+- Store receipt images securely in a dedicated storage system with proper access controls.
+- Create ZarinPal integration via a dedicated client class in `integrations/payments/zarinpal.py`.
+- Implement proper locking mechanisms using Redis for financial operations to prevent race conditions.
 - Create a thorough audit log for all financial transactions.
+- Implement the Observer pattern to handle payment events and trigger appropriate actions when payments are completed or rejected.
+- Build a transaction reconciliation system to verify the integrity of financial records.
 
 ### 3.6. Seller/Reseller System (Simplified)
 - **Discount Model:** Sellers get a percentage discount on plan purchases made *for* their clients.
@@ -193,12 +213,16 @@ moonvpn/
 - **(Enhanced) Referral Links:** Generate unique referral links for sellers to share. New users signing up via link are automatically associated with the seller. 🤝
 
 **Technical Implementation Details:**
-- Create a referral code generation system with verification.
-- Implement discount calculation logic in the order processing pipeline.
-- Store seller-client relationships in the database with proper indexing.
-- Create reporting queries for seller performance metrics.
+- Create a `SellerService` in `api/services/seller_service.py` to manage seller-specific operations.
+- Implement a `ReferralService` to handle referral code generation and verification.
+- Develop discount calculation logic in the order processing pipeline.
+- Store seller-client relationships in the database with proper indexing for efficient queries.
+- Create reporting queries and analytics for seller performance metrics.
 - Design intuitive seller dashboard with key performance indicators.
 - Generate unique deeplinks for Telegram referrals.
+- Implement a commission calculation and payment system.
+- Create an event-based system for tracking sales and commissions.
+- Build a notifications system for sellers about their sales and commissions.
 
 ### 3.7. Free Trial System
 - **Eligibility:** Verify Iranian phone numbers (+98) via SMS (requires integration later) or manual admin approval initially. 🇮🇷
@@ -208,11 +232,16 @@ moonvpn/
 - **Anti-Abuse:** Implement checks to prevent misuse (e.g., IP tracking, device fingerprinting - advanced).
 
 **Technical Implementation Details:**
-- Create a TrialService to manage free trial allocations and checks.
+- Create a `TrialService` in `api/services/trial_service.py` to manage free trial allocations and checks.
 - Implement phone number validation with Iranian phone number format checking.
 - Create scheduled job to clean up expired trial accounts.
 - Set up designated trial inbounds on panels with appropriate configurations.
 - Implement anti-abuse measures based on IP addresses and device information.
+- Create a verification system for phone numbers.
+- Build a tracking system for trial usage and conversion rates.
+- Implement a trial account cleanup job that runs at regular intervals.
+- Set up trial-specific notification templates and flows.
+- Design analytics for measuring trial effectiveness and conversion rates.
 
 ### 3.8. Administrative Tools (via Bot)
 - **User Management:** Search, view details, ban/unban, manually adjust wallet balance, assign roles. 👥
@@ -227,11 +256,16 @@ moonvpn/
 
 **Technical Implementation Details:**
 - Create comprehensive admin handlers in `bot/handlers/admin.py`.
+- Develop an `AdminService` in `api/services/admin_service.py` for admin-specific operations.
+- Implement a `BroadcastService` to handle message broadcasting to users.
+- Create a `StatisticsService` for generating system statistics and reports.
 - Implement paginated displays for large data sets (users, clients, transactions).
-- Create proper role-based access control for admin commands.
+- Create proper role-based access control with a `PermissionService` for admin commands.
 - Design intuitive keyboard navigation for admin functions.
 - Implement command timeouts and confirmations for destructive operations.
 - Create admin audit logging for all administrative actions.
+- Build a dashboard for monitoring system health and performance.
+- Implement report generation for sales, traffic, and user activity.
 
 ### 3.9. Backup and Security
 - **Automated Backups:** Regular (e.g., daily) backups of the MySQL database.
@@ -244,41 +278,106 @@ moonvpn/
 - **Activity Logging:** Log important admin actions and system events to Log Channel.
 
 **Technical Implementation Details:**
+- Create a `BackupService` in `api/services/backup_service.py` to manage database backups.
+- Implement a `SecurityService` in `api/services/security_service.py` for managing security functions.
 - Use mysqldump with proper compression for database backups.
-- Implement JWT with proper expiration and refresh mechanisms.
-- Create rate limiting middleware using Redis for both API and Bot.
-- Use a secure encryption library (e.g., cryptography) for sensitive data.
+- Implement JWT with proper expiration and refresh mechanisms in `core/security.py`.
+- Create rate limiting middleware using Redis for both API and Bot in `api/middlewares/rate_limit.py`.
+- Use a secure encryption library (cryptography) for sensitive data in `core/security.py`.
 - Implement proper sanitization for all user inputs.
-- Create comprehensive logging with appropriate levels.
+- Create comprehensive logging with appropriate levels in `core/logging.py`.
 - Design backup rotation and cleanup strategy.
+- Implement a `RoleService` to manage access control based on user roles.
+- Create an audit log system for all sensitive operations.
+- Implement IP-based blocking for suspicious activities.
+- Add thorough input validation and sanitization to prevent injection attacks.
+- Create a security incident response system with automated alerts.
 
 ### 3.10. API & Developer Features
 - **OpenAPI Documentation:** Auto-generated interactive API docs (Swagger UI/ReDoc) via FastAPI. 📚
 - **API Key Management:** Generate and manage API keys for potential future external integrations (low priority). 🔑
 - **Webhooks:** Consider webhooks for real-time event notifications (e.g., payment success) for potential future integrations (low priority).
+- **Health Checks:** Implement comprehensive health checks for all services.
+- **Metrics:** Collect and expose application metrics for monitoring.
 
 **Technical Implementation Details:**
 - Configure FastAPI to generate comprehensive OpenAPI documentation.
+- Create an `ApiKeyService` in `api/services/apikey_service.py` for API key management.
+- Implement a `WebhookService` for webhook delivery and management.
 - Add detailed descriptions to all API endpoints, parameters, and responses.
 - Create security schemes in FastAPI for authentication.
 - Design webhook delivery system with retry logic.
 - Implement API key generation and verification.
+- Add health check endpoints for all services.
+- Create a metrics collection system using Prometheus.
+- Develop a monitoring dashboard using Grafana.
+- Implement proper error handling and logging for all API endpoints.
+- Create a developer portal for API documentation and key management (Future Phase).
 
 ## 4. Non-Functional Requirements
-- **Performance:** API responses should be fast (<500ms for typical requests). Bot interactions should feel responsive.
-- **Scalability:** Architecture should allow for adding more panels and handling a growing user base. Docker setup aids this.
-- **Reliability:** System should be resilient to panel failures. Health checks and potential failover mechanisms are key.
-- **Maintainability:** Code should be clean, well-commented (English), follow Python best practices (PEP 8), and be modular.
-- **Usability:** Telegram bot interface must be intuitive and easy to use for non-technical users. Persian localization is crucial.
+
+### 4.1. Performance
+- **Response Time:** API responses should be fast (<500ms for typical requests). Bot interactions should feel responsive.
+- **Concurrency:** System should handle multiple simultaneous users efficiently.
+- **Caching:** Implement caching for frequently accessed data to reduce database load.
+- **Database Optimization:** Use proper indexing and query optimization.
+- **Background Processing:** Use asynchronous processing for long-running tasks.
+
+### 4.2. Scalability
+- **Horizontal Scaling:** Architecture should allow for adding more panels and handling a growing user base.
+- **Containerization:** Docker setup aids in scaling components independently.
+- **Statelessness:** Design services to be stateless for easier scaling.
+- **Load Balancing:** Implement load balancing for distributing traffic across instances.
+- **Database Scaling:** Design with potential sharding and replication in mind.
+
+### 4.3. Reliability
+- **System Resilience:** System should be resilient to panel failures. Health checks and potential failover mechanisms are key.
+- **Error Recovery:** Implement proper error handling and recovery mechanisms.
+- **Logging:** Comprehensive logging for debugging and monitoring.
+- **Monitoring:** Implement monitoring for early detection of issues.
+- **Circuit Breakers:** Implement circuit breakers for external service calls.
+
+### 4.4. Maintainability
+- **Code Quality:** Code should be clean, well-commented (English), follow Python best practices (PEP 8), and be modular.
+- **Documentation:** Comprehensive documentation for code, APIs, and system architecture.
+- **Testing:** Extensive test coverage to ensure code quality and prevent regressions.
+- **CI/CD:** Future implementation of continuous integration and deployment pipelines.
+- **Dependency Management:** Clear management of external dependencies.
+
+### 4.5. Usability
+- **Telegram Bot Interface:** Must be intuitive and easy to use for non-technical users.
+- **Persian Localization:** All user-facing content must be in Persian.
+- **Responsive Design:** Bot interface should be usable on mobile devices.
+- **Error Messages:** Clear, friendly error messages in Persian.
+- **Help System:** Comprehensive help system for users.
+
+### 4.6. Service-Oriented Architecture
+- **Service Layer:** Implement business logic in dedicated service classes that are reusable across the application.
+- **Separation of Concerns:** Clearly separate data access, business logic, and presentation layers.
+- **Dependency Injection:** Use FastAPI's dependency injection system to provide services to routes.
+- **Repository Pattern:** Abstract database operations behind repository interfaces.
+- **Consistent Service API:** Design services with consistent, well-documented interfaces.
+
+### 4.7. Layered Architecture
+- **Presentation Layer:** API routes and bot handlers that handle user interactions.
+- **Service Layer:** Business logic encapsulated in service classes.
+- **Data Access Layer:** Repository classes for database operations.
+- **Domain Layer:** Core business models and logic.
+- **Integration Layer:** Adapters for external systems (panels, payment gateways).
 
 **Technical Implementation Details:**
 - Add response time monitoring to API endpoints.
 - Use database indexing strategically for performance.
-- Implement caching for frequently accessed data.
+- Implement caching for frequently accessed data using Redis.
 - Create health check endpoints for all services.
 - Design with horizontal scaling in mind.
-- Implement comprehensive error handling throughout.
+- Implement comprehensive error handling throughout the application.
 - Create clear user flow diagrams for complex operations.
+- Use dependency injection to provide services to API routes.
+- Implement the repository pattern for database operations.
+- Create service classes for all major business functions.
+- Design clear interfaces between layers.
+- Implement unit tests for each layer.
 
 ## 5. Project Phases
 
@@ -294,13 +393,30 @@ moonvpn/
     - [ID-009] Implement `core/database.py` & `core/config.py`.
     - [ID-002] Initialize FastAPI (`api/main.py`, health check `/ping`).
     - [ID-003] Initialize Telegram Bot (`bot/main.py`, `/start` handler responding with basic welcome message & keyboard).
-    - [ID-007] Basic 3x-ui connection test function (`integrations/panels.py`).
+    - [ID-007] Basic 3x-ui connection test function (`integrations/panels/client.py`).
     - [ID-012] Setup basic logging (`core/logging.py`).
     - [ID-008] Basic `moonvpn` command concept (e.g., script to run docker-compose up/down).
     - [ID-010] Setup Persian language support infrastructure.
     - [ID-011] Setup basic notification channel system (bot/channels.py).
     - [ID-013] Create initial test framework setup.
 - **Deliverable:** Runnable Docker environment, basic API/Bot responding, DB schema initialized.
+
+### Phase 0.5: Service Layer Implementation (~2 weeks)
+- **Goal:** Implement service layer architecture and core business logic services
+- **Tasks:**
+    - [ID-014] Correct the structure of panel client implementation
+    - [ID-015] Create panel service layer
+    - [ID-016] Implement security and encryption
+    - [ID-017] Complete the channel notification system
+    - [ID-018] Implement the test framework
+    - Implement core service classes for all major features:
+      - PanelService
+      - UserService
+      - ClientService
+      - WalletService
+      - NotificationService
+      - SecurityService
+- **Deliverable:** Complete service layer architecture, corrected panel client implementation, enhanced security, and comprehensive testing framework.
 
 ### Phase 1: User & Panel Foundations (~3 weeks)
 - **Goal:** User registration, basic admin panel management.
@@ -339,27 +455,111 @@ moonvpn/
 *(Detailed planning for these phases will occur later)*
 
 ## 6. Testing Strategy
-- **Unit Tests:** Test individual functions and classes (e.g., utility functions, service logic) using `pytest`.
-- **Integration Tests:** Test interactions between components (e.g., API endpoint calling service interacting with DB, panel integration logic).
-- **End-to-End (Manual):** Manually test full user flows through the Telegram bot (registration, purchase, account management) using real (test) credentials. Iterative testing after each major feature/task completion is crucial.
+
+### 6.1. Unit Testing
+- **Focus:** Test individual components in isolation
+- **Tools:** pytest for running tests, pytest-asyncio for testing async code
+- **Coverage:** Aim for 80%+ code coverage for critical components
+- **Target Areas:**
+  - Service layer classes
+  - Utility functions
+  - Data models
+  - Schema validation
+  - Security functions
+- **Implementation:**
+  - Use dependency injection for easier mocking
+  - Create fixtures for common test scenarios
+  - Implement parameterized tests for multiple test cases
+  - Use proper assertion messages for clear test failures
+
+### 6.2. Integration Testing
+- **Focus:** Test interactions between components
+- **Tools:** pytest with test database
+- **Target Areas:**
+  - API endpoint behavior
+  - Database operations
+  - External service integrations (3x-ui panel, payment gateways)
+  - Event processing flows
+- **Implementation:**
+  - Create test database with isolated schema
+  - Implement database fixtures with test data
+  - Use test clients for API and bot testing
+  - Mock external services when appropriate
+
+### 6.3. End-to-End Testing
+- **Focus:** Test complete user flows
+- **Type:** Primarily manual testing initially
+- **Target Areas:**
+  - User registration and login
+  - Plan purchasing
+  - Payment verification
+  - Account management
+  - Admin operations
+- **Implementation:**
+  - Create detailed test plans for each flow
+  - Document test results
+  - Consider automated E2E testing for critical paths
+
+### 6.4. Security Testing
+- **Focus:** Verify security measures
+- **Target Areas:**
+  - Authentication and authorization
+  - Input validation
+  - Rate limiting
+  - Encryption
+  - Session management
+- **Implementation:**
+  - Implement tests for security bypasses
+  - Check for proper error responses
+  - Verify access controls
 
 **Technical Implementation Details:**
 - Use pytest for all automated testing.
 - Create separate test directories for unit, integration, and API tests.
 - Implement factory classes for test data generation.
-- Create database fixtures for testing.
+- Create database fixtures for testing with isolated schemas.
 - Implement mock objects for external dependencies.
 - Define clear test naming conventions.
-- Set up CI pipeline for automated test runs.
+- Set up CI pipeline for automated test runs (Future Phase).
 - Create test coverage reporting.
+- Document test cases and procedures.
 
 ## 7. Documentation Standards
+
+### 7.1. Code Documentation
 - **Inline Comments:** Use English for code comments, explaining non-obvious logic.
+- **Docstrings:** Follow Google Python Style Guide for docstrings.
+- **Type Hints:** Use type hints for all function parameters and return values.
+- **Module Headers:** Include brief description and author information at the top of each module.
+- **Class and Function Documentation:** Document purpose, parameters, return values, and exceptions.
+
+### 7.2. API Documentation
+- **OpenAPI:** Leverage FastAPI's automatic OpenAPI docs.
+- **Endpoint Descriptions:** Add detailed descriptions to routes and schemas.
+- **Example Requests/Responses:** Include examples for all endpoints.
+- **Authentication Details:** Document authentication requirements.
+- **Error Responses:** Document possible error responses and their meanings.
+
+### 7.3. System Documentation
+- **Architecture Overview:** Maintain documentation of system architecture.
+- **Component Interactions:** Document how components interact with each other.
+- **Database Schema:** Document database schema with relationships.
+- **Integration Points:** Document external system integrations.
+- **Configuration Options:** Document all configuration options and their meanings.
+
+### 7.4. User Documentation
+- **Admin Guide:** Document admin features and operations.
+- **User Guide:** Create tutorials for common user actions.
+- **Bot Command Reference:** Document all bot commands and their functions.
+- **FAQ:** Maintain a frequently asked questions document.
+- **Troubleshooting Guide:** Create troubleshooting procedures for common issues.
+
+### 7.5. Project Documentation
 - **README.md:** Keep updated with setup instructions and project overview.
-- **API Documentation:** Leverage FastAPI's automatic OpenAPI docs. Add descriptions to routes and models.
-- **Changelog:** Maintain a simple `CHANGELOG.md` for significant changes (manual for now).
+- **CHANGELOG.md:** Maintain a simple changelog for significant changes.
 - **Requirements:** This file (`@.cursor/project-requirements.md`) serves as the primary requirements document.
 - **Memories/Lessons:** Use `@.cursor/memories.md` and `@.cursor/lessons-learned.md` as per the rules.
+- **Contributor Guidelines:** Document coding standards and contribution process.
 
 **Technical Implementation Details:**
 - Follow Google Python Style Guide for docstrings.
@@ -369,11 +569,13 @@ moonvpn/
 - Document environment variables and their purposes.
 - Create user guides for common bot interactions.
 - Document database schema with relationships.
+- Maintain up-to-date documentation as the system evolves.
+- Use markdown for all documentation for consistency.
+- Keep documentation in version control alongside code.
 
 ## 8. Database Schema (Key Tables)
-database tables that will be needed:
 
-### Core Tables:
+### 8.1. Core Tables
 
 1. **users**
    - `id`: INT PRIMARY KEY AUTO_INCREMENT
@@ -442,6 +644,8 @@ database tables that will be needed:
    - `created_at`: DATETIME
    - `updated_at`: DATETIME
 
+### 8.2. Service-Related Tables
+
 5. **plans**
    - `id`: INT PRIMARY KEY AUTO_INCREMENT
    - `name`: VARCHAR(100)
@@ -502,6 +706,8 @@ database tables that will be needed:
    - `created_at`: DATETIME
    - `updated_at`: DATETIME
 
+### 8.3. Financial Tables
+
 9. **orders**
    - `id`: INT PRIMARY KEY AUTO_INCREMENT
    - `user_id`: INT FOREIGN KEY
@@ -556,6 +762,8 @@ database tables that will be needed:
     - `created_at`: DATETIME
     - `updated_at`: DATETIME
 
+### 8.4. System Tables
+
 13. **notification_channels**
     - `id`: INT PRIMARY KEY AUTO_INCREMENT
     - `name`: VARCHAR(100)  # admin, payment, report, log, alert, backup
@@ -575,6 +783,8 @@ database tables that will be needed:
     - `group`: VARCHAR(50) NULL  # For grouping related settings
     - `created_at`: DATETIME
     - `updated_at`: DATETIME
+
+### 8.5. Future Phase Tables
 
 15. **discount_codes** (Future Phase)
     - `id`: INT PRIMARY KEY AUTO_INCREMENT
@@ -612,12 +822,24 @@ database tables that will be needed:
     - `ip_address`: VARCHAR(45)
     - `created_at`: DATETIME
 
-## 10. 3x-ui Panel API Integration
+**Technical Implementation Details:**
+- Use SQLAlchemy ORM for database operations.
+- Implement proper relationships between tables.
+- Add appropriate indexes for frequently queried columns.
+- Use foreign key constraints to maintain data integrity.
+- Implement soft deletion where appropriate.
+- Encrypt sensitive data in the database.
+- Use migrations for schema changes.
+- Implement optimistic locking for concurrent updates.
+- Create database access layer with repository pattern.
+- Use connection pooling for efficient database connections.
 
+## 9. 3x-ui Panel API Integration
+
+### 9.1. Overview
 The MoonVPN system integrates with the 3x-ui panel developed by MHSanaei ([GitHub Repository](https://github.com/MHSanaei/3x-ui)). This integration allows for complete management of VPN services through automated API calls.
 
-### Authentication Flow
-
+### 9.2. Authentication Flow
 Before any API operation, the system must authenticate with the panel:
 
 1. Send POST request to `/login` endpoint with admin credentials
@@ -625,8 +847,7 @@ Before any API operation, the system must authenticate with the panel:
 3. Implement automatic re-authentication when session expires
 4. Use secure credential storage with encryption in the database
 
-### API Endpoints
-
+### 9.3. API Endpoints
 The following 3x-ui panel API endpoints will be integrated:
 
 #### Inbound Management
@@ -641,6 +862,9 @@ The following 3x-ui panel API endpoints will be integrated:
 - **POST `/panel/api/inbounds/:id/delClient/:clientId`**: Remove a client
 - **POST `/panel/api/inbounds/updateClient/:clientId`**: Update client configuration
 - **GET `/panel/api/inbounds/getClientTraffics/:email`**: Get client traffic statistics
+- **GET `/panel/api/inbounds/getClientTrafficsById/:id`**: Get client traffic by ID
+- **GET `/panel/api/inbounds/clientIps/:email`**: Get client IP addresses
+- **POST `/panel/api/inbounds/clearClientIps/:email`**: Clear client IP addresses
 - **POST `/panel/api/inbounds/:id/resetClientTraffic/:email`**: Reset client traffic counter
 
 #### Traffic & System Operations
@@ -648,33 +872,38 @@ The following 3x-ui panel API endpoints will be integrated:
 - **POST `/panel/api/inbounds/resetAllClientTraffics/:id`**: Reset all clients' traffic in an inbound
 - **POST `/panel/api/inbounds/delDepletedClients/:id`**: Remove clients with depleted traffic/time
 - **GET `/panel/api/inbounds/createbackup`**: Create system backup
-- **POST `/panel/api/inbounds/onlines`**: Get list of online users
+- **GET `/panel/api/inbounds/onlines`**: Get list of online users
 
-### Integration Architecture
-
+### 9.4. Integration Architecture
 The panel integration is structured in layers:
 
-1. **HTTP Client Layer** (`XuiPanelClient` class):
-   - Handles low-level HTTP communications
+1. **HTTP Client Layer** (`XuiPanelClient` class in `integrations/panels/client.py`):
+   - Handles low-level HTTP communications with the panel API
    - Manages authentication and session state
    - Implements retry logic and error handling
    - Provides connection pooling for performance
+   - Implements methods corresponding to each API endpoint
+   - Handles serialization/deserialization of requests and responses
+   - Contains no business logic, only communication with the panel API
 
-2. **API Service Layer** (`PanelService` class):
+2. **Service Layer** (`PanelService` class in `api/services/panel_service.py`):
+   - Acts as an abstraction layer between the application and the panel API client
    - Offers high-level business operations
    - Manages multiple panel instances
    - Implements panel selection algorithms
    - Handles failover between panels
    - Coordinates scheduled health checks
+   - Contains business logic for panel management
+   - Uses dependency injection for the HTTP client
 
-3. **API Endpoints Layer**:
+3. **API Endpoints Layer** (in `api/routes/panel.py`):
    - Exposes REST endpoints for panel operations
    - Handles request validation and authorization
    - Provides standardized response formats
    - Implements rate limiting and security controls
+   - Uses dependency injection for the PanelService
 
-### Health Monitoring System
-
+### 9.5. Health Monitoring System
 A comprehensive health monitoring system checks panel status:
 
 - Scheduled health checks every 5-15 minutes
@@ -684,8 +913,7 @@ A comprehensive health monitoring system checks panel status:
 - Notification system for outages or performance issues
 - Historical status data for performance analysis
 
-### Panel Selection Algorithm
-
+### 9.6. Panel Selection Algorithm
 The system uses a sophisticated algorithm for selecting the optimal panel for new clients:
 
 1. Filter panels by requested location
@@ -695,8 +923,7 @@ The system uses a sophisticated algorithm for selecting the optimal panel for ne
 5. Apply priority settings for manual overrides
 6. Select panel with optimal conditions
 
-### Failover Mechanism
-
+### 9.7. Failover Mechanism
 In case of panel failure, the system provides:
 
 1. Automatic detection of failing panels through health checks
@@ -705,10 +932,37 @@ In case of panel failure, the system provides:
 4. Notification to administrators through alert channels
 5. Automatic retry of connections to restore service
 
-## 11. System Architecture & Communication Flow
+## 10. System Architecture & Communication Flow
 
-### Bot-API Communication
+### 10.1. Service-Oriented Architecture
+The system is designed with a service-oriented architecture that separates concerns and promotes maintainability:
 
+1. **Service Layer**:
+   - Contains all business logic in dedicated service classes
+   - Each service focuses on a specific domain (panels, users, clients, payments, etc.)
+   - Services are injected as dependencies where needed
+   - Services may communicate with other services through well-defined interfaces
+   - All services follow consistent patterns and error handling approaches
+
+2. **Repository Layer**:
+   - Abstracts database operations from services
+   - Provides CRUD operations for models
+   - Handles transaction management
+   - Implements query optimization
+   - Encapsulates all SQL-related logic
+
+3. **Presentation Layer**:
+   - API routes and bot handlers that interact with users
+   - Validates input and formats output
+   - Handles HTTP-specific concerns
+   - Uses dependency injection to access services
+
+4. **Integration Layer**:
+   - Adapters for external systems (panels, payment gateways)
+   - Handles communication protocols and formats
+   - Implements retries and error handling for external systems
+
+### 10.2. Bot-API Communication
 The Telegram bot communicates with the API service through asynchronous HTTP requests:
 
 1. Bot receives user commands or button clicks
@@ -718,35 +972,33 @@ The Telegram bot communicates with the API service through asynchronous HTTP req
 5. Bot formats responses in user-friendly Persian messages with appropriate emojis
 6. Interactive keyboards are generated based on available options
 
-### Data Flow Architecture
-
+### 10.3. Data Flow Architecture
 The system follows a clear data flow pattern:
 
 1. **User Input** → Telegram Bot receives commands/actions
 2. **Bot Handlers** → Process and validate user input
-3. **API Client** → Formats and sends requests to API
-4. **API Controller** → Validates requests and authorizes actions
-5. **Service Layer** → Implements business logic
-6. **Repository Layer** → Handles database operations
-7. **Panel Integration** → Communicates with 3x-ui panels
-8. **Response Path** → Returns results back through the chain
-9. **Bot Output** → Formats data into user-friendly messages
+3. **Bot Services** → Handle bot-specific business logic
+4. **API Client** → Formats and sends requests to API
+5. **API Controller** → Validates requests and authorizes actions
+6. **Service Layer** → Implements business logic
+7. **Repository Layer** → Handles database operations
+8. **Integration Layer** → Communicates with external systems
+9. **Response Path** → Returns results back through the chain
+10. **Bot Output** → Formats data into user-friendly messages
 
-### Notification System Flow
-
+### 10.4. Notification System Flow
 The notification system operates as follows:
 
 1. System events trigger notification requests
-2. NotificationManager processes the notification type and content
-3. Appropriate channel is selected based on notification category
+2. NotificationService processes the notification type and content
+3. NotificationManager selects appropriate channel based on notification category
 4. Message is formatted according to channel standards
 5. Telegram API sends message to the designated channel
 6. Interactive buttons are attached if admin action is required
 7. Admin responses are captured by callback query handlers
 8. Actions are processed and confirmation messages sent
 
-### Security Architecture
-
+### 10.5. Security Architecture
 The system implements a multi-layered security approach:
 
 1. Encrypted environment variables for sensitive credentials
@@ -758,3 +1010,17 @@ The system implements a multi-layered security approach:
 7. Comprehensive logging for audit trails
 8. Regular automated backups
 9. Secure communication with panels via HTTPS
+
+### 10.6. Dependency Injection System
+The system uses FastAPI's dependency injection system to manage dependencies:
+
+1. Services are defined as classes that can be injected into routes
+2. Database session is injected into repositories
+3. Repositories are injected into services
+4. Integration clients are injected into services
+5. Services are injected into API routes
+6. This pattern enables:
+   - Easy testing through mocking
+   - Clear separation of concerns
+   - Consistent dependency lifecycle management
+   - Reduced coupling between components

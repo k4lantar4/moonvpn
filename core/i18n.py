@@ -1,143 +1,110 @@
 """
-Internationalization (i18n) module for handling translations in MoonVPN.
+Translation and localization utilities for the application.
 
-This module provides functionality for loading and managing translations from JSON files,
-with support for multiple languages and fallback mechanisms.
+This module provides functions for handling translations and language settings.
 """
 
 import json
 import logging
-from pathlib import Path
-from typing import Dict, Optional, Any
-from functools import lru_cache
+import os
+from typing import Dict, Any, Optional, List
 
-from core.config import settings
+from core.config import get_settings
 
 logger = logging.getLogger(__name__)
+settings = get_settings()
 
-class I18n:
-    """
-    Internationalization class for managing translations.
+# Language cache - load all language files at startup
+_translations: Dict[str, Dict[str, str]] = {}
+
+def _parse_languages() -> List[str]:
+    """Parse supported languages from settings."""
+    try:
+        languages_str = settings.SUPPORTED_LANGUAGES
+        if isinstance(languages_str, str):
+            # Try to parse as JSON
+            languages = json.loads(languages_str)
+            if isinstance(languages, list):
+                return languages
+    except Exception as e:
+        logger.error(f"Error parsing supported languages: {e}")
     
-    Attributes:
-        default_language (str): The default language to use when a translation is not found
-        current_language (str): The currently active language
-        translations (Dict): Dictionary containing all loaded translations
-    """
+    # Default fallback
+    return ["fa", "en"]
+
+def load_translations() -> None:
+    """Load translations from JSON files."""
+    global _translations
     
-    def __init__(self, default_language: str = "fa"):
-        """
-        Initialize the I18n instance.
-        
-        Args:
-            default_language (str): The default language to use. Defaults to "fa".
-        """
-        self.default_language = default_language
-        self.current_language = default_language
-        self.translations: Dict[str, Dict[str, Any]] = {}
-        self._load_translations()
+    locales_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'locales')
+    logger.info(f"Loading translations from: {locales_dir}")
     
-    def _load_translations(self) -> None:
-        """Load all translation files from the locales directory."""
-        base_path = Path("locales")
-        if not base_path.exists():
-            logger.error("Locales directory not found!")
-            return
-        
-        for lang_dir in base_path.iterdir():
-            if not lang_dir.is_dir():
-                continue
-                
-            lang_code = lang_dir.name
-            messages_file = lang_dir / "messages.json"
-            
-            if not messages_file.exists():
-                logger.warning(f"No messages.json found for language {lang_code}")
-                continue
-                
-            try:
-                with messages_file.open("r", encoding="utf-8") as f:
-                    self.translations[lang_code] = json.load(f)
-                logger.info(f"Loaded translations for {lang_code}")
-            except json.JSONDecodeError:
-                logger.error(f"Failed to parse messages.json for language {lang_code}")
-            except Exception as e:
-                logger.error(f"Error loading translations for {lang_code}: {e}")
+    if not os.path.exists(locales_dir):
+        logger.warning(f"Locales directory not found: {locales_dir}")
+        return
     
-    def set_language(self, language: str) -> None:
-        """
-        Set the current language.
-        
-        Args:
-            language (str): The language code to set as current
-        """
-        if language in self.translations:
-            self.current_language = language
-            logger.info(f"Language set to {language}")
-        else:
-            logger.warning(f"Language {language} not found, using default")
-            self.current_language = self.default_language
+    # Parse languages and log for debugging
+    supported_languages = _parse_languages()
+    logger.info(f"Supported languages: {supported_languages}")
     
-    def get(self, key: str, language: Optional[str] = None) -> str:
-        """
-        Get a translated message for the given key.
+    # Check all files in the locales directory
+    for filename in os.listdir(locales_dir):
+        logger.info(f"Found file in locales directory: {filename}")
+    
+    for lang in supported_languages:
+        lang_file = os.path.join(locales_dir, f"{lang}.json")
         
-        Args:
-            key (str): The translation key (e.g., "welcome" or "error.general")
-            language (Optional[str]): Override the current language
-        
-        Returns:
-            str: The translated message or the key itself if not found
-        """
-        lang = language or self.current_language
-        
-        # Try to get translation in requested language
         try:
-            return self._get_nested_value(self.translations[lang], key)["message"]
-        except (KeyError, TypeError):
-            # If not found, try default language
-            if lang != self.default_language:
-                try:
-                    return self._get_nested_value(
-                        self.translations[self.default_language], 
-                        key
-                    )["message"]
-                except (KeyError, TypeError):
-                    pass
-            
-            # If still not found, return the key
-            logger.warning(f"Translation not found for key: {key}")
-            return key
-    
-    @staticmethod
-    def _get_nested_value(data: Dict[str, Any], key: str) -> Any:
-        """
-        Get a nested dictionary value using dot notation.
-        
-        Args:
-            data (Dict[str, Any]): The dictionary to search in
-            key (str): The key in dot notation (e.g., "error.general")
-        
-        Returns:
-            Any: The value if found
-            
-        Raises:
-            KeyError: If the key is not found
-        """
-        keys = key.split(".")
-        value = data
-        
-        for k in keys:
-            value = value[k]
-        
-        return value
+            if os.path.exists(lang_file):
+                with open(lang_file, 'r', encoding='utf-8') as f:
+                    _translations[lang] = json.load(f)
+                logger.info(f"Loaded {len(_translations[lang])} translations for {lang}")
+            else:
+                logger.warning(f"Translation file not found: {lang_file}")
+                _translations[lang] = {}
+        except Exception as e:
+            logger.error(f"Error loading translations for {lang}: {str(e)}")
+            _translations[lang] = {}
 
-@lru_cache()
-def get_i18n() -> I18n:
+def get_text(key: str, lang: Optional[str] = None, **kwargs) -> str:
     """
-    Get or create a singleton instance of I18n.
+    Get translated text for a given key.
     
+    Args:
+        key: The translation key
+        lang: Language code (defaults to DEFAULT_LANGUAGE in settings)
+        **kwargs: Variables to format the translation with
+        
     Returns:
-        I18n: The I18n instance
+        str: Translated text, or the key itself if not found
     """
-    return I18n(default_language=settings.DEFAULT_LANGUAGE) 
+    if not _translations:
+        load_translations()
+    
+    # Use default language if none provided
+    if not lang:
+        lang = settings.DEFAULT_LANGUAGE
+    
+    # Fall back to default language if requested language not available
+    if lang not in _translations:
+        logger.warning(f"Language {lang} not available, falling back to {settings.DEFAULT_LANGUAGE}")
+        lang = settings.DEFAULT_LANGUAGE
+    
+    # Get translation or use key as fallback
+    text = _translations.get(lang, {}).get(key, key)
+    
+    # Format with variables if provided
+    if kwargs:
+        try:
+            return text.format(**kwargs)
+        except KeyError as e:
+            logger.error(f"Missing key in translation format: {e}")
+            return text
+        except Exception as e:
+            logger.error(f"Error formatting translation: {e}")
+            return text
+    
+    return text
+
+# Load translations at module initialization
+load_translations() 

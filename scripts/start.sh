@@ -1,95 +1,98 @@
 #!/bin/bash
 
-# Colors for output
-RED='\033[0;31m'
+# Colors for better output
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
+RED='\033[0;31m'
+BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Function to check if a command exists
-command_exists() {
-    command -v "$1" >/dev/null 2>&1
-}
+# Print banner
+echo -e "${BLUE}"
+echo "==============================================="
+echo "          MoonVPN 🌙 Startup Script           "
+echo "==============================================="
+echo -e "${NC}"
 
-# Function to print colored messages
-print_message() {
-    local color=$1
-    local message=$2
-    echo -e "${color}${message}${NC}"
-}
-
-# Check if Docker is installed
-if ! command_exists docker; then
-    print_message "$RED" "❌ Docker is not installed. Please install Docker first."
+# Check if docker is installed
+if ! command -v docker &> /dev/null; then
+    echo -e "${RED}Docker is not installed. Please install Docker first.${NC}"
     exit 1
 fi
 
-# Check if Docker Compose is installed
-if ! command_exists docker-compose; then
-    print_message "$RED" "❌ Docker Compose is not installed. Please install Docker Compose first."
+# Check if docker-compose is installed
+if ! command -v docker-compose &> /dev/null; then
+    echo -e "${RED}Docker Compose is not installed. Please install Docker Compose first.${NC}"
     exit 1
 fi
 
-# Create necessary directories
-print_message "$YELLOW" "🔧 Creating necessary directories..."
-mkdir -p logs/dev logs/test logs/prod
+# Function to check if container is running
+check_container() {
+    docker ps -q -f name=$1
+}
 
-# Stop any running containers
-print_message "$YELLOW" "🛑 Stopping any running containers..."
-docker-compose down
+# Stop existing containers if they're running
+echo -e "${YELLOW}Checking for existing MoonVPN containers...${NC}"
+if [ -n "$(check_container moonvpn)" ]; then
+    echo -e "${YELLOW}Stopping existing MoonVPN containers...${NC}"
+    docker-compose down
+    echo -e "${GREEN}Existing containers stopped.${NC}"
+fi
 
-# Remove old containers, networks, and volumes
-print_message "$YELLOW" "🧹 Cleaning up old containers and volumes..."
-docker-compose rm -f
-docker volume prune -f
+# Check if .env file exists
+if [ ! -f .env ]; then
+    echo -e "${YELLOW}.env file not found. Creating from .env.example...${NC}"
+    if [ -f .env.example ]; then
+        cp .env.example .env
+        echo -e "${GREEN}.env file created from example. Please edit it with your settings.${NC}"
+        exit 1
+    else
+        echo -e "${RED}.env.example file not found. Cannot continue.${NC}"
+        exit 1
+    fi
+fi
 
-# Build and start services
-print_message "$YELLOW" "🚀 Building and starting services..."
-docker-compose up --build -d
+# Create logs directory if it doesn't exist
+if [ ! -d "logs" ]; then
+    echo -e "${YELLOW}Creating logs directory...${NC}"
+    mkdir -p logs
+    echo -e "${GREEN}Logs directory created.${NC}"
+fi
+
+# Build and start containers
+echo -e "${YELLOW}Starting MoonVPN services...${NC}"
+docker-compose up -d --build
+
+# Check if containers are running
+if [ -z "$(check_container moonvpn_db)" ] || [ -z "$(check_container moonvpn_api)" ] || [ -z "$(check_container moonvpn_bot)" ]; then
+    echo -e "${RED}Failed to start some containers. Check logs with 'docker-compose logs'.${NC}"
+    exit 1
+fi
 
 # Wait for services to be ready
-print_message "$YELLOW" "⏳ Waiting for services to be ready..."
+echo -e "${YELLOW}Waiting for services to be ready...${NC}"
 sleep 10
 
-# Check service health
-print_message "$YELLOW" "🔍 Checking service health..."
+# Run database setup script
+echo -e "${YELLOW}Initializing database...${NC}"
+docker exec moonvpn_api python /app/scripts/setup_db.py
 
-# Function to check container health
-check_container() {
-    local container=$1
-    local status=$(docker inspect --format='{{.State.Health.Status}}' "$container" 2>/dev/null)
-    
-    if [ "$status" = "healthy" ]; then
-        print_message "$GREEN" "✅ $container is healthy"
-        return 0
-    else
-        print_message "$RED" "❌ $container is not healthy (status: $status)"
-        return 1
-    fi
-}
+# Show status
+echo -e "${GREEN}"
+echo "==============================================="
+echo "         MoonVPN Started Successfully!         "
+echo "==============================================="
+echo "API: http://localhost:$(grep API_PORT .env | cut -d= -f2)"
+echo "phpMyAdmin: http://localhost:$(grep PHPMYADMIN_PORT .env | cut -d= -f2)"
+echo ""
+echo "To check logs:"
+echo "  API: docker logs moonvpn_api"
+echo "  Bot: docker logs moonvpn_bot"
+echo "  DB: docker logs moonvpn_db"
+echo ""
+echo "To stop services:"
+echo "  docker-compose down"
+echo "==============================================="
+echo -e "${NC}"
 
-# Check each service
-services=("moonvpn_db" "moonvpn_redis" "moonvpn_api" "moonvpn_bot" "moonvpn_phpmyadmin")
-all_healthy=true
-
-for service in "${services[@]}"; do
-    if ! check_container "$service"; then
-        all_healthy=false
-    fi
-done
-
-# Show service status and URLs
-if [ "$all_healthy" = true ]; then
-    print_message "$GREEN" "\n🎉 All services are running!\n"
-    echo -e "📌 Service URLs:"
-    echo -e "   API: ${YELLOW}http://localhost:8000${NC}"
-    echo -e "   phpMyAdmin: ${YELLOW}http://localhost:8080${NC}"
-    echo -e "\n📋 To view logs:"
-    echo -e "   API: ${YELLOW}docker logs -f moonvpn_api${NC}"
-    echo -e "   Bot: ${YELLOW}docker logs -f moonvpn_bot${NC}"
-    echo -e "   Database: ${YELLOW}docker logs -f moonvpn_db${NC}"
-    echo -e "   Redis: ${YELLOW}docker logs -f moonvpn_redis${NC}"
-else
-    print_message "$RED" "\n⚠️ Some services are not healthy. Please check the logs for more information."
-    exit 1
-fi 
+exit 0 

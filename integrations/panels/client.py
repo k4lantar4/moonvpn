@@ -9,8 +9,9 @@ for various panel operations.
 import httpx
 import logging
 import json
+import backoff
 from datetime import datetime
-from typing import Dict, Any, Optional, Tuple, List
+from typing import Dict, Any, Optional, Tuple, List, Union
 from urllib.parse import urljoin
 import asyncio
 from core.config import get_settings
@@ -59,6 +60,9 @@ class XuiPanelClient:
         self.session_cookie = None
         self.last_login = None
         self.client = httpx.AsyncClient(timeout=timeout, follow_redirects=True)
+        
+        # Base API path for 3x-ui panel
+        self.api_base_path = "/panel/api/inbounds"
     
     async def login(self) -> bool:
         """Log in to the 3x-ui panel.
@@ -108,6 +112,104 @@ class XuiPanelClient:
             logger.error(f"Unexpected error during login to {self.base_url}: {str(e)}")
             return False
     
+    async def _request(
+        self, 
+        method: str, 
+        path: str, 
+        data: Optional[Dict[str, Any]] = None,
+        params: Optional[Dict[str, Any]] = None,
+        retry_auth: bool = True
+    ) -> Tuple[bool, Any]:
+        """Make an authenticated request to the panel API.
+        
+        Args:
+            method: HTTP method ("GET", "POST", etc.)
+            path: API path (will be joined with base URL)
+            data: Request payload (for POST, PUT, etc.)
+            params: Query parameters (for GET)
+            retry_auth: Whether to retry with fresh auth if session expired
+            
+        Returns:
+            Tuple[bool, Any]: A tuple containing:
+                - bool: True if the request was successful, False otherwise
+                - Any: Response data (if successful) or error details
+        """
+        # Ensure we're logged in
+        if not self.session_cookie and not await self.login():
+            return False, {"error": "Failed to login to panel"}
+        
+        url = urljoin(self.base_url, path)
+        headers = {}
+        if self.session_cookie:
+            headers["Cookie"] = self.session_cookie
+        
+        for attempt in range(self.max_retries):
+            try:
+                if method.upper() == "GET":
+                    response = await self.client.get(url, headers=headers, params=params)
+                elif method.upper() == "POST":
+                    response = await self.client.post(url, headers=headers, json=data)
+                elif method.upper() == "PUT":
+                    response = await self.client.put(url, headers=headers, json=data)
+                elif method.upper() == "DELETE":
+                    response = await self.client.delete(url, headers=headers)
+                else:
+                    return False, {"error": f"Unsupported HTTP method: {method}"}
+                
+                # Handle response
+                if response.status_code == 200:
+                    try:
+                        result = response.json()
+                        if "success" in result and result["success"]:
+                            return True, result.get("obj", {})
+                        return False, {"error": result.get("msg", "API returned unsuccessful status")}
+                    except json.JSONDecodeError:
+                        if response.text.strip():
+                            return True, response.text
+                        return True, {}  # Empty response but successful status code
+                
+                # Handle authentication errors
+                elif response.status_code in (401, 403) and retry_auth:
+                    logger.warning(f"Authentication failed for {url}, attempting to re-login")
+                    if await self.login():
+                        # Update headers with new session cookie
+                        headers["Cookie"] = self.session_cookie
+                        # Don't increment attempt counter, as this is a special case
+                        continue
+                    else:
+                        return False, {"error": "Re-authentication failed"}
+                
+                # Server errors might be temporary, so retry
+                elif response.status_code >= 500:
+                    logger.warning(f"Server error {response.status_code} for {url}, attempt {attempt + 1}/{self.max_retries}")
+                    await asyncio.sleep(self.retry_delay * (2 ** attempt))  # Exponential backoff
+                    continue
+                
+                # Other client errors
+                else:
+                    return False, {
+                        "error": f"HTTP error {response.status_code}",
+                        "details": response.text
+                    }
+                
+            except httpx.TimeoutException as e:
+                if attempt < self.max_retries - 1:
+                    logger.warning(f"Request timeout for {url}, retrying ({attempt + 1}/{self.max_retries})")
+                    await asyncio.sleep(self.retry_delay * (2 ** attempt))  # Exponential backoff
+                    continue
+                return False, {"error": f"Request timed out after {self.max_retries} attempts: {str(e)}"}
+            
+            except httpx.HTTPError as e:
+                logger.error(f"HTTP error for {url}: {str(e)}")
+                return False, {"error": f"HTTP error: {str(e)}"}
+            
+            except Exception as e:
+                logger.error(f"Unexpected error for {url}: {str(e)}")
+                return False, {"error": f"Unexpected error: {str(e)}"}
+        
+        # If we've exhausted all retries
+        return False, {"error": f"Request failed after {self.max_retries} attempts"}
+
     async def get_status(self) -> Tuple[bool, Dict[str, Any]]:
         """Get panel status information.
         
@@ -152,6 +254,243 @@ class XuiPanelClient:
         except Exception as e:
             logger.error(f"Unexpected error getting status from {self.base_url}: {str(e)}")
             return False, {"error": f"Unexpected error: {str(e)}"}
+
+    # ----- Inbound Management API Methods -----
+    
+    async def get_inbounds(self) -> Tuple[bool, List[Dict[str, Any]]]:
+        """Get all inbounds from the panel.
+        
+        Returns:
+            Tuple[bool, List[Dict[str, Any]]]: A tuple containing:
+                - bool: True if the request was successful, False otherwise
+                - List: List of inbound configurations or error details
+        """
+        return await self._request("GET", f"{self.api_base_path}/list")
+    
+    async def get_inbound(self, inbound_id: int) -> Tuple[bool, Dict[str, Any]]:
+        """Get a specific inbound by ID.
+        
+        Args:
+            inbound_id: The ID of the inbound to retrieve
+            
+        Returns:
+            Tuple[bool, Dict[str, Any]]: A tuple containing:
+                - bool: True if the request was successful, False otherwise
+                - Dict: Inbound configuration or error details
+        """
+        return await self._request("GET", f"{self.api_base_path}/get/{inbound_id}")
+    
+    async def add_inbound(self, inbound_config: Dict[str, Any]) -> Tuple[bool, Dict[str, Any]]:
+        """Add a new inbound to the panel.
+        
+        Args:
+            inbound_config: Configuration for the new inbound
+            
+        Returns:
+            Tuple[bool, Dict[str, Any]]: A tuple containing:
+                - bool: True if the request was successful, False otherwise
+                - Dict: Result data or error details
+        """
+        return await self._request("POST", f"{self.api_base_path}/add", data=inbound_config)
+    
+    async def update_inbound(self, inbound_id: int, inbound_config: Dict[str, Any]) -> Tuple[bool, Dict[str, Any]]:
+        """Update an existing inbound.
+        
+        Args:
+            inbound_id: The ID of the inbound to update
+            inbound_config: New configuration for the inbound
+            
+        Returns:
+            Tuple[bool, Dict[str, Any]]: A tuple containing:
+                - bool: True if the request was successful, False otherwise
+                - Dict: Result data or error details
+        """
+        return await self._request("POST", f"{self.api_base_path}/update/{inbound_id}", data=inbound_config)
+    
+    async def delete_inbound(self, inbound_id: int) -> Tuple[bool, Dict[str, Any]]:
+        """Delete an inbound.
+        
+        Args:
+            inbound_id: The ID of the inbound to delete
+            
+        Returns:
+            Tuple[bool, Dict[str, Any]]: A tuple containing:
+                - bool: True if the request was successful, False otherwise
+                - Dict: Result data or error details
+        """
+        return await self._request("POST", f"{self.api_base_path}/del/{inbound_id}")
+
+    # ----- Client Management API Methods -----
+    
+    async def add_client(self, client_config: Dict[str, Any]) -> Tuple[bool, Dict[str, Any]]:
+        """Add a client to an inbound.
+        
+        Args:
+            client_config: Configuration for the new client including inbound ID
+            
+        Returns:
+            Tuple[bool, Dict[str, Any]]: A tuple containing:
+                - bool: True if the request was successful, False otherwise
+                - Dict: Result data or error details
+        """
+        return await self._request("POST", f"{self.api_base_path}/addClient", data=client_config)
+    
+    async def delete_client(self, inbound_id: int, client_id: str) -> Tuple[bool, Dict[str, Any]]:
+        """Delete a client from an inbound.
+        
+        Args:
+            inbound_id: The ID of the inbound containing the client
+            client_id: The ID (UUID) of the client to delete
+            
+        Returns:
+            Tuple[bool, Dict[str, Any]]: A tuple containing:
+                - bool: True if the request was successful, False otherwise
+                - Dict: Result data or error details
+        """
+        return await self._request("POST", f"{self.api_base_path}/{inbound_id}/delClient/{client_id}")
+    
+    async def update_client(self, client_id: str, client_config: Dict[str, Any]) -> Tuple[bool, Dict[str, Any]]:
+        """Update a client's configuration.
+        
+        Args:
+            client_id: The ID (UUID) of the client to update
+            client_config: New configuration for the client
+            
+        Returns:
+            Tuple[bool, Dict[str, Any]]: A tuple containing:
+                - bool: True if the request was successful, False otherwise
+                - Dict: Result data or error details
+        """
+        return await self._request("POST", f"{self.api_base_path}/updateClient/{client_id}", data=client_config)
+    
+    async def get_client_traffics(self, email: str) -> Tuple[bool, Dict[str, Any]]:
+        """Get traffic statistics for a client by email.
+        
+        Args:
+            email: The email of the client
+            
+        Returns:
+            Tuple[bool, Dict[str, Any]]: A tuple containing:
+                - bool: True if the request was successful, False otherwise
+                - Dict: Traffic statistics or error details
+        """
+        return await self._request("GET", f"{self.api_base_path}/getClientTraffics/{email}")
+    
+    async def get_client_traffics_by_id(self, client_id: str) -> Tuple[bool, Dict[str, Any]]:
+        """Get traffic statistics for a client by ID.
+        
+        Args:
+            client_id: The ID of the client
+            
+        Returns:
+            Tuple[bool, Dict[str, Any]]: A tuple containing:
+                - bool: True if the request was successful, False otherwise
+                - Dict: Traffic statistics or error details
+        """
+        return await self._request("GET", f"{self.api_base_path}/getClientTrafficsById/{client_id}")
+    
+    async def reset_client_traffic(self, inbound_id: int, email: str) -> Tuple[bool, Dict[str, Any]]:
+        """Reset traffic statistics for a client.
+        
+        Args:
+            inbound_id: The ID of the inbound containing the client
+            email: The email of the client
+            
+        Returns:
+            Tuple[bool, Dict[str, Any]]: A tuple containing:
+                - bool: True if the request was successful, False otherwise
+                - Dict: Result data or error details
+        """
+        return await self._request("POST", f"{self.api_base_path}/{inbound_id}/resetClientTraffic/{email}")
+    
+    async def get_client_ips(self, email: str) -> Tuple[bool, Dict[str, Any]]:
+        """Get IP addresses used by a client.
+        
+        Args:
+            email: The email of the client
+            
+        Returns:
+            Tuple[bool, Dict[str, Any]]: A tuple containing:
+                - bool: True if the request was successful, False otherwise
+                - Dict: IP address information or error details
+        """
+        return await self._request("POST", f"{self.api_base_path}/clientIps/{email}")
+    
+    async def clear_client_ips(self, email: str) -> Tuple[bool, Dict[str, Any]]:
+        """Clear recorded IP addresses for a client.
+        
+        Args:
+            email: The email of the client
+            
+        Returns:
+            Tuple[bool, Dict[str, Any]]: A tuple containing:
+                - bool: True if the request was successful, False otherwise
+                - Dict: Result data or error details
+        """
+        return await self._request("POST", f"{self.api_base_path}/clearClientIps/{email}")
+
+    # ----- Traffic Management API Methods -----
+    
+    async def reset_all_traffics(self) -> Tuple[bool, Dict[str, Any]]:
+        """Reset traffic statistics for all inbounds.
+        
+        Returns:
+            Tuple[bool, Dict[str, Any]]: A tuple containing:
+                - bool: True if the request was successful, False otherwise
+                - Dict: Result data or error details
+        """
+        return await self._request("POST", f"{self.api_base_path}/resetAllTraffics")
+    
+    async def reset_all_client_traffics(self, inbound_id: int) -> Tuple[bool, Dict[str, Any]]:
+        """Reset traffic statistics for all clients in an inbound.
+        
+        Args:
+            inbound_id: The ID of the inbound
+            
+        Returns:
+            Tuple[bool, Dict[str, Any]]: A tuple containing:
+                - bool: True if the request was successful, False otherwise
+                - Dict: Result data or error details
+        """
+        return await self._request("POST", f"{self.api_base_path}/resetAllClientTraffics/{inbound_id}")
+
+    # ----- System Operations API Methods -----
+    
+    async def create_backup(self) -> Tuple[bool, Dict[str, Any]]:
+        """Create a backup of the panel.
+        
+        Returns:
+            Tuple[bool, Dict[str, Any]]: A tuple containing:
+                - bool: True if the request was successful, False otherwise
+                - Dict: Backup information or error details
+        """
+        return await self._request("GET", f"{self.api_base_path}/createbackup")
+    
+    async def delete_depleted_clients(self, inbound_id: int) -> Tuple[bool, Dict[str, Any]]:
+        """Delete clients with depleted quotas from an inbound.
+        
+        Args:
+            inbound_id: The ID of the inbound (use -1 for all inbounds)
+            
+        Returns:
+            Tuple[bool, Dict[str, Any]]: A tuple containing:
+                - bool: True if the request was successful, False otherwise
+                - Dict: Result data or error details
+        """
+        return await self._request("POST", f"{self.api_base_path}/delDepletedClients/{inbound_id}")
+    
+    async def get_online_clients(self) -> Tuple[bool, List[str]]:
+        """Get a list of online clients.
+        
+        Returns:
+            Tuple[bool, List[str]]: A tuple containing:
+                - bool: True if the request was successful, False otherwise
+                - List: List of online client emails or error details
+        """
+        success, result = await self._request("POST", f"{self.api_base_path}/onlines")
+        if success and isinstance(result, list):
+            return True, result
+        return success, result
     
     async def close(self):
         """Close the client session."""
@@ -174,66 +513,101 @@ async def test_panel_connection(
 ) -> Dict[str, Any]:
     """Test connection to a 3x-ui panel.
     
-    This is a standalone function to test panel connectivity without
-    creating a long-lived client.
+    This function attempts to connect to a 3x-ui panel and perform basic operations
+    to verify that the panel is operational.
     
     Args:
-        url: Panel URL
+        url: Panel URL (e.g., "https://example.com:54321")
         username: Admin username
         password: Admin password
-        login_path: Login path (default: "/login")
-    
-    Returns:
-        Dict[str, Any]: Connection test results with status and details
-    """
-    start_time = datetime.now()
-    result = {
-        "success": False,
-        "url": url,
-        "response_time_ms": None,
-        "status": None,
-        "error": None,
-        "panel_info": None,
-        "timestamp": start_time.isoformat()
-    }
-    
-    try:
-        async with XuiPanelClient(url, username, password, login_path) as client:
-            # Test login
-            login_success = await client.login()
-            
-            if not login_success:
-                result["status"] = "auth_failed"
-                result["error"] = "Authentication failed"
-                return result
-            
-            # Get panel status
-            success, status_data = await client.get_status()
-            
-            if success:
-                result["success"] = True
-                result["status"] = "healthy"
-                result["panel_info"] = status_data
-            else:
-                result["status"] = "api_error"
-                result["error"] = status_data.get("error", "Unknown API error")
-    
-    except httpx.ConnectError as e:
-        result["status"] = "connect_error"
-        result["error"] = f"Connection error: {str(e)}"
-    except httpx.TimeoutException as e:
-        result["status"] = "timeout"
-        result["error"] = f"Connection timeout: {str(e)}"
-    except Exception as e:
-        result["status"] = "error"
-        result["error"] = f"Unexpected error: {str(e)}"
-    
-    finally:
-        # Calculate response time
-        end_time = datetime.now()
-        result["response_time_ms"] = int((end_time - start_time).total_seconds() * 1000)
+        login_path: Path for login endpoint (default: "/login")
         
-    return result
+    Returns:
+        Dict[str, Any]: Test result dictionary with the following keys:
+            - success: True if the test was successful, False otherwise
+            - status: Status of the panel ("healthy", "error", etc.)
+            - error: Error message if the test failed
+            - response_time_ms: Response time in milliseconds
+            - inbounds_count: Number of inbounds if available
+            - version: Panel version if available
+    """
+    try:
+        logger.info(f"Testing connection to panel at {url}")
+        start_time = datetime.now()
+        
+        # Create client with short timeout and few retries
+        client = XuiPanelClient(
+            base_url=url,
+            username=username,
+            password=password,
+            login_path=login_path,
+            timeout=5.0,
+            max_retries=2,
+            retry_delay=0.5
+        )
+        
+        # Try to login
+        login_result = await client.login()
+        if not login_result:
+            return {
+                "success": False,
+                "status": "error",
+                "error": "Login failed",
+                "response_time_ms": (datetime.now() - start_time).total_seconds() * 1000
+            }
+        
+        # Get inbounds to verify API access
+        inbounds_success, inbounds = await client.get_inbounds()
+        
+        # Get panel status if available
+        status_success, status = await client.get_status()
+        
+        # Check online clients
+        clients_success, online_clients = await client.get_online_clients()
+        
+        # Close the client
+        await client.close()
+        
+        # Calculate response time
+        response_time_ms = (datetime.now() - start_time).total_seconds() * 1000
+        
+        # Build result
+        result = {
+            "success": True,
+            "status": "healthy",
+            "response_time_ms": response_time_ms,
+            "tested_at": datetime.now().isoformat(),
+        }
+        
+        # Add inbounds info if available
+        if inbounds_success:
+            result["inbounds_count"] = len(inbounds)
+            result["inbounds_available"] = True
+        else:
+            result["inbounds_available"] = False
+        
+        # Add status info if available
+        if status_success:
+            result["system_status"] = status
+            if "version" in status:
+                result["version"] = status["version"]
+        
+        # Add online clients info if available
+        if clients_success:
+            result["online_clients_count"] = len(online_clients)
+        
+        logger.info(f"Panel connection test successful: {url}")
+        return result
+        
+    except Exception as e:
+        logger.error(f"Error testing panel connection: {str(e)}")
+        return {
+            "success": False,
+            "status": "error",
+            "error": f"Unexpected error: {str(e)}",
+            "response_time_ms": (datetime.now() - start_time).total_seconds() * 1000 
+                if 'start_time' in locals() else 0
+        }
 
 
 # Simple function to test connection using environment variables
@@ -251,18 +625,17 @@ async def test_default_panel_connection() -> Dict[str, Any]:
         return {
             "success": False,
             "status": "config_error",
-            "error": "Panel configuration is incomplete. Check PANEL1_* environment variables."
+            "error": "Missing panel configuration in environment variables"
         }
     
     return await test_panel_connection(url, username, password)
 
 
-# CLI test function
 async def main():
-    """CLI test function for panel connectivity."""
-    print("Testing panel connection...")
+    """Run a test connection to the default panel."""
     result = await test_default_panel_connection()
     print(json.dumps(result, indent=2))
+
 
 if __name__ == "__main__":
     asyncio.run(main()) 
