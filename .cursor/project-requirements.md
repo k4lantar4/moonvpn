@@ -809,234 +809,290 @@ moonvpn/
 - Use markdown for all documentation for consistency.
 - Keep documentation in version control alongside code.
 
-## 8. Database Schema (Key Tables)
+## 8. Database Schema (Current Implementation)
 
 ### 8.1. Core Tables
 
 1. **users**
    - `id`: INT PRIMARY KEY AUTO_INCREMENT
-   - `telegram_id`: BIGINT UNIQUE
-   - `username`: VARCHAR(255) NULL
+   - `telegram_id`: BIGINT NOT NULL UNIQUE
+   - `username`: VARCHAR(255) NULL UNIQUE
    - `full_name`: VARCHAR(255) NULL
-   - `phone`: VARCHAR(20) NULL
-   - `email`: VARCHAR(255) NULL
-   - `role_id`: INT FOREIGN KEY
-   - `balance`: DECIMAL(10,2) DEFAULT 0.00
-   - `is_banned`: BOOLEAN DEFAULT FALSE
-   - `is_active`: BOOLEAN DEFAULT TRUE
-   - `referral_code`: VARCHAR(20) UNIQUE NULL
-   - `referred_by_id`: INT FOREIGN KEY NULL
-   - `lang`: VARCHAR(10) DEFAULT 'fa'
+   - `phone`: VARCHAR(20) NULL UNIQUE
+   - `email`: VARCHAR(255) NULL UNIQUE
+   - `role_id`: INT NOT NULL FOREIGN KEY
+   - `balance`: DECIMAL(10,2) NOT NULL
+   - `is_banned`: TINYINT(1) NULL
+   - `is_active`: TINYINT(1) NULL
+   - `referral_code`: VARCHAR(20) NULL UNIQUE
+   - `referred_by_id`: INT NULL FOREIGN KEY
+   - `lang`: VARCHAR(10) NULL
    - `last_login`: DATETIME NULL
    - `login_ip`: VARCHAR(45) NULL
-   - `created_at`: DATETIME
-   - `updated_at`: DATETIME
+   - `created_at`: DATETIME NULL DEFAULT CURRENT_TIMESTAMP
+   - `updated_at`: DATETIME NULL
 
 2. **roles**
    - `id`: INT PRIMARY KEY AUTO_INCREMENT
-   - `name`: ENUM('admin', 'seller', 'user')
+   - `name`: ENUM('ADMIN', 'SELLER', 'USER') NOT NULL UNIQUE
    - `description`: TEXT NULL
-   - `discount_percent`: INT DEFAULT 0
-   - `commission_percent`: INT DEFAULT 0
-   - `can_manage_panels`: BOOLEAN DEFAULT FALSE
-   - `can_manage_users`: BOOLEAN DEFAULT FALSE
-   - `can_manage_plans`: BOOLEAN DEFAULT FALSE
-   - `can_approve_payments`: BOOLEAN DEFAULT FALSE
-   - `can_broadcast`: BOOLEAN DEFAULT FALSE
-   - `is_admin`: BOOLEAN DEFAULT FALSE
-   - `is_seller`: BOOLEAN DEFAULT FALSE
-   - `created_at`: DATETIME
-   - `updated_at`: DATETIME
+   - `can_manage_panels`: TINYINT(1) NULL
+   - `can_manage_users`: TINYINT(1) NULL
+   - `can_manage_plans`: TINYINT(1) NULL
+   - `can_approve_payments`: TINYINT(1) NULL
+   - `can_broadcast`: TINYINT(1) NULL
+   - `is_admin`: TINYINT(1) NULL
+   - `is_seller`: TINYINT(1) NULL
+   - `discount_percent`: INT NULL
+   - `commission_percent`: INT NULL
+   - `created_at`: DATETIME NULL DEFAULT CURRENT_TIMESTAMP
+   - `updated_at`: DATETIME NULL
 
 3. **panels**
    - `id`: INT PRIMARY KEY AUTO_INCREMENT
-   - `name`: VARCHAR(100)
-   - `url`: VARCHAR(255) UNIQUE
-   - `login_path`: VARCHAR(50) DEFAULT '/login'
-   - `username`: VARCHAR(100)
-   - `password`: VARCHAR(255) ENCRYPTED
-   - `location_id`: INT FOREIGN KEY
-   - `panel_type`: VARCHAR(50) DEFAULT '3x-ui'
-   - `is_active`: BOOLEAN DEFAULT TRUE
-   - `is_healthy`: BOOLEAN DEFAULT FALSE
+   - `name`: VARCHAR(100) NOT NULL
+   - `url`: VARCHAR(255) NOT NULL UNIQUE
+   - `api_path`: VARCHAR(100) NULL
+   - `login_path`: VARCHAR(50) NULL
+   - `username`: VARCHAR(100) NOT NULL
+   - `password`: VARCHAR(255) NOT NULL
+   - `panel_type`: ENUM('3X-UI', 'MARZBAN', 'SANAEI', 'ALIREZA', 'VAXILU', 'XRAY') NULL
+   - `location_id`: INT NOT NULL FOREIGN KEY
+   - `server_ip`: VARCHAR(45) NULL
+   - `server_type`: VARCHAR(50) NULL
+   - `is_active`: TINYINT(1) NULL
+   - `is_healthy`: TINYINT(1) NULL
    - `last_check`: DATETIME NULL
    - `status_message`: VARCHAR(255) NULL
-   - `priority`: INT DEFAULT 0
-   - `created_by`: INT FOREIGN KEY NULL
-   - `created_at`: DATETIME
-   - `updated_at`: DATETIME
+   - `max_clients`: INT NULL
+   - `current_clients`: INT NULL
+   - `traffic_limit`: BIGINT NULL
+   - `traffic_used`: BIGINT NULL
+   - `api_token`: VARCHAR(255) NULL
+   - `api_token_expires_at`: DATETIME NULL
+   - `priority`: INT NULL
+   - `created_by`: INT NULL FOREIGN KEY
+   - `created_at`: DATETIME NULL DEFAULT CURRENT_TIMESTAMP
+   - `updated_at`: DATETIME NULL
+   - `geo_location`: VARCHAR(100) NULL
+   - `provider`: VARCHAR(100) NULL
+   - `datacenter`: VARCHAR(100) NULL
+   - `alternate_domain`: VARCHAR(255) NULL
+   - `is_premium`: TINYINT(1) NULL
+   - `network_speed`: VARCHAR(50) NULL
+   - `server_specs`: TEXT NULL
 
 4. **locations**
    - `id`: INT PRIMARY KEY AUTO_INCREMENT
-   - `name`: VARCHAR(100) UNIQUE
+   - `name`: VARCHAR(100) NOT NULL UNIQUE
    - `flag`: VARCHAR(10) NULL
    - `country_code`: VARCHAR(2) NULL
-   - `is_active`: BOOLEAN DEFAULT TRUE
+   - `is_active`: TINYINT(1) NULL
    - `description`: TEXT NULL
    - `default_inbound_id`: INT NULL
    - `protocols_supported`: VARCHAR(100) NULL  # comma-separated list of supported protocols
-   - `inbound_tag_pattern`: VARCHAR(100) NULL  # pattern for generating inbound tags
-   - `default_remark_prefix`: VARCHAR(50) NULL  # prefix for client remarks
-   - `created_at`: DATETIME
-   - `updated_at`: DATETIME
+   - `inbound_tag_pattern`: VARCHAR(100) NULL
+   - `default_remark_prefix`: VARCHAR(50) NULL
+   - `created_at`: DATETIME NULL DEFAULT CURRENT_TIMESTAMP
+   - `updated_at`: DATETIME NULL
+   - `remark_pattern`: VARCHAR(255) NULL DEFAULT '{prefix}-{id}-{custom}'
+   - `migration_remark_pattern`: VARCHAR(255) NULL DEFAULT '{original}-M{count}'
+
+5. **panel_inbounds**
+   - `id`: INT PRIMARY KEY AUTO_INCREMENT
+   - `panel_id`: INT NOT NULL FOREIGN KEY
+   - `inbound_id`: INT NOT NULL
+   - `tag`: VARCHAR(100) NULL
+   - `protocol`: ENUM('VMESS', 'VLESS', 'TROJAN', 'SHADOWSOCKS') NOT NULL
+   - `network`: VARCHAR(50) NULL
+   - `port`: INT NULL
+   - `tls`: TINYINT(1) NULL
+   - `is_active`: TINYINT(1) NULL
+   - `remark`: VARCHAR(255) NULL
+   - `client_stats`: TEXT NULL
+   - `settings`: TEXT NULL
+   - `stream_settings`: TEXT NULL
+   - `sniffing`: TEXT NULL
+   - `created_at`: DATETIME NULL DEFAULT CURRENT_TIMESTAMP
+   - `updated_at`: DATETIME NULL
+
+6. **panel_health_checks**
+   - `id`: INT PRIMARY KEY AUTO_INCREMENT
+   - `panel_id`: INT NOT NULL FOREIGN KEY
+   - `status`: VARCHAR(50) NOT NULL
+   - `response_time_ms`: INT NULL
+   - `details`: TEXT NULL
+   - `checked_at`: DATETIME NOT NULL
 
 ### 8.2. Service-Related Tables
 
-5. **plans**
+7. **plans**
    - `id`: INT PRIMARY KEY AUTO_INCREMENT
-   - `name`: VARCHAR(100)
-   - `traffic`: BIGINT  # in GB
-   - `days`: INT
-   - `price`: DECIMAL(10,2)
+   - `name`: VARCHAR(100) NOT NULL
+   - `traffic`: BIGINT NOT NULL  # in GB
+   - `days`: INT NOT NULL
+   - `price`: DECIMAL(10,2) NOT NULL
    - `description`: TEXT NULL
    - `features`: TEXT NULL  # JSON array of additional features
-   - `is_active`: BOOLEAN DEFAULT TRUE
-   - `is_featured`: BOOLEAN DEFAULT FALSE
+   - `is_active`: TINYINT(1) NULL
+   - `is_featured`: TINYINT(1) NULL
    - `max_clients`: INT NULL
    - `protocols`: VARCHAR(255) NULL  # comma-separated protocols (vmess, vless)
-   - `category_id`: INT NULL FOREIGN KEY  # reference to plan_categories
-   - `sorting_order`: INT DEFAULT 0
-   - `created_at`: DATETIME
-   - `updated_at`: DATETIME
+   - `category_id`: INT NULL FOREIGN KEY
+   - `sorting_order`: INT NULL
+   - `created_at`: DATETIME NULL DEFAULT CURRENT_TIMESTAMP
+   - `updated_at`: DATETIME NULL
 
-6. **plan_categories**
+8. **plan_categories**
    - `id`: INT PRIMARY KEY AUTO_INCREMENT
-   - `name`: VARCHAR(100)
+   - `name`: VARCHAR(100) NOT NULL
    - `description`: TEXT NULL
-   - `sorting_order`: INT DEFAULT 0
-   - `is_active`: BOOLEAN DEFAULT TRUE
-   - `created_at`: DATETIME
-   - `updated_at`: DATETIME
+   - `sorting_order`: INT NULL
+   - `is_active`: TINYINT(1) NULL
+   - `created_at`: DATETIME NULL DEFAULT CURRENT_TIMESTAMP
+   - `updated_at`: DATETIME NULL
 
-7. **clients**
+9. **clients**
    - `id`: INT PRIMARY KEY AUTO_INCREMENT
-   - `user_id`: INT FOREIGN KEY
-   - `panel_id`: INT FOREIGN KEY
-   - `location_id`: INT FOREIGN KEY
-   - `plan_id`: INT FOREIGN KEY
-   - `order_id`: INT FOREIGN KEY NULL
-   - `client_uuid`: VARCHAR(36)
-   - `email`: VARCHAR(255)
-   - `remark`: VARCHAR(255)  # Display name identifier
-   - `expire_date`: DATETIME
-   - `traffic`: BIGINT  # in GB
-   - `used_traffic`: BIGINT DEFAULT 0  # in GB
-   - `status`: VARCHAR(20)  # active, expired, disabled, frozen
-   - `protocol`: VARCHAR(20)  # vmess, vless
+   - `user_id`: INT NOT NULL FOREIGN KEY
+   - `panel_id`: INT NOT NULL FOREIGN KEY
+   - `panel_inbound_id`: INT NULL FOREIGN KEY
+   - `location_id`: INT NOT NULL FOREIGN KEY
+   - `plan_id`: INT NOT NULL FOREIGN KEY
+   - `order_id`: INT NULL FOREIGN KEY
+   - `client_uuid`: VARCHAR(36) NOT NULL
+   - `email`: VARCHAR(255) NOT NULL
+   - `remark`: VARCHAR(255) NOT NULL
+   - `expire_date`: DATETIME NOT NULL
+   - `traffic`: BIGINT NOT NULL  # in GB
+   - `used_traffic`: BIGINT NULL  # in GB
+   - `status`: ENUM('ACTIVE', 'EXPIRED', 'DISABLED', 'FROZEN') NULL
+   - `protocol`: ENUM('VMESS', 'VLESS', 'TROJAN', 'SHADOWSOCKS') NOT NULL
+   - `network`: VARCHAR(20) NULL
+   - `port`: INT NULL
+   - `tls`: TINYINT(1) NULL
+   - `security`: VARCHAR(20) NULL
    - `config_json`: TEXT NULL  # JSON configuration for additional features
    - `subscription_url`: VARCHAR(255) NULL
+   - `qrcode_url`: VARCHAR(255) NULL
    - `notes`: TEXT NULL
    - `freeze_start`: DATETIME NULL
    - `freeze_end`: DATETIME NULL
-   - `is_trial`: BOOLEAN DEFAULT FALSE
-   - `auto_renew`: BOOLEAN DEFAULT FALSE
+   - `is_trial`: TINYINT(1) NULL
+   - `auto_renew`: TINYINT(1) NULL
+   - `last_online`: DATETIME NULL
    - `last_notified`: DATETIME NULL
-   - `created_at`: DATETIME
-   - `updated_at`: DATETIME
+   - `created_at`: DATETIME NULL DEFAULT CURRENT_TIMESTAMP
+   - `updated_at`: DATETIME NULL
+   - `original_client_uuid`: VARCHAR(36) NULL
+   - `original_remark`: VARCHAR(255) NULL
+   - `custom_name`: VARCHAR(100) NULL
+   - `migration_count`: INT NULL
+   - `previous_panel_id`: INT NULL FOREIGN KEY
+   - `migration_history`: TEXT NULL
 
-8. **client_id_sequences**
+10. **client_id_sequences**
    - `id`: INT PRIMARY KEY AUTO_INCREMENT
-   - `location_id`: INT FOREIGN KEY
-   - `last_id`: INT DEFAULT 0
+   - `location_id`: INT NOT NULL FOREIGN KEY
+   - `last_id`: INT NULL
    - `prefix`: VARCHAR(20) NULL
-   - `created_at`: DATETIME
-   - `updated_at`: DATETIME
+   - `created_at`: DATETIME NULL DEFAULT CURRENT_TIMESTAMP
+   - `updated_at`: DATETIME NULL
+
+11. **client_migrations**
+   - `id`: INT PRIMARY KEY AUTO_INCREMENT
+   - `client_id`: INT NOT NULL FOREIGN KEY
+   - `from_panel_id`: INT NOT NULL FOREIGN KEY
+   - `to_panel_id`: INT NOT NULL FOREIGN KEY
+   - `old_client_uuid`: VARCHAR(36) NOT NULL
+   - `new_client_uuid`: VARCHAR(36) NOT NULL
+   - `old_remark`: VARCHAR(255) NOT NULL
+   - `new_remark`: VARCHAR(255) NOT NULL
+   - `traffic_remaining`: BIGINT NOT NULL
+   - `time_remaining_days`: INT NOT NULL
+   - `reason`: VARCHAR(100) NULL
+   - `notes`: TEXT NULL
+   - `migrated_at`: DATETIME NULL DEFAULT CURRENT_TIMESTAMP
 
 ### 8.3. Financial Tables
 
-9. **orders**
+12. **orders**
    - `id`: INT PRIMARY KEY AUTO_INCREMENT
-   - `user_id`: INT FOREIGN KEY
-   - `plan_id`: INT FOREIGN KEY
-   - `payment_method`: VARCHAR(50)
-   - `amount`: DECIMAL(10,2)
-   - `discount_amount`: DECIMAL(10,2) DEFAULT 0
-   - `final_amount`: DECIMAL(10,2)
-   - `status`: VARCHAR(20)  # pending, completed, failed, cancelled
+   - `user_id`: INT NOT NULL FOREIGN KEY
+   - `plan_id`: INT NOT NULL FOREIGN KEY
+   - `payment_method`: VARCHAR(50) NOT NULL
+   - `amount`: DECIMAL(10,2) NOT NULL
+   - `discount_amount`: DECIMAL(10,2) NULL
+   - `final_amount`: DECIMAL(10,2) NOT NULL
+   - `status`: ENUM('PENDING', 'COMPLETED', 'FAILED', 'CANCELLED') NULL
    - `notes`: TEXT NULL
-   - `created_at`: DATETIME
-   - `updated_at`: DATETIME
+   - `created_at`: DATETIME NULL DEFAULT CURRENT_TIMESTAMP
+   - `updated_at`: DATETIME NULL
 
-10. **transactions**
+13. **transactions**
    - `id`: INT PRIMARY KEY AUTO_INCREMENT
-   - `user_id`: INT FOREIGN KEY
-   - `amount`: DECIMAL(10,2)
-   - `type`: VARCHAR(20)  # deposit, withdraw, purchase, refund, commission
+   - `user_id`: INT NOT NULL FOREIGN KEY
+   - `amount`: DECIMAL(10,2) NOT NULL
+   - `type`: ENUM('DEPOSIT', 'WITHDRAW', 'PURCHASE', 'REFUND', 'COMMISSION') NOT NULL
    - `reference_id`: INT NULL  # Reference to payment_id or order_id
    - `description`: TEXT NULL
-   - `balance_after`: DECIMAL(10,2)
-   - `created_at`: DATETIME
+   - `balance_after`: DECIMAL(10,2) NOT NULL
+   - `created_at`: DATETIME NULL DEFAULT CURRENT_TIMESTAMP
 
-11. **payments**
+14. **payments**
    - `id`: INT PRIMARY KEY AUTO_INCREMENT
-   - `user_id`: INT FOREIGN KEY
+   - `user_id`: INT NOT NULL FOREIGN KEY
    - `order_id`: INT NULL FOREIGN KEY
-   - `amount`: DECIMAL(10,2)
-   - `payment_method`: VARCHAR(50)
+   - `amount`: DECIMAL(10,2) NOT NULL
+   - `payment_method`: VARCHAR(50) NOT NULL
    - `payment_gateway_id`: VARCHAR(100) NULL
    - `card_number`: VARCHAR(20) NULL
    - `tracking_code`: VARCHAR(100) NULL
    - `receipt_image`: VARCHAR(255) NULL
-   - `status`: VARCHAR(20)  # pending, verified, rejected
+   - `status`: ENUM('PENDING', 'VERIFIED', 'REJECTED') NULL
    - `admin_id`: INT NULL FOREIGN KEY  # Admin who verified
    - `verification_notes`: TEXT NULL
    - `verified_at`: DATETIME NULL
-   - `created_at`: DATETIME
-   - `updated_at`: DATETIME
+   - `created_at`: DATETIME NULL DEFAULT CURRENT_TIMESTAMP
+   - `updated_at`: DATETIME NULL
 
-12. **bank_cards**
+15. **bank_cards**
     - `id`: INT PRIMARY KEY AUTO_INCREMENT
-    - `bank_name`: VARCHAR(100)
-    - `card_number`: VARCHAR(20)
+    - `bank_name`: VARCHAR(100) NOT NULL
+    - `card_number`: VARCHAR(20) NOT NULL
     - `account_number`: VARCHAR(30) NULL
-    - `owner_name`: VARCHAR(100)
-    - `is_active`: BOOLEAN DEFAULT TRUE
-    - `rotation_priority`: INT DEFAULT 0
+    - `owner_name`: VARCHAR(100) NOT NULL
+    - `is_active`: TINYINT(1) NULL
+    - `rotation_priority`: INT NULL
     - `last_used`: DATETIME NULL
     - `daily_limit`: DECIMAL(15,2) NULL
     - `monthly_limit`: DECIMAL(15,2) NULL
-    - `created_at`: DATETIME
-    - `updated_at`: DATETIME
+    - `created_at`: DATETIME NULL DEFAULT CURRENT_TIMESTAMP
+    - `updated_at`: DATETIME NULL
 
 ### 8.4. System Tables
 
-13. **notification_channels**
+16. **notification_channels**
     - `id`: INT PRIMARY KEY AUTO_INCREMENT
-    - `name`: VARCHAR(100)  # admin, payment, report, log, alert, backup
-    - `channel_id`: VARCHAR(100)
+    - `name`: VARCHAR(100) NOT NULL
+    - `channel_id`: VARCHAR(100) NOT NULL
     - `description`: TEXT NULL
     - `notification_types`: TEXT NULL  # JSON array of notification types
-    - `is_active`: BOOLEAN DEFAULT TRUE
-    - `created_at`: DATETIME
-    - `updated_at`: DATETIME
+    - `is_active`: TINYINT(1) NULL
+    - `created_at`: DATETIME NULL DEFAULT CURRENT_TIMESTAMP
+    - `updated_at`: DATETIME NULL
 
-14. **settings**
+17. **settings**
     - `id`: INT PRIMARY KEY AUTO_INCREMENT
-    - `key`: VARCHAR(100) UNIQUE
-    - `value`: TEXT
+    - `key`: VARCHAR(100) NOT NULL UNIQUE
+    - `value`: TEXT NOT NULL
     - `description`: TEXT NULL
-    - `is_public`: BOOLEAN DEFAULT FALSE
-    - `group`: VARCHAR(50) NULL  # For grouping related settings
-    - `created_at`: DATETIME
-    - `updated_at`: DATETIME
+    - `is_public`: TINYINT(1) NULL
+    - `group`: VARCHAR(50) NULL
 
 ### 8.5. Future Phase Tables
 
-15. **discount_codes** (Future Phase)
-    - `id`: INT PRIMARY KEY AUTO_INCREMENT
-    - `code`: VARCHAR(50) UNIQUE
-    - `discount_type`: VARCHAR(20)  # percentage, fixed
-    - `discount_value`: DECIMAL(10,2)
-    - `max_uses`: INT NULL
-    - `used_count`: INT DEFAULT 0
-    - `min_order_amount`: DECIMAL(10,2) DEFAULT 0
-    - `max_discount_amount`: DECIMAL(10,2) NULL
-    - `expires_at`: DATETIME NULL
-    - `is_active`: BOOLEAN DEFAULT TRUE
-    - `created_at`: DATETIME
-    - `updated_at`: DATETIME
-
-16. **user_devices** (Future Phase)
+18. **user_devices** (Future Phase)
     - `id`: INT PRIMARY KEY AUTO_INCREMENT
     - `user_id`: INT FOREIGN KEY
     - `device_id`: VARCHAR(100)
@@ -1048,7 +1104,7 @@ moonvpn/
     - `created_at`: DATETIME
     - `updated_at`: DATETIME
 
-17. **audit_logs** (Future Phase)
+19. **audit_logs** (Future Phase)
     - `id`: INT PRIMARY KEY AUTO_INCREMENT
     - `user_id`: INT NULL FOREIGN KEY
     - `action`: VARCHAR(100)

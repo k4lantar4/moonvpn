@@ -1,3 +1,3 @@
 """
-Utility functions for the Telegram bot.
+Bot utility functions.
 """ 

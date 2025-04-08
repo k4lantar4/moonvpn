@@ -29,7 +29,8 @@ class Panel(Base):
 
     location = relationship("Location", back_populates="panels")
     created_by_user = relationship("User", back_populates="panels_created")
-    clients = relationship("Client", back_populates="panel")
+    clients = relationship("Client", foreign_keys="[Client.panel_id]", back_populates="panel")
+    previous_clients = relationship("Client", foreign_keys="[Client.previous_panel_id]", back_populates="previous_panel")
     health_checks = relationship("PanelHealthCheck", back_populates="panel")
 
     # Additional fields for panel management

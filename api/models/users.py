@@ -43,8 +43,8 @@ class User(Base):
     clients = relationship("Client", back_populates="user")
     orders = relationship("Order", back_populates="user")
     transactions = relationship("Transaction", back_populates="user")
-    payments = relationship("Payment", back_populates="user")
-    payments_verified = relationship("Payment", foreign_keys="[Payment.admin_id]", back_populates="admin")
+    user_payments = relationship("Payment", foreign_keys="[Payment.user_id]", back_populates="user")
+    admin_verified_payments = relationship("Payment", foreign_keys="[Payment.admin_id]", back_populates="admin")
 
     def __repr__(self):
         return f"<User(id={self.id}, telegram_id={self.telegram_id}, role={self.role.name if self.role else None})>"

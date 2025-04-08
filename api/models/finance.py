@@ -66,8 +66,8 @@ class Payment(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
-    user = relationship("User", foreign_keys=[user_id], back_populates="payments")
-    admin = relationship("User", foreign_keys=[admin_id], back_populates="payments_verified")
+    user = relationship("User", foreign_keys=[user_id], back_populates="user_payments")
+    admin = relationship("User", foreign_keys=[admin_id], back_populates="admin_verified_payments")
     order = relationship("Order", back_populates="payments")
     
     def __repr__(self):

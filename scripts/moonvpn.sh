@@ -12,9 +12,10 @@ BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
-# Project root path
-PROJECT_ROOT=$(cd "$(dirname "$0")/.." && pwd)
-cd "$PROJECT_ROOT" || exit 1
+# Path to this script, resolving any symlinks
+SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}")"
+# Project root is the parent directory of the scripts directory
+PROJECT_ROOT="$(dirname "$(dirname "$SCRIPT_PATH")")"
 
 # Show banner
 show_banner() {
@@ -43,11 +44,17 @@ show_help() {
     echo -e "  ${GREEN}shell${NC} [service] Enter service shell"
     echo -e "  ${GREEN}install${NC}      Install MoonVPN"
     echo -e "  ${GREEN}uninstall${NC}    Uninstall MoonVPN"
+    echo -e "  ${GREEN}migrate${NC}      Run database migrations"
+    echo -e "  ${GREEN}seeddb${NC}       Seed database with initial data"
+    echo -e "  ${GREEN}cleanup${NC}      Clean temporary files and logs"
+    echo -e "  ${GREEN}monitor${NC}      Monitor system health"
+    echo -e "  ${GREEN}test${NC}         Run tests"
     echo -e "  ${GREEN}help${NC}         Show this help"
     echo
     echo -e "${CYAN}Example:${NC}"
     echo -e "  moonvpn start"
     echo -e "  moonvpn logs api"
+    echo -e "  moonvpn migrate"
     echo
 }
 
@@ -79,10 +86,10 @@ start_services() {
     fi
     
     # Check .env file
-    if [ ! -f .env ]; then
+    if [ ! -f "$PROJECT_ROOT/.env" ]; then
         echo -e "${YELLOW}No .env file found. Creating from .env.example...${NC}"
-        if [ -f .env.example ]; then
-            cp .env.example .env
+        if [ -f "$PROJECT_ROOT/.env.example" ]; then
+            cp "$PROJECT_ROOT/.env.example" "$PROJECT_ROOT/.env"
             echo -e "${GREEN}.env file created. Please edit it with your settings.${NC}"
             exit 1
         else
@@ -92,16 +99,16 @@ start_services() {
     fi
     
     # Create logs directory if it doesn't exist
-    if [ ! -d "logs" ]; then
+    if [ ! -d "$PROJECT_ROOT/logs" ]; then
         echo -e "${YELLOW}Creating logs directory...${NC}"
-        mkdir -p logs
+        mkdir -p "$PROJECT_ROOT/logs"
         echo -e "${GREEN}Logs directory created.${NC}"
     fi
     
     # Build and start containers
     echo -e "${YELLOW}Starting MoonVPN services...${NC}"
-    docker-compose down &> /dev/null  # Stop any existing containers
-    docker-compose up -d --build
+    docker-compose -f "$PROJECT_ROOT/docker-compose.yml" down &> /dev/null  # Stop any existing containers
+    docker-compose -f "$PROJECT_ROOT/docker-compose.yml" up -d --build
     
     # Check if containers are running
     if [ -z "$(check_containers moonvpn_db)" ] || [ -z "$(check_containers moonvpn_api)" ] || [ -z "$(check_containers moonvpn_bot)" ]; then
@@ -122,8 +129,8 @@ start_services() {
     echo "==============================================="
     echo "      MoonVPN Started Successfully!            "
     echo "==============================================="
-    echo "API: http://localhost:$(grep API_PORT .env | cut -d= -f2)"
-    echo "phpMyAdmin: http://localhost:$(grep PHPMYADMIN_PORT .env | cut -d= -f2)"
+    echo "API: http://localhost:$(grep API_PORT "$PROJECT_ROOT/.env" | cut -d= -f2)"
+    echo "phpMyAdmin: http://localhost:$(grep PHPMYADMIN_PORT "$PROJECT_ROOT/.env" | cut -d= -f2)"
     echo ""
     echo "To view logs:"
     echo "  API: moonvpn logs api"
@@ -139,22 +146,22 @@ start_services() {
 # Stop services
 stop_services() {
     echo -e "${YELLOW}Stopping MoonVPN services...${NC}"
-    docker-compose down
+    docker-compose -f "$PROJECT_ROOT/docker-compose.yml" down
     echo -e "${GREEN}MoonVPN services stopped successfully.${NC}"
 }
 
 # Restart services
 restart_services() {
     echo -e "${YELLOW}Restarting MoonVPN services...${NC}"
-    docker-compose down
-    docker-compose up -d --build
+    docker-compose -f "$PROJECT_ROOT/docker-compose.yml" down
+    docker-compose -f "$PROJECT_ROOT/docker-compose.yml" up -d --build
     echo -e "${GREEN}MoonVPN services restarted successfully.${NC}"
 }
 
 # Show services status
 show_status() {
     echo -e "${YELLOW}MoonVPN Services Status:${NC}"
-    docker-compose ps
+    docker-compose -f "$PROJECT_ROOT/docker-compose.yml" ps
 }
 
 # Show logs
@@ -179,7 +186,7 @@ show_logs() {
             ;;
         *)
             echo -e "${YELLOW}Showing all services logs:${NC}"
-            docker-compose logs --tail 50
+            docker-compose -f "$PROJECT_ROOT/docker-compose.yml" logs --tail 50
             ;;
     esac
 }
@@ -198,7 +205,7 @@ create_backup() {
     fi
     
     echo -e "${YELLOW}Creating database backup...${NC}"
-    docker exec moonvpn_db mysqldump -u root --password="$(grep MYSQL_ROOT_PASSWORD .env | cut -d= -f2)" moonvpn > "$backup_file"
+    docker exec moonvpn_db mysqldump -u root --password="$(grep MYSQL_ROOT_PASSWORD "$PROJECT_ROOT/.env" | cut -d= -f2)" moonvpn > "$backup_file"
     
     if [ $? -eq 0 ]; then
         echo -e "${GREEN}Backup saved successfully to $backup_file${NC}"
@@ -239,9 +246,9 @@ restore_backup() {
     
     # Handle compressed files
     if [[ "$backup_file" == *.gz ]]; then
-        gunzip -c "$backup_file" | docker exec -i moonvpn_db mysql -u root --password="$(grep MYSQL_ROOT_PASSWORD .env | cut -d= -f2)" moonvpn
+        gunzip -c "$backup_file" | docker exec -i moonvpn_db mysql -u root --password="$(grep MYSQL_ROOT_PASSWORD "$PROJECT_ROOT/.env" | cut -d= -f2)" moonvpn
     else
-        cat "$backup_file" | docker exec -i moonvpn_db mysql -u root --password="$(grep MYSQL_ROOT_PASSWORD .env | cut -d= -f2)" moonvpn
+        cat "$backup_file" | docker exec -i moonvpn_db mysql -u root --password="$(grep MYSQL_ROOT_PASSWORD "$PROJECT_ROOT/.env" | cut -d= -f2)" moonvpn
     fi
     
     if [ $? -eq 0 ]; then
@@ -317,10 +324,10 @@ install_moonvpn() {
     check_docker
     
     # Create .env if it doesn't exist
-    if [ ! -f .env ]; then
+    if [ ! -f "$PROJECT_ROOT/.env" ]; then
         echo -e "${YELLOW}No .env file found. Creating from .env.example...${NC}"
-        if [ -f .env.example ]; then
-            cp .env.example .env
+        if [ -f "$PROJECT_ROOT/.env.example" ]; then
+            cp "$PROJECT_ROOT/.env.example" "$PROJECT_ROOT/.env"
             echo -e "${GREEN}.env file created. Please edit it with your settings.${NC}"
         else
             echo -e "${RED}Error: .env.example file not found. Cannot continue.${NC}"
@@ -330,14 +337,14 @@ install_moonvpn() {
     
     # Create required directories
     echo -e "${YELLOW}Creating required directories...${NC}"
-    mkdir -p logs
-    mkdir -p backups
-    mkdir -p data
+    mkdir -p "$PROJECT_ROOT/logs"
+    mkdir -p "$PROJECT_ROOT/backups"
+    mkdir -p "$PROJECT_ROOT/data"
     echo -e "${GREEN}Directories created.${NC}"
     
     # Build and start containers
     echo -e "${YELLOW}Starting MoonVPN services...${NC}"
-    docker-compose up -d --build
+    docker-compose -f "$PROJECT_ROOT/docker-compose.yml" up -d --build
     
     # Check if containers are running
     if [ -z "$(check_containers moonvpn_db)" ] || [ -z "$(check_containers moonvpn_api)" ] || [ -z "$(check_containers moonvpn_bot)" ]; then
@@ -363,8 +370,8 @@ install_moonvpn() {
     echo "==============================================="
     echo "You can now use the 'moonvpn' command from anywhere."
     echo ""
-    echo "API: http://localhost:$(grep API_PORT .env | cut -d= -f2)"
-    echo "phpMyAdmin: http://localhost:$(grep PHPMYADMIN_PORT .env | cut -d= -f2)"
+    echo "API: http://localhost:$(grep API_PORT "$PROJECT_ROOT/.env" | cut -d= -f2)"
+    echo "phpMyAdmin: http://localhost:$(grep PHPMYADMIN_PORT "$PROJECT_ROOT/.env" | cut -d= -f2)"
     echo ""
     echo "To see available commands:"
     echo "  moonvpn help"
@@ -386,7 +393,7 @@ uninstall_moonvpn() {
     echo -e "${YELLOW}Uninstalling MoonVPN...${NC}"
     
     # Stop and remove containers
-    docker-compose down -v
+    docker-compose -f "$PROJECT_ROOT/docker-compose.yml" down -v
     
     # Remove symlink
     if [ -L "/usr/local/bin/moonvpn" ]; then
@@ -396,12 +403,119 @@ uninstall_moonvpn() {
     echo -e "${GREEN}MoonVPN uninstalled successfully.${NC}"
 }
 
+# Run database migrations
+run_migrations() {
+    echo -e "${YELLOW}Running database migrations...${NC}"
+    
+    # Check if API container is running
+    if [ -z "$(check_containers moonvpn_api)" ]; then
+        echo -e "${RED}Error: API container is not running. Start services first.${NC}"
+        exit 1
+    fi
+    
+    # Run migrations
+    docker exec moonvpn_api alembic upgrade head
+    
+    if [ $? -eq 0 ]; then
+        echo -e "${GREEN}Database migrations completed successfully.${NC}"
+    else
+        echo -e "${RED}Error: Database migrations failed!${NC}"
+        exit 1
+    fi
+}
+
+# Seed database with initial data
+seed_database() {
+    echo -e "${YELLOW}Seeding database with initial data...${NC}"
+    
+    # Check if API container is running
+    if [ -z "$(check_containers moonvpn_api)" ]; then
+        echo -e "${RED}Error: API container is not running. Start services first.${NC}"
+        exit 1
+    fi
+    
+    # Run seed script
+    docker exec moonvpn_api python /app/scripts/seed_db.py
+    
+    if [ $? -eq 0 ]; then
+        echo -e "${GREEN}Database seeded successfully.${NC}"
+    else
+        echo -e "${RED}Error: Database seeding failed!${NC}"
+        exit 1
+    fi
+}
+
+# Clean temporary files and logs
+cleanup_system() {
+    echo -e "${YELLOW}Cleaning up temporary files and logs...${NC}"
+    
+    # Remove old log files (older than 7 days)
+    find "$PROJECT_ROOT/logs" -name "*.log" -type f -mtime +7 -delete
+    
+    # Clean Docker system
+    docker system prune -f
+    
+    # Remove temporary files
+    find /tmp -name "moonvpn_*" -type f -delete 2>/dev/null
+    
+    echo -e "${GREEN}Cleanup completed successfully.${NC}"
+}
+
+# Monitor system health
+monitor_system() {
+    echo -e "${YELLOW}Monitoring system health...${NC}"
+    
+    # Check container status
+    echo -e "${CYAN}Container Status:${NC}"
+    docker-compose -f "$PROJECT_ROOT/docker-compose.yml" ps
+    
+    # Check disk usage
+    echo -e "\n${CYAN}Disk Usage:${NC}"
+    df -h
+    
+    # Check memory usage
+    echo -e "\n${CYAN}Memory Usage:${NC}"
+    free -h
+    
+    # Check Docker stats
+    echo -e "\n${CYAN}Docker Stats:${NC}"
+    docker stats --no-stream
+    
+    # Check logs for errors
+    echo -e "\n${CYAN}Recent Errors in Logs:${NC}"
+    docker-compose -f "$PROJECT_ROOT/docker-compose.yml" logs --tail=50 | grep -i "error\|fail\|exception" || echo "No recent errors found."
+}
+
+# Run tests
+run_tests() {
+    echo -e "${YELLOW}Running tests...${NC}"
+    
+    # Check if API container is running
+    if [ -z "$(check_containers moonvpn_api)" ]; then
+        echo -e "${RED}Error: API container is not running. Start services first.${NC}"
+        exit 1
+    fi
+    
+    # Run tests
+    docker exec moonvpn_api pytest
+    
+    if [ $? -eq 0 ]; then
+        echo -e "${GREEN}Tests completed successfully.${NC}"
+    else
+        echo -e "${RED}Error: Tests failed!${NC}"
+        exit 1
+    fi
+}
+
 # Process arguments
 main() {
     show_banner
     
     # Check Docker
     check_docker
+    
+    # Make sure we're in the project root
+    # cd "$PROJECT_ROOT" || exit 1
     
     local command="$1"
     shift
@@ -439,6 +553,21 @@ main() {
             ;;
         uninstall)
             uninstall_moonvpn
+            ;;
+        migrate)
+            run_migrations
+            ;;
+        seeddb)
+            seed_database
+            ;;
+        cleanup)
+            cleanup_system
+            ;;
+        monitor)
+            monitor_system
+            ;;
+        test)
+            run_tests
             ;;
         help|--help|-h|"")
             show_help

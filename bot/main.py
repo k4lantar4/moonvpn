@@ -6,6 +6,8 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 from core.config import get_settings
 from core.logging import setup_logging
 from bot.handlers.language import setup_handlers as setup_language_handlers
+from bot.handlers.user import setup_handlers as setup_user_handlers
+from bot.keyboards import get_main_keyboard
 
 # Setup logging
 setup_logging()
@@ -21,13 +23,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.effective_user
     logger.info(f"User {user.id} ({user.username}) started the bot.")
 
-    # Simple Reply Keyboard
-    keyboard = [
-        [KeyboardButton("🚀 نمایش سرویس‌ها"), KeyboardButton("💼 حساب کاربری من")],
-        [KeyboardButton("💰 کیف پول"), KeyboardButton("🧑‍💻 پشتیبانی")],
-        [KeyboardButton("🌐 تغییر زبان")]  # Added language button
-    ]
-    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=False)
+    # Reply Keyboard
+    reply_markup = ReplyKeyboardMarkup(get_main_keyboard(), resize_keyboard=True, one_time_keyboard=False)
 
     # Personalized welcome message with Persian charm ✨
     welcome_message = (
@@ -56,19 +53,19 @@ async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     logger.info(f"Received message from {update.effective_user.id}: {user_text}")
 
     # Basic handling for reply keyboard buttons
-    if user_text == "🚀 نمایش سرویس‌ها":
+    if user_text == "🚀 نمایش سرویس‌ها" or user_text == "🚀 Show Services":
         await update.message.reply_text("در حال دریافت لیست سرویس‌ها... ⏳")
-        # TODO: Implement plan listing logic
-    elif user_text == "💼 حساب کاربری من":
+        # Handled by conversation handlers
+    elif user_text == "💼 حساب کاربری من" or user_text == "💼 My Account":
         await update.message.reply_text("بخش حساب کاربری به زودی فعال می‌شه! 🛠️")
-        # TODO: Implement account logic
-    elif user_text == "💰 کیف پول":
+        # Handled by conversation handlers
+    elif user_text == "💰 کیف پول" or user_text == "💰 Wallet":
         await update.message.reply_text("مدیریت کیف پول شما به زودی اینجا خواهد بود! 💳")
-        # TODO: Implement wallet logic
-    elif user_text == "🧑‍💻 پشتیبانی":
+        # Handled by conversation handlers
+    elif user_text == "🧑‍💻 پشتیبانی" or user_text == "🧑‍💻 Support":
         await update.message.reply_text("برای ارتباط با پشتیبانی، می‌تونی از آیدی @MoonVPNSupport استفاده کنی. 😊")
-        # TODO: Implement better support flow
-    elif user_text == "🌐 تغییر زبان":
+        # Handled by conversation handlers
+    elif user_text == "🌐 تغییر زبان" or user_text == "🌐 Change Language":
         # Trigger the language command
         await update.message.reply_text("/language")
     else:
@@ -98,6 +95,9 @@ def main() -> None:
 
     # Setup language handlers
     setup_language_handlers(application)
+    
+    # Setup user handlers
+    setup_user_handlers(application)
 
     # Add a message handler to echo text messages and handle keyboard buttons
     # Ensure it doesn't clash with commands
@@ -105,8 +105,6 @@ def main() -> None:
 
     # Error handler
     application.add_error_handler(error_handler)
-
-    # Add more handlers here (CallbackQueryHandler, ConversationHandler, etc.)
 
     # --- Start the Bot ---
     if settings.TELEGRAM_WEBHOOK_URL:
