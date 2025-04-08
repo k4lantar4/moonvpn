@@ -9,7 +9,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import CommandHandler, CallbackQueryHandler, ContextTypes, filters
 
 from core.config import get_settings
-from core.database import get_db_session
+from core.database import get_db
 from api.models import User
 from core.i18n import get_text
 
@@ -49,17 +49,22 @@ async def language_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     
     # Update user's language preference in database
     try:
-        db_session = await get_db_session()
-        user = db_session.query(User).filter(User.telegram_id == user_id).first()
-        
-        if user:
-            user.lang = lang
-            db_session.commit()
-            logger.info(f"Updated language preference for user {user_id} to {lang}")
-        else:
-            logger.warning(f"User {user_id} not found in database")
-        
-        db_session.close()
+        async for db_session in get_db():
+            result = await db_session.execute(
+                "SELECT * FROM users WHERE telegram_id = :telegram_id",
+                {"telegram_id": user_id}
+            )
+            user = result.first()
+            
+            if user:
+                await db_session.execute(
+                    "UPDATE users SET lang = :lang WHERE telegram_id = :telegram_id",
+                    {"lang": lang, "telegram_id": user_id}
+                )
+                await db_session.commit()
+                logger.info(f"Updated language preference for user {user_id} to {lang}")
+            else:
+                logger.warning(f"User {user_id} not found in database")
         
         # Send confirmation message
         if lang == "fa":

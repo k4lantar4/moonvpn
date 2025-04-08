@@ -5,16 +5,19 @@ This module defines API routes for managing panels and interacting with them.
 """
 
 from typing import List, Optional, Dict, Any
-from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.database import get_db
 from api.schemas import (
     PanelCreate, PanelUpdate, PanelResponse, PanelDetailResponse,
     HealthCheckRequest, HealthCheckResponse, PanelStatsResponse,
-    ClientCreate, ClientResponse
+    ClientCreate, ClientResponse, User,
+    PanelMigrationCreate, PanelMigrationComplete, PanelMigrationResponse,
+    PanelDomainCreate, PanelDomainResponse
 )
 from api.services.panel_service import PanelService
+from core.security.auth import get_current_admin_user, get_current_user
 
 
 router = APIRouter(
@@ -233,4 +236,133 @@ async def reset_client_traffic(
 ):
     """Reset traffic statistics for a client."""
     service = PanelService(db)
-    return await service.reset_client_traffic(panel_id, inbound_id, email) 
+    return await service.reset_client_traffic(panel_id, inbound_id, email)
+
+
+# --- Panel Server Migration Endpoints ---
+
+@router.post("/{panel_id}/start-migration", response_model=PanelMigrationResponse)
+async def start_panel_migration(
+    panel_id: int,
+    migration_data: PanelMigrationCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_admin_user)
+):
+    """
+    Start migration of a panel to a new server.
+    
+    Migration data should include:
+    - new_server_ip: IP of the new server
+    - new_url: New panel URL
+    - new_geo_location: Optional new geo location
+    - new_country_code: Optional new country code
+    - reason: Reason for migration
+    - notes: Optional notes
+    """
+    service = PanelService(db)
+    result = await service.start_panel_migration(
+        panel_id=panel_id,
+        new_server_ip=migration_data.new_server_ip,
+        new_url=migration_data.new_url,
+        new_geo_location=migration_data.new_geo_location,
+        new_country_code=migration_data.new_country_code,
+        reason=migration_data.reason,
+        notes=migration_data.notes,
+        performed_by=current_user.id
+    )
+    return result
+
+@router.get("/{panel_id}/migrations", response_model=List[PanelMigrationResponse])
+async def get_panel_migrations(
+    panel_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_admin_user)
+):
+    """Get history of panel migrations."""
+    service = PanelService(db)
+    return await service.get_panel_migrations(panel_id)
+
+@router.get("/migrations/{migration_id}", response_model=PanelMigrationResponse)
+async def get_migration_details(
+    migration_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_admin_user)
+):
+    """Get details of a specific panel migration."""
+    service = PanelService(db)
+    result = await service.get_migration_details(migration_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="Migration record not found")
+    return result
+
+@router.post("/migrations/{migration_id}/complete", response_model=PanelMigrationResponse)
+async def complete_panel_migration(
+    migration_id: int,
+    completion_data: PanelMigrationComplete,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_admin_user)
+):
+    """
+    Mark a panel migration as completed.
+    
+    Completion data should include:
+    - affected_clients_count: Number of clients affected
+    - backup_file: Optional path to backup file
+    - notes: Optional additional notes
+    """
+    service = PanelService(db)
+    result = await service.complete_panel_migration(
+        migration_id=migration_id,
+        affected_clients_count=completion_data.affected_clients_count,
+        backup_file=completion_data.backup_file,
+        notes=completion_data.notes
+    )
+    if not result:
+        raise HTTPException(status_code=404, detail="Migration record not found")
+    return result
+
+@router.post("/{panel_id}/domains", response_model=PanelDomainResponse)
+async def add_panel_domain(
+    panel_id: int,
+    domain_data: PanelDomainCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_admin_user)
+):
+    """
+    Add a domain to a panel.
+    
+    Domain data should include:
+    - domain: Domain name
+    - is_primary: Whether it's the primary domain
+    """
+    service = PanelService(db)
+    result = await service.add_panel_domain(
+        panel_id=panel_id,
+        domain=domain_data.domain,
+        is_primary=domain_data.is_primary
+    )
+    return result
+
+@router.get("/{panel_id}/domains", response_model=List[PanelDomainResponse])
+async def get_panel_domains(
+    panel_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get all domains for a panel."""
+    service = PanelService(db)
+    return await service.get_panel_domains(panel_id)
+
+@router.delete("/{panel_id}/domains/{domain_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_panel_domain(
+    panel_id: int,
+    domain_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_admin_user)
+):
+    """Delete a domain from a panel."""
+    service = PanelService(db)
+    result = await service.delete_panel_domain(panel_id, domain_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="Domain not found")
+    return None 

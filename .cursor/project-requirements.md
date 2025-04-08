@@ -31,60 +31,296 @@ MoonVPN aims to be a comprehensive, user-friendly, and robust system for managin
 - **Clean Architecture**: Separate concerns between presentation, business logic, and data access layers.
 - **Event-Driven Design**: Use events and background tasks for asynchronous processing.
 
-**Project Structure:**
+**Improved Project Structure:**
 ```
 moonvpn/
-├── api/                 # FastAPI application & business logic
-│   ├── models.py        # SQLAlchemy ORM models
-│   ├── routes/          # API route modules (auth, panels, clients, etc.)
-│   ├── schemas.py       # Pydantic schemas for data validation/serialization
-│   ├── services/        # Core business logic services
+├── api/                  # FastAPI application & business logic
+│   ├── models/          # SQLAlchemy ORM models
+│   │   ├── __init__.py  # Export all models
+│   │   ├── users.py     # User & Role models
+│   │   ├── panels.py    # Panel & related models
+│   │   ├── clients.py   # Client & service models
+│   │   ├── locations.py # Location models
+│   │   ├── plans.py     # Plan & category models
+│   │   ├── finance.py   # Orders, payments & transactions models
+│   │   ├── system.py    # System settings & notification channels
+│   │   └── migrations.py # Models for historical migrations
+│   │
+│   ├── routes/          # API route modules (organized by domain)
+│   │   ├── __init__.py  # Router registration
+│   │   ├── auth.py      # Authentication routes
+│   │   ├── users.py     # User management routes
+│   │   ├── panels.py    # Panel management routes
+│   │   ├── clients.py   # Client management routes
+│   │   ├── plans.py     # Plan management routes
+│   │   ├── locations.py # Location management routes
+│   │   ├── finance.py   # Payment & transaction routes
+│   │   ├── admin.py     # Admin-specific operations
+│   │   └── system.py    # System settings & utilities
+│   │
+│   ├── schemas/         # Pydantic schemas for data validation/serialization
+│   │   ├── __init__.py  # Export all schemas
+│   │   ├── users.py     # User-related schemas
+│   │   ├── panels.py    # Panel-related schemas
+│   │   ├── clients.py   # Client-related schemas
+│   │   ├── plans.py     # Plan-related schemas
+│   │   ├── locations.py # Location-related schemas
+│   │   ├── finance.py   # Financial schemas
+│   │   └── system.py    # System-related schemas
+│   │
+│   ├── services/        # Core business logic services (organized by domain)
+│   │   ├── __init__.py  # Export all services
+│   │   ├── base.py      # Base service class with common functionality
+│   │   ├── auth.py      # Authentication service
+│   │   ├── user.py      # User management service
+│   │   ├── panel.py     # Panel operations service
+│   │   ├── client.py    # Client management service
+│   │   ├── plan.py      # Plan management service
+│   │   ├── location.py  # Location management service
+│   │   ├── payment.py   # Payment processing service
+│   │   ├── wallet.py    # Wallet operations service
+│   │   ├── notification.py # Notification service
+│   │   ├── security.py  # Security operations
+│   │   ├── backup.py    # Backup/restore operations
+│   │   └── monitoring.py # Health monitoring service
+│   │
+│   ├── repositories/    # Data access layer
+│   │   ├── __init__.py  # Export all repositories
+│   │   ├── base.py      # Base repository with common CRUD operations
+│   │   ├── users.py     # User data access
+│   │   ├── panels.py    # Panel data access
+│   │   ├── clients.py   # Client data access
+│   │   ├── plans.py     # Plan data access
+│   │   ├── locations.py # Location data access
+│   │   ├── finance.py   # Financial data access
+│   │   └── system.py    # System settings access
+│   │
 │   ├── dependencies.py  # FastAPI dependency injection functions
 │   └── main.py          # FastAPI app entry point
 │
 ├── bot/                 # Telegram bot application
-│   ├── handlers/        # Command/CallbackQuery handlers (user, admin, seller)
-│   ├── keyboards.py     # Inline & Reply keyboard definitions
-│   ├── channels.py      # Logic for channel notifications
-│   ├── states.py        # Conversation handler states (if needed)
-│   ├── utils.py         # Bot utility functions (formatting, etc.)
-│   └── main.py          # Telegram bot entry point (webhook setup)
+│   ├── handlers/        # Command/CallbackQuery handlers (organized by domain)
+│   │   ├── __init__.py  # Handler registration
+│   │   ├── start.py     # Start command & registration
+│   │   ├── user.py      # User-specific command handlers
+│   │   ├── admin.py     # Admin command handlers
+│   │   ├── seller.py    # Seller command handlers
+│   │   ├── account.py   # Account management handlers
+│   │   ├── service.py   # Service management handlers
+│   │   ├── payment.py   # Payment-related handlers
+│   │   ├── callback.py  # Callback query handlers
+│   │   └── settings.py  # Settings-related handlers
+│   │
+│   ├── keyboards/       # Keyboard builders
+│   │   ├── __init__.py  # Export all keyboards
+│   │   ├── main.py      # Main menu keyboards
+│   │   ├── admin.py     # Admin-specific keyboards
+│   │   ├── user.py      # User-specific keyboards
+│   │   ├── seller.py    # Seller-specific keyboards
+│   │   ├── service.py   # Service-related keyboards
+│   │   └── payment.py   # Payment-related keyboards
+│   │
+│   ├── commands/        # Command handlers for different user roles
+│   │   ├── __init__.py  # Command registration
+│   │   ├── common.py    # Commands available to all users
+│   │   ├── user.py      # User-specific commands
+│   │   ├── admin.py     # Admin-specific commands
+│   │   └── seller.py    # Seller-specific commands
+│   │
+│   ├── conversations/   # Multi-step conversation handlers
+│   │   ├── __init__.py  # Export conversations
+│   │   ├── registration.py # User registration flow
+│   │   ├── purchase.py  # Service purchase flow
+│   │   ├── payment.py   # Payment submission flow
+│   │   └── settings.py  # Settings update flow
+│   │
+│   ├── channels/        # Channel notification handlers
+│   │   ├── __init__.py  # Export channel handlers
+│   │   ├── admin.py     # Admin channel handlers
+│   │   ├── payment.py   # Payment verification channel
+│   │   ├── alert.py     # Alert channel handlers
+│   │   ├── report.py    # Report channel handlers
+│   │   └── log.py       # Log channel handlers
+│   │
+│   ├── middlewares/     # Bot middlewares
+│   │   ├── __init__.py  # Export middlewares
+│   │   ├── auth.py      # Authentication middleware
+│   │   ├── rate_limit.py # Rate limiting
+│   │   └── logging.py   # Request logging
+│   │
+│   ├── services/        # Bot-specific services
+│   │   ├── __init__.py  # Export services
+│   │   ├── api.py       # API client for communicating with backend
+│   │   ├── localization.py # Localization service
+│   │   ├── message.py   # Message formatting service
+│   │   └── state.py     # Conversation state management
+│   │
+│   ├── templates/       # Message templates
+│   │   ├── __init__.py  # Export templates
+│   │   ├── user.py      # User-related message templates
+│   │   ├── service.py   # Service-related templates
+│   │   ├── payment.py   # Payment-related templates
+│   │   └── admin.py     # Admin-related templates
+│   │
+│   ├── utils/           # Bot utility functions
+│   │   ├── __init__.py  # Export utilities
+│   │   ├── formatting.py # Message formatting utilities
+│   │   ├── validators.py # Input validation utilities
+│   │   ├── decorators.py # Handler decorators (auth, etc.)
+│   │   └── helpers.py   # Miscellaneous helper functions
+│   │
+│   └── main.py          # Telegram bot entry point
 │
 ├── core/                # Shared components across API & Bot
-│   ├── config.py        # Configuration management (dotenv loading)
-│   ├── database.py      # Database session setup, engine creation
-│   ├── security.py      # Hashing, JWT, encryption functions
-│   ├── logging.py       # Centralized logging configuration
-│   ├── cache.py         # Redis connection and utility functions
+│   ├── __init__.py      # Export core components
+│   ├── config/          # Configuration management
+│   │   ├── __init__.py  # Export config
+│   │   ├── settings.py  # Application settings
+│   │   ├── environment.py # Environment configuration
+│   │   └── constants.py # System constants
+│   │
+│   ├── database/        # Database connection & utilities
+│   │   ├── __init__.py  # Export database components
+│   │   ├── session.py   # Database session management
+│   │   ├── migrations.py # Migration utilities
+│   │   └── utils.py     # Database utilities
+│   │
+│   ├── security/        # Security-related functionality
+│   │   ├── __init__.py  # Export security components
+│   │   ├── password.py  # Password hashing
+│   │   ├── jwt.py       # JWT handling
+│   │   ├── encryption.py # Data encryption/decryption
+│   │   └── permissions.py # Role-based permissions
+│   │
+│   ├── logging/         # Logging configuration
+│   │   ├── __init__.py  # Export logging components
+│   │   ├── setup.py     # Logging setup
+│   │   ├── formatters.py # Log formatters
+│   │   └── handlers.py  # Custom log handlers
+│   │
+│   ├── cache/           # Caching functionality
+│   │   ├── __init__.py  # Export cache components
+│   │   ├── redis.py     # Redis client & utilities
+│   │   ├── decorators.py # Cache decorators
+│   │   └── keys.py      # Cache key management
+│   │
+│   ├── exceptions/      # Custom exceptions
+│   │   ├── __init__.py  # Export exceptions
+│   │   ├── api.py       # API-related exceptions
+│   │   ├── auth.py      # Authentication exceptions
+│   │   ├── business.py  # Business logic exceptions
+│   │   └── integration.py # External integration exceptions
+│   │
+│   ├── utils/           # Shared utility functions
+│   │   ├── __init__.py  # Export utilities
+│   │   ├── dates.py     # Date/time utilities
+│   │   ├── strings.py   # String manipulation utilities
+│   │   ├── validation.py # Data validation utilities
+│   │   └── files.py     # File handling utilities
+│   │
 │   └── metrics.py       # Prometheus collectors (Future Phase)
 │
 ├── integrations/        # External service integrations
+│   ├── __init__.py      # Export integrations
 │   ├── panels/          # 3x-ui panel API client & logic
-│   │   ├── client.py    # XuiPanelClient class for API communication
-│   │   └── __init__.py  # Module exports
-│   ├── payments/        # ZarinPal API client & logic
-│   └── sms.py           # SMS verification service client (Future Phase)
+│   │   ├── __init__.py  # Export panel clients
+│   │   ├── client.py    # Base XuiPanelClient class
+│   │   ├── types.py     # Panel data type definitions
+│   │   ├── inbounds.py  # Inbound management
+│   │   ├── clients.py   # Client management
+│   │   ├── traffic.py   # Traffic operations
+│   │   ├── system.py    # System operations
+│   │   └── models.py    # Panel data models
+│   │
+│   ├── payments/        # Payment gateway integrations
+│   │   ├── __init__.py  # Export payment clients
+│   │   ├── zarinpal.py  # ZarinPal API client
+│   │   ├── models.py    # Payment models
+│   │   └── webhooks.py  # Payment webhook handlers
+│   │
+│   └── sms/             # SMS service integrations
+│       ├── __init__.py  # Export SMS clients
+│       ├── client.py    # Base SMS client
+│       └── melipayamak.py # Melipayamak integration (example)
 │
 ├── migrations/          # Alembic database migrations
-│   └── versions/        # Individual migration script versions
+│   ├── versions/        # Individual migration script versions
 │   ├── env.py           # Alembic environment configuration
 │   └── script.py.mako   # Migration script template
 │
 ├── scripts/             # Utility & operational scripts
-│   ├── install.sh       # Main installation script (`moonvpn` command logic)
+│   ├── install.sh       # Main installation script
 │   ├── backup.sh        # Database/config backup script
-│   ├── setup_db.py      # Initial DB setup/checks (can be part of install)
-│   └── healthcheck.py   # System health check script
+│   ├── setup_db.py      # Initial DB setup/checks
+│   ├── healthcheck.py   # System health check script
+│   ├── moonvpn.sh       # MoonVPN CLI tool implementation
+│   ├── maintenance/     # Maintenance scripts
+│   │   ├── cleanup.py   # Database cleanup utilities
+│   │   ├── migrate.py   # Panel migration helper
+│   │   └── repair.py    # System repair utilities
+│   │
+│   ├── monitoring/      # Monitoring scripts
+│   │   ├── check_panels.py # Panel health monitoring
+│   │   ├── check_clients.py # Client status monitoring
+│   │   └── stats.py     # System statistics generator
+│   │
+│   └── utils/           # Script utilities
+│       ├── colors.sh    # Terminal color definitions
+│       ├── functions.sh # Common bash functions
+│       └── validators.sh # Input validation utilities
 │
 ├── tests/               # Automated tests
-│   ├── api/             # API endpoint tests
-│   ├── bot/             # Bot handler tests
-│   └── integration/     # Integration tests (e.g., panel interaction)
+│   ├── __init__.py      # Test package
+│   ├── conftest.py      # pytest configuration
+│   ├── api/             # API tests
+│   │   ├── __init__.py  # Test package
+│   │   ├── test_routes/ # API route tests
+│   │   ├── test_services/ # Service tests
+│   │   └── test_models/ # Model tests
+│   │
+│   ├── bot/             # Bot tests
+│   │   ├── __init__.py  # Test package
+│   │   ├── test_handlers/ # Handler tests
+│   │   ├── test_keyboards/ # Keyboard tests
+│   │   └── test_conversations/ # Conversation tests
+│   │
+│   ├── core/            # Core component tests
+│   │   ├── __init__.py  # Test package
+│   │   ├── test_config/ # Configuration tests
+│   │   ├── test_database/ # Database tests
+│   │   └── test_security/ # Security tests
+│   │
+│   ├── integrations/    # Integration tests
+│   │   ├── __init__.py  # Test package
+│   │   ├── test_panels/ # Panel client tests
+│   │   └── test_payments/ # Payment integration tests
+│   │
+│   └── fixtures/        # Test fixtures
+│       ├── __init__.py  # Test package
+│       ├── users.py     # User fixtures
+│       ├── panels.py    # Panel fixtures
+│       ├── clients.py   # Client fixtures
+│       └── database.py  # Database fixtures
+│
+├── locales/             # Localization files
+│   ├── fa/              # Persian translations
+│   │   └── LC_MESSAGES/ # Message files
+│   └── en/              # English translations (if needed)
+│       └── LC_MESSAGES/ # Message files
+│
+├── docs/                # Documentation
+│   ├── api/             # API documentation
+│   ├── setup/           # Setup guides
+│   ├── admin/           # Admin guides
+│   ├── user/            # User guides
+│   ├── architecture/    # Architecture documentation
+│   └── development/     # Development guides
 │
 ├── .env.example         # Example environment variables template
 ├── alembic.ini          # Alembic configuration file
-├── docker-compose.yml   # Docker Compose service definitions (API, Bot, DB, Redis, phpMyAdmin)
-├── Dockerfile           # Dockerfile for the Python application (API/Bot)
+├── docker-compose.yml   # Docker Compose service definitions
+├── Dockerfile.api       # Dockerfile for API service
+├── Dockerfile.bot       # Dockerfile for Bot service
 └── README.md            # Project overview and setup instructions
 ```
 
