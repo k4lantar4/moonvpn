@@ -15,6 +15,8 @@ from aiogram import Router # Keep Router
 # from bot.keyboards.inline import user_keyboards # Example keyboard import
 # from bot.states.order_states import OrderSG # Example state import
 
+from bot.handlers.user.purchase import router as purchase_router
+
 logger = logging.getLogger(__name__)
 
 # Define user router
@@ -47,5 +49,9 @@ user_router = Router()
 # Function to register handlers
 def register_user_handlers(dp):
     """Register all user handlers."""
+    # Include our purchase router in the user_router
+    user_router.include_router(purchase_router)
+    
+    # Include the combined user router in the dispatcher
     dp.include_router(user_router)
-    logger.info("User handlers registered (currently empty).")
+    logger.info("User handlers registered, including purchase flow.")

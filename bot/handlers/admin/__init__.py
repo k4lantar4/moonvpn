@@ -26,5 +26,11 @@ router.include_router(panel_management_router) # Include sync router
 
 logger.info("Admin routers included: panel_handlers, location_handlers, panel_management") # Updated log
 
+# Function to register all admin handlers
+def register_all_admin_handlers(dp):
+    """Register all admin handlers."""
+    dp.include_router(router)
+    logger.info("All admin handlers registered.")
+
 # TODO: Add an overall admin command (e.g., /admin) to show admin menu
 # TODO: Add admin role filter to this router or individual handlers

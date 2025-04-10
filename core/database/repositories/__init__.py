@@ -14,6 +14,13 @@ from .notification_channel_repository import NotificationChannelRepository
 from .panel_inbound_repository import PanelInboundRepository
 from .discount_code_repository import DiscountCodeRepository
 from .order_repository import OrderRepository
+from .wallet_repository import WalletRepository
+from .bank_card_repository import BankCardRepository
+from .payment_repository import PaymentRepository
+from .setting_repository import SettingRepository
+
+# Define alias for ClientRepository (for backward compatibility)
+ClientAccountRepository = ClientRepository
 
 __all__ = [
     "BaseRepository",
@@ -24,9 +31,14 @@ __all__ = [
     "PlanRepository",
     "PlanCategoryRepository",
     "ClientRepository",
+    "ClientAccountRepository",
     "TransactionRepository",
     "NotificationChannelRepository",
     "PanelInboundRepository",
     "DiscountCodeRepository",
     "OrderRepository",
+    "WalletRepository",
+    "BankCardRepository",
+    "PaymentRepository",
+    "SettingRepository",
 ]

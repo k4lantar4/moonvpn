@@ -257,6 +257,32 @@ For each entity, implement a repository that handles:
 
 ## 6. Services
 
+### 6.0. Service Architecture Principles
+
+Services follow these key architectural principles:
+
+1. **Dependency Injection**
+   - Database sessions (AsyncSession) are injected into services via constructor
+   - Services should never create their own database sessions 
+   - Services never use `_get_db()` or similar methods to obtain sessions
+   - Services store the session as `self.db` for use in methods
+
+2. **Repository Usage**
+   - Services use repositories for data access operations
+   - Repositories are initialized in the service constructor
+   - Services pass `self.db` to repository methods, not storing sessions in repo instances
+
+3. **Transaction Management**
+   - Services assume callers (handlers) are responsible for transaction boundaries
+   - Services do not call `await session.commit()` except in background tasks
+   - Methods that perform multiple operations needing atomicity use `await self.db.flush()`
+   - Background/periodic tasks create dedicated sessions and manage their own transactions
+
+4. **Error Handling**
+   - Services convert repository/database errors to service-level exceptions
+   - Services use appropriate logging for errors and operations
+   - Services document expected exceptions in method docstrings
+
 ### 6.1. Core Services
 
 1. **UserService**

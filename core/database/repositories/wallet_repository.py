@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.database.models.wallet import Wallet
 from core.database.repositories.base_repo import BaseRepository
-from core.schemas.wallet import WalletCreate, WalletUpdate # Assuming schemas exist or will be created
+from core.schemas.wallet import WalletCreate, WalletUpdate # Schemas now exist in the proper location
 
 logger = logging.getLogger(__name__)
 
@@ -27,12 +27,4 @@ class WalletRepository(BaseRepository[Wallet, WalletCreate, WalletUpdate]):
     # async def increment_balance(self, db_session: AsyncSession, wallet_id: int, amount: Decimal) -> Wallet:
     #     ...
     # async def decrement_balance(self, db_session: AsyncSession, wallet_id: int, amount: Decimal) -> Wallet:
-    #     ...
-
-# Placeholder schemas (Create these in core/schemas/wallet.py)
-class WalletCreate(BaseModel):
-    user_id: int
-    balance: Optional[Decimal] = 0.00
-
-class WalletUpdate(BaseModel):
-    balance: Optional[Decimal] = None 
+    #     ... 

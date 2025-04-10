@@ -16,10 +16,8 @@ from dotenv import load_dotenv
 try:
     from core.config import settings
     from core.logging_config import setup_logging
-    # Import routers with correct names/aliases
-    from bot.handlers.common import common_router
-    from bot.handlers.admin import router as admin_router # Use alias
-    from bot.handlers.admin.panel_handlers import router as admin_panel_router
+    # Import all handlers from a central location
+    from bot.handlers import register_all_handlers
     # Import middlewares
     from bot.middlewares.db_session import DbSessionMiddleware # Uncommented DB Middleware
     # from bot.middlewares.auth import AuthMiddleware
@@ -68,11 +66,9 @@ async def main() -> None:
     dp = Dispatcher() # Removed storage=storage
     logger.debug("Dispatcher instance created.")
 
-    # --- Include Routers (Using correct names/aliases) ---
-    dp.include_router(common_router)
-    dp.include_router(admin_router) # This should include all admin sub-routers
-    # dp.include_router(admin_panel_router) # REMOVE: This router is likely included in admin_router
-    logger.info("Included routers: common, admin.") # Updated log message
+    # --- Register All Handlers ---
+    register_all_handlers(dp)
+    logger.info("All handlers registered.")
 
     # --- Register Middlewares ---
     # Register DbSessionMiddleware for all updates

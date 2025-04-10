@@ -20,6 +20,11 @@ class PaymentStatus(enum.Enum):
     VERIFIED = 'VERIFIED'
     REJECTED = 'REJECTED'
 
+class PaymentType(enum.Enum):
+    CARD = 'CARD'               # Card-to-Card transfer
+    WALLET_CHARGE = 'WALLET_CHARGE'  # For charging wallet
+    WALLET = 'WALLET'           # Using wallet balance
+
 class Payment(Base):
     """Model for user payments using Mapped syntax."""
     

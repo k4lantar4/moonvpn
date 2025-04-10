@@ -25,34 +25,11 @@ from core.database.repositories.user_repository import UserRepository
 from core.database.repositories.payment_repository import PaymentRepository, PaymentCreate, PaymentUpdate
 from core.database.repositories.plan_repository import PlanRepository
 from core.database.repositories.bank_card_repository import BankCardRepository
-# Import WalletService (placeholder for now)
-# from bot.services.wallet_service import WalletService 
+# Import WalletService
+from bot.services.wallet_service import WalletService
 
 # Import exceptions
 from core.exceptions import NotFoundError, ServiceError, BusinessLogicError
-
-# Placeholder for WalletService until it's created
-class WalletServicePlaceholder:
-    async def record_purchase(self, session: AsyncSession, user_id: int, amount: Decimal, payment_id: int, description: str) -> bool:
-        logger.warning("WalletServicePlaceholder.record_purchase called - Implement WalletService!")
-        # In a real implementation, this would:
-        # 1. Get wallet by user_id
-        # 2. Check balance
-        # 3. Decrement balance
-        # 4. Create WalletTransaction record
-        # 5. Return True/False or raise error
-        # For now, assume success for payment flow
-        return True 
-
-    async def record_deposit(self, session: AsyncSession, user_id: int, amount: Decimal, payment_id: int, description: str) -> bool:
-        logger.warning("WalletServicePlaceholder.record_deposit called - Implement WalletService!")
-        # In a real implementation, this would:
-        # 1. Get or create wallet by user_id
-        # 2. Increment balance
-        # 3. Create WalletTransaction record
-        # 4. Return True/False or raise error
-        # For now, assume success for payment flow
-        return True
 
 logger = logging.getLogger(__name__)
 
@@ -65,9 +42,8 @@ class PaymentService:
         self.user_repo = UserRepository()
         self.plan_repo = PlanRepository()
         self.bank_card_repo = BankCardRepository()
-        # Instantiate WalletService (using placeholder for now)
-        self.wallet_service = WalletServicePlaceholder() 
-        # self.wallet_service = WalletService() # Use this once WalletService is implemented
+        # Instantiate WalletService
+        self.wallet_service = WalletService()
 
     async def create_card_payment_request(
         self,

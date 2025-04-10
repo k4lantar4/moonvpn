@@ -15,7 +15,7 @@
 
 Cross-reference with @memories.md and @lessons-learned.md for context and best practices.`
 
-# Mode: Refactoring 🎯
+# Mode: Refactoring ⚡
 Focus: Systematic Project-wide Refactoring for Consistency
 Confidence: 100% # تمام فازهای refactoring کامل شده‌اند.
 
@@ -97,6 +97,14 @@ Confidence: 100% # تمام فازهای refactoring کامل شده‌اند.
     *   **Action:** Added relationship structure documentation to explain the bidirectional link between `ClientAccount` and `PanelInbound`.
     *   **Expected Result:** Documentation accurately reflects the implementation reality.
     *   **Actual Result:** API section now properly documents the relationship structure and identifier strategy.
+*   **[Task-R2.13] Fix `_get_db()` usage in services** (Completed ✅)
+    *   **Action:** اصلاح `plan_service.py` برای دریافت `db: AsyncSession` در سازنده کلاس به جای استفاده از `_get_db()`
+    *   **Action:** حذف پارامتر `session` از متدها و استفاده از `self.db` به جای آن
+    *   **Action:** اصلاح `client_service.py` برای حذف تمام فراخوانی‌های `self._get_db()` و جایگزینی آن‌ها با `self.db`
+    *   **Action:** حذف روش `renew_client` تکراری در انتهای فایل `client_service.py`
+    *   **Action:** راه‌اندازی مجدد کانتینر با موفقیت
+    *   **Expected Result:** سازگاری تمام سرویس‌ها با معماری جدید
+    *   **Actual Result:** متدهای `get_plan_by_id`, `get_plans_by_name` و `get_active_plans` در `plan_service.py` و تمام متدهای مربوطه در `client_service.py` با موفقیت اصلاح شدند تا به طور مناسب از `self.db` استفاده کنند. ✅
 
 **Phase R3: Repository Layer Review (`core/database/repositories/`)** (Completed ✅)
 *Goal: Final confirmation of consistency in repository patterns.*
@@ -129,7 +137,7 @@ Confidence: 100% # تمام فازهای refactoring کامل شده‌اند.
     * List return types are correctly specified ✅
     * Exception types are documented in docstrings ✅
 
-**Phase R4: Core Components Review (`bot/main.py`, `middlewares`, etc.)** (In Progress)
+**Phase R4: Core Components Review (`bot/main.py`, `middlewares`, etc.)** (Completed ✅)
 *Goal: Verify core setup and middleware functionality.*
 *   **[Task-R4.1]** Review `bot/main.py` for proper service instantiation and middleware registration. (Completed ✅)
     *   **Findings:** 
@@ -163,11 +171,27 @@ Confidence: 100% # تمام فازهای refactoring کامل شده‌اند.
         *   در `main.py`، خطاهای پایه‌ای مانند مشکل در واردات ماژول‌ها به‌درستی مدیریت می‌شوند.
     *   **Actual Result:** مدیریت خطا و پیکربندی لاگینگ مناسب است. ✅
 
-**Phase R4: Core Components Review** (Completed ✅)
-*Conclusion: کامپوننت‌های هسته‌ای بات شامل main.py و middleware ها به‌خوبی پیاده‌سازی شده‌اند و با معماری تعریف شده مطابقت دارند. نیازی به تغییرات فعلی نیست.*
+**Phase R5: Implement Remaining TODO Items** (Completed ✅)
+*Goal: Complete the remaining TODOs identified in prior phases.*
+
+*   **[Task-R5.1]** Create SQLAlchemy schemas for Wallet, Payment, BankCard (Completed ✅)
+    *   **Action:** Created `/core/schemas/wallet.py` with comprehensive schemas for wallet operations.
+    *   **Action:** Created `/core/schemas/payment.py` with schemas for payment operations, including transaction status.
+    *   **Action:** Created `/core/schemas/bank_card.py` with schemas for bank card operations, including masked card number properties.
+    *   **Expected Result:** Complete schema coverage for financial operations.
+    *   **Actual Result:** All three schemas properly implemented with appropriate validation, relationships, and data masking. ✅
+
+*   **[Task-R5.2]** Implement WalletService to replace WalletServicePlaceholder (Completed ✅)
+    *   **Action:** Created `/bot/services/wallet_service.py` with comprehensive implementation.
+    *   **Action:** Implemented all required methods: get_user_wallet, get_balance, record_transaction, record_deposit, record_purchase, etc.
+    *   **Action:** Added admin_adjust_balance for administrative balance operations.
+    *   **Action:** Added proper error handling and transaction support.
+    *   **Action:** Updated PaymentService to use the new WalletService instead of WalletServicePlaceholder.
+    *   **Expected Result:** Working wallet transactions integrated with payment system.
+    *   **Actual Result:** WalletService fully implemented with comprehensive functionality for all wallet operations. PaymentService successfully updated to use the new service. ✅
 
 **نتیجه‌گیری نهایی:**
-تمام فازهای refactoring (R1 تا R4) با موفقیت تکمیل شده‌اند. در طول این فرایند، ما:
+تمام فازهای refactoring (R1 تا R5) با موفقیت تکمیل شده‌اند. در طول این فرایند، ما:
 
 1. لایه‌های مختلف معماری (هندلرها، سرویس‌ها، ریپوزیتوری‌ها، و کامپوننت‌های هسته‌ای) را بررسی کردیم.
 2. اشکالات معماری مهمی را در سرویس‌های payment و panel شناسایی و اصلاح کردیم.
@@ -177,16 +201,15 @@ Confidence: 100% # تمام فازهای refactoring کامل شده‌اند.
 6. سرویس‌های payment و client را به طور کامل بازنویسی کردیم تا با معماری مبتنی بر ریپوزیتوری مطابقت داشته باشند.
 7. از طریق ایجاد مهاجرت‌های دیتابیس و اعمال آنها، تغییرات ساختاری را بر روی پایگاه داده اعمال کردیم.
 8. یک باگ در schema های پروژه مرتبط با PlanRead و تبدیل orm_mode به from_attributes را اصلاح کردیم.
-
-**TODOs باقیمانده:**
-1. **[TODO-1]** ایجاد طرح‌های SQLAlchemy (`core/schemas/`) برای Wallet، Payment، BankCard
-2. **[TODO-2]** پیاده‌سازی `WalletService` به جای استفاده از `WalletServicePlaceholder`
+9. Schema های SQLAlchemy برای Wallet، Payment و BankCard را ایجاد کردیم.
+10. WalletService را با پشتیبانی از تمام عملیات مالی پیاده‌سازی کردیم و آن را با PaymentService یکپارچه کردیم.
+11. روش‌های `_get_db()` در `client_service.py` و `plan_service.py` را حذف کردیم و به جای آن از `self.db` استفاده کردیم.
 
 **برنامه فاز بعدی:**
 با توجه به اینکه تمام فازهای refactoring با موفقیت انجام شده، اکنون می‌توانیم:
-1. وارد فاز اجرایی برای پیاده‌سازی TODOs باقیمانده شویم (⚡ Agent mode)
-2. تست‌های جامع برای ساختار جدید ایجاد کنیم
-3. بررسی کنیم که آیا کلاینت‌های موجود با ساختار جدید سازگار هستند یا نیاز به مهاجرت دارند
+1. تست‌های جامع برای ساختار جدید ایجاد کنیم
+2. بررسی کنیم که آیا کلاینت‌های موجود با ساختار جدید سازگار هستند یا نیاز به مهاجرت دارند
+3. با ایجاد هندلرهای جدید برای مدیریت کیف پول و پرداخت، به توسعه UI بات بپردازیم
 
 **وضعیت سرویس‌ها:**
 ✅ همه سرویس‌ها با موفقیت راه‌اندازی مجدد شدند و به درستی کار می‌کنند.
@@ -194,11 +217,133 @@ Confidence: 100% # تمام فازهای refactoring کامل شده‌اند.
 **Identified Issues/Improvements:**
 *   **[Improvement-1]** Fix `scripts/moonvpn.sh` restart command to correctly recognize 'Up' status. (Completed ✅)
 *   **[Check-1]** Verify if database contains seed data (e.g., panels) for thorough testing.
-*   **[TODO-1]** Create SQLAlchemy schemas (`core/schemas/`) for Wallet, Payment, BankCard.
-*   **[TODO-2]** Implement `WalletService` to replace `WalletServicePlaceholder`.
+*   **[TODO-1]** Create SQLAlchemy schemas (`core/schemas/`) for Wallet, Payment, BankCard. (Completed ✅)
+*   **[TODO-2]** Implement `WalletService` to replace `WalletServicePlaceholder`. (Completed ✅)
 *   **[Check-2]** Review Alembic migration (`2268f7a04299_...`) for correctness regarding Wallet model addition.
 *   **[Improvement-2]** Added utility methods to `ClientRepository` for loading relationships more flexibly. (Completed ✅)
 *   **[Improvement-3]** Implemented and integrated DiscountCode and Order repositories, schemas, and services with comprehensive features. (Completed ✅)
+*   **[Improvement-4]** اصلاح سازنده و متدهای کلاس `PlanService` برای استفاده از `self.db` به جای پارامتر `session`
+*   **[Improvement-5]** رفع استفاده از `self._get_db()` در `ClientService` و جایگزینی با `self.db`
+*   **[Improvement-6]** حذف نسخه تکراری متد `renew_client` در انتهای فایل `client_service.py`
+*   **[Future-1]** Develop UI handlers for wallet management and payment processing.
+*   **[Future-2]** Implement comprehensive testing for the new financial components.
+
+---
+
+# Implementation Plan: Bot Functionality Phase (P1)
+*Goal: Incrementally implement bot UI functionality according to project requirements*
+
+**Phase P1: Basic Bot UI Implementation**
+*Goal: Create essential user-facing functionalities in a step-by-step manner*
+
+*   **[Task-P1.1]** Implement Start Command with Main Menu (✅ Completed)
+    *   **Action:** Create keyboard with main options (خرید پلن، حساب کاربری، کیف پول، پشتیبانی)
+    *   **Action:** Initialize user if new using UserService
+    *   **Expected Result:** Functional starting point for bot with Persian menu items and emoji
+    *   **Test Steps:**
+        * Send /start به ربات در تلگرام
+        * بررسی نمایش صحیح متن خوشامدگویی و کیبورد با گزینه‌های اصلی
+        * تست با یک کاربر جدید و بررسی ایجاد کاربر در دیتابیس
+        * تست با کاربر موجود و بررسی بازیابی اطلاعات کاربر
+    *   **Verification:**
+        * بررسی دیتابیس: تایید ایجاد رکورد کاربر جدید در جدول `users`
+        * بررسی لاگ‌ها: اطمینان از عدم وجود خطا در لاگ‌های ربات
+    *   **Actual Result:** کیبورد اصلی با گزینه‌های مناسب ایجاد شد و به هندلر start متصل شد. پیام خوشامدگویی فارسی با ایموجی به کاربر نمایش داده می‌شود.
+
+*   **[Task-P1.2]** Implement Plan Purchase Flow (🔄 در حال پیاده‌سازی)
+    *   **Action:** Create plan selection UI (by category, all plans) ✅
+    *   **Action:** Create location selection after plan ✅ 
+    *   **Action:** Implement checkout process (summary, discount option, confirm) ⏳
+    *   **Action:** Integrate with wallet for payment ⏳
+    *   **Expected Result:** Complete flow from plan selection to successful purchase
+    *   **Test Steps:**
+        * انتخاب "خرید پلن" از منوی اصلی
+        * تست انتخاب دسته‌بندی و نمایش پلن‌ها
+        * انتخاب یک پلن و تست انتخاب لوکیشن
+        * تست صفحه خلاصه سفارش
+        * تست اعمال کد تخفیف (معتبر و نامعتبر)
+        * تکمیل فرایند پرداخت با کیف پول
+    *   **Verification:**
+        * بررسی دیتابیس: ایجاد رکورد در جداول `orders` و `client_accounts`
+        * بررسی پنل: اطمینان از ایجاد کلاینت در پنل مربوطه
+        * بررسی کیف پول: کسر مبلغ از موجودی کاربر
+        * تست اتصال با کانفیگ ایجاد شده
+    *   **Progress:** بخش انتخاب دسته‌بندی‌های پلن‌ها و نمایش پلن‌ها و انتخاب لوکیشن پیاده‌سازی شده است. در مرحله بعدی باید نمایش خلاصه سفارش، اعمال کد تخفیف و فرایند پرداخت پیاده‌سازی شود.
+
+*   **[Task-P1.3]** Implement Account Management (⏳ Pending)
+    *   **Action:** Display user's active accounts with details
+    *   **Action:** Add options for renewal, traffic reset
+    *   **Action:** Implement configuration retrieval with QR code
+    *   **Expected Result:** Users can manage their existing accounts
+    *   **Test Steps:**
+        * انتخاب "حساب کاربری" از منوی اصلی
+        * بررسی نمایش لیست اکانت‌ها با اطلاعات صحیح (تاریخ انقضا، ترافیک)
+        * تست دریافت کانفیگ و QR code برای یک اکانت
+        * تست گزینه تمدید اکانت
+        * تست گزینه ریست ترافیک
+    *   **Verification:**
+        * بررسی دیتابیس: آپدیت تاریخ انقضا یا ترافیک در جدول `client_accounts`
+        * بررسی پنل: اطمینان از تمدید یا ریست ترافیک در پنل
+        * تست اتصال با کانفیگ بعد از عملیات‌های مختلف
+
+*   **[Task-P1.4]** Implement Wallet Management (⏳ Pending)
+    *   **Action:** Display current balance and transaction history
+    *   **Action:** Add wallet charging options
+    *   **Action:** Implement payment gateway integration
+    *   **Expected Result:** Users can check and charge their wallet
+    *   **Test Steps:**
+        * انتخاب "کیف پول" از منوی اصلی
+        * بررسی نمایش موجودی فعلی و تراکنش‌های اخیر
+        * تست شارژ کیف پول با مبالغ مختلف
+        * تست انتقال به درگاه پرداخت و بازگشت از آن
+        * بررسی وضعیت تراکنش در حالت‌های مختلف (موفق، ناموفق، انصراف)
+    *   **Verification:**
+        * بررسی دیتابیس: ثبت تراکنش در جدول `wallet_transactions`
+        * بررسی افزایش موجودی کیف پول کاربر
+        * بررسی لاگ‌های تعامل با درگاه پرداخت
+
+*   **[Task-P1.5]** Implement Admin Panel (⏳ Pending)
+    *   **Action:** Create admin keyboard with management options
+    *   **Action:** Implement panel, plan, user management sections
+    *   **Action:** Add reporting and financial management
+    *   **Expected Result:** Admins can manage all aspects of the system
+    *   **Test Steps:**
+        * ارسال دستور /admin برای کاربر ادمین
+        * تست هر گزینه در منوی ادمین (پنل‌ها، کاربران، پلن‌ها)
+        * تست افزودن/ویرایش/حذف پنل
+        * تست افزودن/ویرایش/حذف پلن
+        * تست مدیریت کاربران و سطوح دسترسی
+        * تست گزارش‌گیری و آمار
+    *   **Verification:**
+        * بررسی دیتابیس: تغییرات اعمال شده در جداول مربوطه
+        * بررسی پنل: سینک شدن تغییرات با پنل‌های واقعی
+        * بررسی لاگ‌ها: ثبت اقدامات مدیریتی
+
+**نکات مهم پیاده‌سازی:**
+1. تمام متن‌های نمایش داده شده به کاربر باید به فارسی با لحن دوستانه و همراه با ایموجی باشند
+2. هر صفحه باید دکمه «بازگشت» داشته باشد
+3. مدیریت خطاها باید کامل و با پیام‌های واضح به کاربر باشد
+4. تمام بخش‌ها باید از سرویس‌های موجود استفاده کنند و مستقیماً با دیتابیس کار نکنند
+5. پیاده‌سازی باید مرحله به مرحله باشد و هر بخش کاملاً تست شود قبل از رفتن به بخش بعدی
+
+**پیشنهاد ترتیب پیاده‌سازی و تست:**
+1. ابتدا منوی اصلی و دستور /start - تست و تایید از طریق تلگرام و بررسی دیتابیس
+2. سپس بخش خرید پلن که شامل انتخاب پلن و مکان است - تست فرایند خرید کامل و تایید در پنل
+3. بخش مدیریت حساب‌های کاربری - تست هر گزینه و تایید تغییرات در پنل و دیتابیس
+4. بخش کیف پول و شارژ - تست شارژ و تایید ثبت تراکنش‌ها
+5. در نهایت پنل ادمین - تست جامع تمام قابلیت‌های مدیریتی
+
+**معیارهای موفقیت و تایید نهایی:**
+- ربات باید بتواند تمام مراحل را به صورت روان و بدون خطا انجام دهد
+- پیام‌ها باید واضح و راهنمای کاربر باشند
+- تمام عملیات خرید و شارژ باید به درستی ثبت شوند
+- استفاده از کانفیگ باید برای کاربر ساده و واضح باشد
+- هر قابلیت باید با حداقل ۵ کاربر تست شود و نتایج یکسان باشد
+- لاگ‌های سیستم باید فاقد خطای غیرمنتظره باشند
+- دیتابیس و پنل باید همیشه سینک و همگام باشند
+
+**پیشرفت جاری:**
+در حال حاضر منوی اصلی و دستور /start پیاده‌سازی شده و در حال پیشرفت به سمت تکمیل فرآیند خرید هستیم. بخش‌های مربوط به نمایش دسته‌بندی‌های پلن، نمایش لیست پلن‌ها و انتخاب لوکیشن پیاده‌سازی شده‌اند. در گام بعدی باید خلاصه سفارش و فرآیند پرداخت را پیاده‌سازی کنیم.
 
 ---
 *End of Scratchpad*

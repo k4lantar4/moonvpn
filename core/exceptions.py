@@ -41,6 +41,11 @@ class DuplicateUserException(BusinessLogicError):
     """Specific exception for when trying to create a duplicate user."""
     pass
 
+# Added for wallet/payment operations
+class InsufficientBalanceError(BusinessLogicError):
+    """Exception raised when a user's wallet balance is insufficient for an operation."""
+    pass
+
 # Panel exceptions are moved to integrations/panels/exceptions.py
 # class PanelIntegrationError(CoreError):
 #     """Base exception for errors during VPN panel interaction."""

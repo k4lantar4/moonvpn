@@ -15,9 +15,8 @@ import asyncio
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, delete, func
 from sqlalchemy.orm import selectinload
-from fastapi import HTTPException, status
 
-from core.database import get_db
+from core.database import get_db_session
 from core.config import settings
 from .panel_service import PanelService, SelectionStrategy
 from core.exceptions import NotFoundError, ServiceError, InsufficientBalanceError, ConfigurationError
@@ -450,183 +449,116 @@ class ClientService:
         return count + 1 # Simple increment based on existing clients for that location
 
     async def sync_client_usage(self, client_id: int) -> Optional[ClientAccount]:
-        """Fetches usage from the panel and updates the local DB record.
-
-        Note: This method assumes it's called within a context that manages
-        the database session and transaction (e.g., a periodic task runner).
-
-        Args:
-            client_id: The ID of the client to sync.
-
-        Returns:
-            The updated ClientAccount object (uncommitted) if usage changed,
-            the original object if no change, or None if not found.
-
-        Raises:
-            NotFoundError: If the client is not found.
-            ConfigurationError: If the client is missing the panel native identifier.
-            ServiceError: If fetching usage from the panel fails.
-        """
+        """Fetches usage from the panel and updates the local DB record."""
         logger.debug(f"Syncing usage for client {client_id}")
-        # Use repo to get client, ensuring panel relation is loaded if needed by PanelService
-        client = await self.client_repo.get_by_id_with_relations(client_id, relations=[ClientAccount.panel, ClientAccount.inbound])
-        if not client:
-            raise NotFoundError(f"ClientAccount {client_id} not found for usage sync.")
-
-        if client.status != ClientStatus.ACTIVE: # Or other statuses we want to sync?
+        client = await self.client_repo.get_with_panel(client_id)
+        if not client: raise NotFoundError(f"ClientAccount {client_id} not found.")
+        if client.status != ClientStatus.ACTIVE: # Only sync active clients?
             logger.debug(f"Skipping usage sync for non-active client {client_id} (status: {client.status})")
-            return client # Return current state, no changes made
-
-        if not client.panel_native_identifier:
-            logger.error(f"Cannot sync usage for client {client_id}: missing panel_native_identifier.")
-            raise ConfigurationError(f"Cannot manage client {client.remark} on panel: missing native identifier.")
+            return client
 
         try:
-            # PanelService gets usage data. It needs the native identifier.
+            # PanelService should provide a method to get usage
             usage_data = await self.panel_service.get_client_usage_from_panel(
                 panel_id=client.panel_id,
-                client_identifier=client.panel_native_identifier, 
-                protocol=client.protocol.value # استفاده از پروتکل کلاینت به صورت رشته
+                client_identifier=client.panel_client_email # Assuming email identifier
             )
 
-            if usage_data and isinstance(usage_data, dict):
+            if usage_data:
                 up = usage_data.get("up", 0)
                 down = usage_data.get("down", 0)
-                total_used_bytes = int(up) + int(down) # Ensure integer math
-                logger.debug(f"Panel usage for client {client_id} ({client.remark}): Up={up}, Down={down}, Total={total_used_bytes}")
+                total_used_bytes = up + down
+                logger.debug(f"Panel usage for {client.panel_client_email}: Up={up}, Down={down}, Total={total_used_bytes}")
 
-                # Update only if usage has changed
+                # Update only if usage has changed significantly?
                 if client.used_traffic_bytes != total_used_bytes:
-                    client.used_traffic_bytes = total_used_bytes
-                    client.updated_at = datetime.now() # Use aware datetime if needed
-                    self.db.add(client) # Mark for update
-                    await self.db.flush() # Keep transaction open
+                    updated_client = await self.client_repo.update(
+                        client_id,
+                        used_traffic_bytes=total_used_bytes,
+                        updated_at=datetime.utcnow()
+                    )
+                    await self.db.commit()
                     logger.info(f"Updated DB usage for client {client_id} to {total_used_bytes} bytes.")
-                    # Check if traffic limit reached and update status
-                    if client.traffic_limit_gb and total_used_bytes >= client.traffic_limit_gb * (1024**3):
-                        if client.status == ClientStatus.ACTIVE:
-                            logger.info(f"Client {client_id} reached traffic limit. Setting status to DISABLED_TRAFFIC.")
-                            # This requires another call or integrated logic
-                            # For simplicity, call update_client_status (which also interacts with panel)
-                            # This might be inefficient if done frequently. Consider alternatives.
-                            try:
-                                await self.update_client_status(client_id, ClientStatus.DISABLED_TRAFFIC)
-                            except ServiceError as status_err:
-                                logger.error(f"Failed to set status to DISABLED_TRAFFIC for client {client_id} after usage sync: {status_err}")
-                                # Continue, DB usage is updated, status update failed.
+                    return updated_client
                 else:
                     logger.debug(f"DB usage for client {client_id} is already up-to-date.")
-                return client # Return potentially modified client (needs commit by caller)
+                    return client
             else:
-                logger.warning(f"No valid usage data returned from panel for client {client_id}")
+                logger.warning(f"No usage data returned from panel for client {client_id}")
                 return client # Return current state
-        except (ServiceError, ConfigurationError, NotFoundError) as e:
-            logger.error(f"Error fetching usage for client {client_id}: {e}")
-            raise
+
+        except (PanelAPIError, PanelAuthenticationError, ServiceError) as e:
+            logger.error(f"Panel error syncing usage for client {client_id}: {e}")
+            # Don't raise, just log and return current state
+            return client
         except Exception as e:
-            logger.exception(f"Unexpected error fetching usage for client {client_id}")
-            raise ServiceError(f"Unexpected error during usage sync: {e}")
+            logger.exception(f"Unexpected error syncing usage for client {client_id}")
+            return client
 
-    async def renew_client(self, client_id: int) -> ClientAccount:
-        """Renews an existing client's subscription in DB and on Panel.
+    async def renew_client(self, client_id: int) -> Optional[ClientAccount]:
+        """Renews an existing client's subscription."""
+        logger.info(f"Renewing client {client_id}")
+        client = await self.client_repo.get_with_relations(client_id)
+        if not client: raise NotFoundError(f"ClientAccount {client_id} not found.")
+        if not client.user: raise ServiceError(f"ClientAccount {client_id} has no associated user.")
+        if not client.plan: raise ServiceError(f"ClientAccount {client_id} has no associated plan.")
 
-        Handles calculating new expiry, resetting traffic (DB & Panel),
-        and updating status. Assumes caller handles payment/balance deduction
-        and transaction commit.
-
-        Args:
-            client_id: The ID of the client to renew.
-
-        Returns:
-            The renewed ClientAccount object (uncommitted).
-
-        Raises:
-            NotFoundError: If the client or its associated plan/user is not found.
-            ConfigurationError: If the client is missing the panel native identifier.
-            ServiceError: If communication with the panel fails.
-        """
-        logger.info(f"Attempting to renew client {client_id}")
-        client = await self.client_repo.get_by_id_with_relations(
-            client_id,
-            relations=[ClientAccount.user, ClientAccount.plan, ClientAccount.panel, ClientAccount.inbound]
-        )
-        if not client:
-            raise NotFoundError(f"ClientAccount {client_id} not found for renewal.")
-        if not client.user:
-            # This indicates a data integrity issue
-            logger.error(f"Data integrity error: ClientAccount {client_id} has no associated user.")
-            raise ServiceError(f"ClientAccount {client_id} is incomplete (missing user relationship).")
-        if not client.plan:
-            logger.error(f"Data integrity error: ClientAccount {client_id} has no associated plan.")
-            raise ServiceError(f"ClientAccount {client_id} is incomplete (missing plan relationship).")
-        if not client.panel_native_identifier:
-             logger.error(f"Cannot renew client {client_id} on panel: missing panel_native_identifier.")
-             raise ConfigurationError(f"Cannot manage client {client.remark} on panel: missing native identifier.")
-
-        # --- Placeholder: Balance Check ---
-        # price_to_deduct = client.plan.price
-        # if price_to_deduct > 0:
-        #     # Need WalletService here
-        #     # await wallet_service.check_balance(client.user_id, price_to_deduct)
-        #     logger.info(f"User {client.user_id} has sufficient balance (placeholder check).")
-        # --- End Placeholder ---
+        # TODO: Check user balance
+        # if client.plan.price > 0 and (client.user.balance is None or client.user.balance < client.plan.price):
+        #     raise InsufficientBalanceError(f"User {client.user_id} insufficient balance for renewal.")
 
         # Calculate new expiry date
-        now = datetime.now() # Use aware datetime if needed
-        current_expiry = client.expire_date or now # Use now if no expiry exists (e.g., trial)
-        # Renewal starts from now or current expiry, whichever is later
-        start_date = max(now, current_expiry)
-        new_expiry_date = start_date + timedelta(days=client.plan.days) # Assuming plan has 'days' attribute
+        now = datetime.utcnow()
+        current_expiry = client.expire_date or now # Use now if no expiry exists
+        start_date = max(now, current_expiry) # Renewal starts from now or current expiry, whichever is later
+        new_expiry_date = start_date + timedelta(days=client.plan.duration_days)
 
-        # Reset traffic limit based on plan (convert GB to bytes)
+        # Reset traffic (convert GB to bytes)
         new_traffic_limit_bytes = client.plan.traffic_gb * (1024**3) if client.plan.traffic_gb else 0
 
         # --- Update Panel --- #
-        # Prepare payload for panel update
         update_payload = {
-            "enable": True, # Ensure client is enabled
-            "totalGB": client.plan.traffic_gb or 0, # Send plan traffic limit in GB
-            "expiryTime": int(new_expiry_date.timestamp() * 1000), # Milliseconds for XUI panel
-            # Include other fields if necessary based on panel API
+            "enable": True,
+            "totalGB": client.plan.traffic_gb or 0,
+            "expireTime": int(new_expiry_date.timestamp() * 1000), # Milliseconds for XUI
+            # Potentially reset traffic on panel too if API allows
         }
         try:
-            # PanelService handles the actual API call. reset_traffic=True tells it to reset usage.
-            await self.panel_service.update_client_on_panel(
+            # Pass db to update_client_on_panel
+            panel_updated = await self.panel_service.update_client_on_panel( 
                 panel_id=client.panel_id,
-                client_identifier=client.panel_native_identifier,
-                protocol=client.protocol.value, # استفاده از پروتکل کلاینت به صورت رشته
-                inbound_id=client.inbound_id, # استفاده از inbound_id کلاینت
+                client_identifier=client.panel_client_email, # Assuming email identifier
                 updates=update_payload,
-                reset_traffic=True # Ask PanelService to attempt traffic reset
+                reset_traffic=True # Add flag to panel service method
             )
-            logger.info(f"Panel update successful for client {client_id} renewal.")
-        except (ServiceError, ConfigurationError, NotFoundError) as e:
+            if not panel_updated:
+                logger.warning(f"Panel update/reset might have failed for client {client_id} renewal.")
+                # Decide handling: proceed or raise?
+        except (PanelAPIError, PanelAuthenticationError, ServiceError) as e:
             logger.error(f"Panel error during renewal for client {client_id}: {e}")
-            # Re-raise specific errors from PanelService
-            raise e
+            raise ServiceError(f"Panel communication failed during renewal: {e}")
         except Exception as e:
             logger.exception(f"Unexpected panel error during renewal for client {client_id}")
-            raise ServiceError(f"Unexpected panel error during renewal for client {client.remark}: {e}")
+            raise ServiceError(f"Unexpected panel error during renewal: {e}")
 
         # --- Update Database --- #
-        client.status = ClientStatus.ACTIVE # Ensure status is Active
-        client.expire_date = new_expiry_date
-        client.traffic_limit_gb = client.plan.traffic_gb # Update limit in DB
-        client.used_traffic_bytes = 0 # Reset used traffic in DB
-        client.updated_at = now
-        # Add client to session for update tracking
-        self.db.add(client)
-        await self.db.flush() # Keep transaction open
+        updated_client = await self.client_repo.update(
+            client_id,
+            status=ClientStatus.ACTIVE,
+            expire_date=new_expiry_date,
+            traffic_limit_bytes=new_traffic_limit_bytes,
+            used_traffic_bytes=0, # Reset used traffic in DB
+            updated_at=now
+        )
 
-        # --- Placeholder: Deduct Balance & Add Transaction ---
-        # if price_to_deduct > 0:
-        #     # await wallet_service.deduct_balance(client.user_id, price_to_deduct)
-        #     # await transaction_service.add_purchase_record(...)
-        #     logger.info(f"Balance deducted (placeholder) for user {client.user_id}, amount: {price_to_deduct}")
-        # --- End Placeholder ---
+        # TODO: Deduct price, add transaction
+        # if client.plan.price > 0:
+        #     await self.user_repo.decrease_balance(client.user_id, client.plan.price)
+        #     # Add transaction record
 
-        logger.info(f"ClientAccount {client_id} renewed successfully in DB (uncommitted). New expiry: {new_expiry_date}")
-        return client # Return updated object (needs commit by caller)
+        await self.db.commit()
+        logger.info(f"ClientAccount {client_id} renewed successfully. New expiry: {new_expiry_date}")
+        return updated_client
 
     async def reset_client_traffic(self, client_id: int) -> ClientAccount:
         """Resets the client's traffic usage on the panel and in the database.
@@ -1006,121 +938,4 @@ class ClientService:
             logger.debug("--- Finished periodic expiry check cycle ---")
 
     # TODO: Add methods for admin actions like manual status change, deletion, etc.
-    # TODO: Add periodic check for traffic limit reached
-
-    async def sync_client_usage(self, client_id: int) -> Optional[ClientAccount]:
-        """Fetches usage from the panel and updates the local DB record."""
-        logger.debug(f"Syncing usage for client {client_id}")
-        client = await self.client_repo.get_with_panel(client_id)
-        if not client: raise NotFoundError(f"ClientAccount {client_id} not found.")
-        if client.status != ClientStatus.ACTIVE: # Only sync active clients?
-            logger.debug(f"Skipping usage sync for non-active client {client_id} (status: {client.status})")
-            return client
-
-        try:
-            # PanelService should provide a method to get usage
-            # Pass session (db) to get_client_usage_from_panel
-            db = await self._get_db() # Correctly get db session
-            usage_data = await self.panel_service.get_client_usage_from_panel(
-                db=db, # Use the obtained db session
-                panel_id=client.panel_id,
-                client_identifier=client.panel_client_email # Assuming email identifier
-            )
-
-            if usage_data:
-                up = usage_data.get("up", 0)
-                down = usage_data.get("down", 0)
-                total_used_bytes = up + down
-                logger.debug(f"Panel usage for {client.panel_client_email}: Up={up}, Down={down}, Total={total_used_bytes}")
-
-                # Update only if usage has changed significantly?
-                if client.used_traffic_bytes != total_used_bytes:
-                    updated_client = await self.client_repo.update(
-                        client_id,
-                        used_traffic_bytes=total_used_bytes,
-                        updated_at=datetime.utcnow()
-                    )
-                    await self.session.commit()
-                    logger.info(f"Updated DB usage for client {client_id} to {total_used_bytes} bytes.")
-                    return updated_client
-                else:
-                    logger.debug(f"DB usage for client {client_id} is already up-to-date.")
-                    return client
-            else:
-                logger.warning(f"No usage data returned from panel for client {client_id}")
-                return client # Return current state
-
-        except (PanelAPIError, PanelAuthenticationError, ServiceError) as e:
-            logger.error(f"Panel error syncing usage for client {client_id}: {e}")
-            # Don't raise, just log and return current state
-            return client
-        except Exception as e:
-            logger.exception(f"Unexpected error syncing usage for client {client_id}")
-            return client
-
-    async def renew_client(self, client_id: int) -> Optional[ClientAccount]:
-        """Renews an existing client's subscription."""
-        logger.info(f"Renewing client {client_id}")
-        client = await self.client_repo.get_with_relations(client_id)
-        if not client: raise NotFoundError(f"ClientAccount {client_id} not found.")
-        if not client.user: raise ServiceError(f"ClientAccount {client_id} has no associated user.")
-        if not client.plan: raise ServiceError(f"ClientAccount {client_id} has no associated plan.")
-
-        # TODO: Check user balance
-        # if client.plan.price > 0 and (client.user.balance is None or client.user.balance < client.plan.price):
-        #     raise InsufficientBalanceError(f"User {client.user_id} insufficient balance for renewal.")
-
-        # Calculate new expiry date
-        now = datetime.utcnow()
-        current_expiry = client.expire_date or now # Use now if no expiry exists
-        start_date = max(now, current_expiry) # Renewal starts from now or current expiry, whichever is later
-        new_expiry_date = start_date + timedelta(days=client.plan.duration_days)
-
-        # Reset traffic (convert GB to bytes)
-        new_traffic_limit_bytes = client.plan.traffic_gb * (1024**3) if client.plan.traffic_gb else 0
-
-        # --- Update Panel --- #
-        update_payload = {
-            "enable": True,
-            "totalGB": client.plan.traffic_gb or 0,
-            "expireTime": int(new_expiry_date.timestamp() * 1000), # Milliseconds for XUI
-            # Potentially reset traffic on panel too if API allows
-        }
-        try:
-            db = await self._get_db() # Correctly get db session
-            # Pass db to update_client_on_panel
-            panel_updated = await self.panel_service.update_client_on_panel( 
-                db=db, # Use the obtained db session
-                panel_id=client.panel_id,
-                client_identifier=client.panel_client_email, # Assuming email identifier
-                updates=update_payload,
-                reset_traffic=True # Add flag to panel service method
-            )
-            if not panel_updated:
-                logger.warning(f"Panel update/reset might have failed for client {client_id} renewal.")
-                # Decide handling: proceed or raise?
-        except (PanelAPIError, PanelAuthenticationError, ServiceError) as e:
-            logger.error(f"Panel error during renewal for client {client_id}: {e}")
-            raise ServiceError(f"Panel communication failed during renewal: {e}")
-        except Exception as e:
-            logger.exception(f"Unexpected panel error during renewal for client {client_id}")
-            raise ServiceError(f"Unexpected panel error during renewal: {e}")
-
-        # --- Update Database --- #
-        updated_client = await self.client_repo.update(
-            client_id,
-            status=ClientStatus.ACTIVE,
-            expire_date=new_expiry_date,
-            traffic_limit_bytes=new_traffic_limit_bytes,
-            used_traffic_bytes=0, # Reset used traffic in DB
-            updated_at=now
-        )
-
-        # TODO: Deduct price, add transaction
-        # if client.plan.price > 0:
-        #     await self.user_repo.decrease_balance(client.user_id, client.plan.price)
-        #     # Add transaction record
-
-        await self.session.commit()
-        logger.info(f"ClientAccount {client_id} renewed successfully. New expiry: {new_expiry_date}")
-        return updated_client 
+    # TODO: Add periodic check for traffic limit reached 
