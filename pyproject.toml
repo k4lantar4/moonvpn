@@ -1,0 +1,36 @@
+[tool.poetry]
+name = "moonvpn"
+version = "0.1.0"
+description = ""
+authors = ["Your Name <you@example.com>"]
+packages = [
+    { include = "bot" },
+    { include = "core" },
+    { include = "integrations" },
+    { include = "scripts" },
+]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+aiogram = "^3.0.0"
+sqlalchemy = {extras = ["asyncio"], version = "^2.0.0"}
+alembic = "^1.9.0"
+redis = {extras = ["hiredis"], version = "^4.3.0"}
+# hypercorn = "^0.14.0"
+pydantic = "^2.0.0"
+pydantic-settings = "^2.0.0"
+python-dotenv = "^1.0.0"
+asyncmy = "^0.2.9"
+cryptography = "^42.0.0"
+passlib = {extras = ["bcrypt"], version = "^1.7.4"}
+httpx = "^0.25.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.0.0"
+pytest-asyncio = "^0.18.0"
+ruff = "^0.1.0"
+mypy = "^1.5.0"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

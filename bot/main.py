@@ -1,128 +1,129 @@
-import logging
-import asyncio
-from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
+#!/usr/bin/env python
+"""Minimal entry point for the MoonVPN Telegram Bot (startup focus)."""
 
-from core.config import get_settings
-from core.logging import setup_logging
-from bot.handlers.language import setup_handlers as setup_language_handlers
-from bot.handlers.user import setup_handlers as setup_user_handlers
-from bot.keyboards import get_main_keyboard
+import asyncio
+import logging
+import sys
+
+from aiogram import Bot, Dispatcher
+from aiogram.enums import ParseMode
+from aiogram.client.default import DefaultBotProperties
+# from aiogram.fsm.storage.redis import RedisStorage # Removed FSM
+# from redis.asyncio import Redis # Removed FSM
+from dotenv import load_dotenv
+
+# --- Import Core Components ---
+try:
+    from core.config import settings
+    from core.logging_config import setup_logging
+    # Import routers with correct names/aliases
+    from bot.handlers.common import common_router
+    from bot.handlers.admin import router as admin_router # Use alias
+    from bot.handlers.admin.panel_handlers import router as admin_panel_router
+    # Import middlewares
+    from bot.middlewares.db_session import DbSessionMiddleware # Uncommented DB Middleware
+    # from bot.middlewares.auth import AuthMiddleware
+    # Import session factory (might still be needed by services called from handlers)
+    from core.database.session import async_session_factory # Uncommented session factory
+    # Import PanelService for background task
+    # from bot.services.panel_service import PanelService # Removed Background Task
+except ImportError as e:
+    # Keep this basic error check
+    print(f"Error importing core/bot modules: {e}. Ensure project structure is correct.")
+    sys.exit(1)
 
 # Setup logging
 setup_logging()
 logger = logging.getLogger(__name__)
 
-settings = get_settings()
+async def main() -> None:
+    """Initializes and runs the Telegram bot (minimal version)."""
+    logger.info("🚀 Starting Minimal MoonVPN Bot...")
 
-# --- Command Handlers ---
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Sends a welcome message when the /start command is issued.
-    Also displays a simple reply keyboard.
-    """
-    user = update.effective_user
-    logger.info(f"User {user.id} ({user.username}) started the bot.")
-
-    # Reply Keyboard
-    reply_markup = ReplyKeyboardMarkup(get_main_keyboard(), resize_keyboard=True, one_time_keyboard=False)
-
-    # Personalized welcome message with Persian charm ✨
-    welcome_message = (
-        f"سلام {user.first_name} عزیز! 👋 به دنیای پرسرعت MoonVPN خوش اومدی! 🚀\n\n"
-        f"من اینجا هستم تا بهترین تجربه اتصال به اینترنت آزاد رو برات فراهم کنم. ✨\n\n"
-        f"از دکمه‌های پایین می‌تونی برای شروع استفاده کنی 👇 یا اگه سوالی داشتی، روی /help کلیک کن."
+    # --- Bot Initialization ---
+    if not settings.BOT_TOKEN:
+        logger.critical("BOT_TOKEN not found in environment variables! Exiting.")
+        sys.exit(1)
+    bot = Bot(
+        token=settings.BOT_TOKEN.get_secret_value(),
+        default=DefaultBotProperties(parse_mode=ParseMode.HTML)
     )
+    logger.debug("Bot instance created.")
 
-    await update.message.reply_html(
-        welcome_message,
-        reply_markup=reply_markup
-    )
+    # --- FSM Storage (Removed) --- 
+    # try:
+    #     redis_client = Redis(host=settings.REDIS_HOST, port=settings.REDIS_PORT, db=settings.REDIS_DB)
+    #     await redis_client.ping() # Test connection
+    #     storage = RedisStorage(redis=redis_client)
+    #     logger.info(f"Connected to Redis for FSM storage: {settings.REDIS_HOST}:{settings.REDIS_PORT}")
+    # except Exception as e:
+    #     logger.error(f"❌ Could not connect to Redis: {e}", exc_info=True)
+    #     logger.warning("Falling back to MemoryStorage (not recommended for production)")
+    #     # from aiogram.fsm.storage.memory import MemoryStorage
+    #     # storage = MemoryStorage()
+    #     # For now, let's exit if Redis is unavailable, as it's crucial
+    #     sys.exit(1)
 
-async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Sends a help message when the /help command is issued.
-    Provide more detailed help later.
-    """
-    logger.info(f"User {update.effective_user.id} requested help.")
-    await update.message.reply_text("راهنما در دست ساخت است... 🚧 به زودی اطلاعات بیشتری اینجا قرار می‌گیره!")
+    # --- Dispatcher Setup (No Storage) ---
+    dp = Dispatcher() # Removed storage=storage
+    logger.debug("Dispatcher instance created.")
 
-async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Echo the user message (for testing). Remove later.
-    Also handles keyboard button presses if they are sent as text messages.
-    """
-    user_text = update.message.text
-    logger.info(f"Received message from {update.effective_user.id}: {user_text}")
+    # --- Include Routers (Using correct names/aliases) ---
+    dp.include_router(common_router)
+    dp.include_router(admin_router) # This should include all admin sub-routers
+    # dp.include_router(admin_panel_router) # REMOVE: This router is likely included in admin_router
+    logger.info("Included routers: common, admin.") # Updated log message
 
-    # Basic handling for reply keyboard buttons
-    if user_text == "🚀 نمایش سرویس‌ها" or user_text == "🚀 Show Services":
-        await update.message.reply_text("در حال دریافت لیست سرویس‌ها... ⏳")
-        # Handled by conversation handlers
-    elif user_text == "💼 حساب کاربری من" or user_text == "💼 My Account":
-        await update.message.reply_text("بخش حساب کاربری به زودی فعال می‌شه! 🛠️")
-        # Handled by conversation handlers
-    elif user_text == "💰 کیف پول" or user_text == "💰 Wallet":
-        await update.message.reply_text("مدیریت کیف پول شما به زودی اینجا خواهد بود! 💳")
-        # Handled by conversation handlers
-    elif user_text == "🧑‍💻 پشتیبانی" or user_text == "🧑‍💻 Support":
-        await update.message.reply_text("برای ارتباط با پشتیبانی، می‌تونی از آیدی @MoonVPNSupport استفاده کنی. 😊")
-        # Handled by conversation handlers
-    elif user_text == "🌐 تغییر زبان" or user_text == "🌐 Change Language":
-        # Trigger the language command
-        await update.message.reply_text("/language")
-    else:
-        # Default echo for other messages (remove in production)
-        await update.message.reply_text(f"پیام شما دریافت شد: {user_text}")
+    # --- Register Middlewares ---
+    # Register DbSessionMiddleware for all updates
+    dp.update.middleware(DbSessionMiddleware(session_pool=async_session_factory)) # Uncommented DB Middleware registration
+    logger.info("Registered DbSessionMiddleware.")
+    # dp.update.middleware(AuthMiddleware(session_pool=async_session_factory))
+    # logger.info("Registered AuthMiddleware.")
 
-async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Log Errors caused by Updates.
-    """
-    logger.error(f"Update {update} caused error {context.error}", exc_info=context.error)
+    # --- Start Background Tasks (Removed) ---
+    # health_check_task = None
+    # try:
+    #     async with async_session_factory() as temp_session:
+    #          panel_service_instance = PanelService(temp_session)
+    #          health_check_task = asyncio.create_task(panel_service_instance.run_periodic_health_checks(interval_seconds=settings.PANEL_HEALTH_CHECK_INTERVAL))
+    #          logger.info(f"Started background task for periodic panel health checks (interval: {settings.PANEL_HEALTH_CHECK_INTERVAL}s).")
+    # except Exception as task_err:
+    #     logger.error(f"Failed to start panel health check task: {task_err}", exc_info=True)
+    #     health_check_task = None
 
+    # --- Simplified Shutdown --- 
+    async def on_shutdown():
+        logger.info("Shutting down...")
+        # if health_check_task and not health_check_task.done(): # Removed background task check
+        #     health_check_task.cancel()
+        #     logger.info("Cancelled background health check task.")
+        #     try:
+        #         await health_check_task
+        #     except asyncio.CancelledError:
+        #         logger.info("Health check task cancellation confirmed.")
+        if bot.session:
+             await bot.session.close()
+        # await redis_client.close() # Removed Redis shutdown
+        logger.info("Bot connections closed.")
 
-def main() -> None:
-    """Start the bot.
-    Uses Polling for development, switch to Webhook for production.
-    """
-    if not settings.TELEGRAM_BOT_TOKEN:
-        logger.error("Telegram Bot Token not found in environment variables!")
-        return
-
-    # Create the Application and pass it your bot's token.
-    application = Application.builder().token(settings.TELEGRAM_BOT_TOKEN).build()
-
-    # --- Register Handlers ---
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("help", help_command))
-
-    # Setup language handlers
-    setup_language_handlers(application)
-    
-    # Setup user handlers
-    setup_user_handlers(application)
-
-    # Add a message handler to echo text messages and handle keyboard buttons
-    # Ensure it doesn't clash with commands
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
-
-    # Error handler
-    application.add_error_handler(error_handler)
-
-    # --- Start the Bot ---
-    if settings.TELEGRAM_WEBHOOK_URL:
-        # Use Webhook in production
-        logger.info(f"Starting bot in Webhook mode. URL: {settings.TELEGRAM_WEBHOOK_URL}")
-        # Ensure TELEGRAM_WEBHOOK_SECRET is set if needed
-        # await application.bot.set_webhook(
-        #     url=settings.TELEGRAM_WEBHOOK_URL,
-        #     secret_token=settings.TELEGRAM_WEBHOOK_SECRET
-        # )
-        # Needs an accompanying webserver (like FastAPI) to handle updates at the webhook URL
-        # The Application object itself doesn't run a server for webhooks
-        logger.warning("Webhook setup requires a running webserver endpoint. Running with polling for now.")
-        application.run_polling()
-    else:
-        # Use Polling for development
-        logger.info("Starting bot in Polling mode.")
-        application.run_polling()
+    # --- Start Polling ---
+    logger.info("Starting polling...")
+    polling_task = None
+    try:
+        await bot.delete_webhook(drop_pending_updates=True)
+        polling_task = asyncio.create_task(dp.start_polling(bot))
+        await polling_task
+    except asyncio.CancelledError:
+        logger.info("Polling task cancelled.")
+    except Exception as e:
+        logger.critical(f"❌ Bot polling failed unexpectedly: {e}", exc_info=True)
+    finally:
+        await on_shutdown()
+        logger.info("Bot stopped.")
 
 if __name__ == "__main__":
-    main()
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        logger.info("Shutdown requested via KeyboardInterrupt.")

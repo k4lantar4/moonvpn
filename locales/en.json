@@ -13,7 +13,6 @@
   "account_coming_soon": "The account section will be activated soon! 🛠️",
   "wallet_coming_soon": "Your wallet management will be here soon! 💳",
   "message_received": "Your message has been received: {message}",
-  
   "buy_plan": "🛒 Buy Subscription",
   "select_category": "🗂 Please select a category:",
   "select_plan": "📋 Please select a plan from {category_name} category:",
@@ -28,13 +27,14 @@
   "payment_confirmation": "🔄 Verifying your payment... Please wait.",
   "payment_successful": "✅ Payment successful! Creating your account...",
   "payment_failed": "❌ Payment failed. Please try again or contact support.",
+  "creating_account": "⏳ Creating your account on the server... Please wait.",
+  "account_creation_failed": "❌ There was a problem creating your account. Please contact support.",
   "account_created": "🎉 Your account has been successfully created!\n\n📱 Connection details:\n{connection_details}\n\n⏱ Validity period: {duration} days\n📅 Expiry date: {expiry_date}\n\n🔄 Traffic: {traffic} GB\n\nYou can find the connection guide in the 'Help' section.",
   "cancel": "❌ Cancel",
   "back": "🔙 Back",
   "confirm": "✅ Confirm",
   "processing": "⏳ Processing...",
   "operation_cancelled": "❌ Operation cancelled.",
-  
   "my_services": "🔑 My Services",
   "no_services": "⚠️ You don't have any active services. To buy a subscription, select 'Buy Subscription'.",
   "service_details": "📋 Service details:\n\nType: {service_type}\nStatus: {status}\nRemaining traffic: {remaining_traffic} of {total_traffic} GB\nExpiry date: {expiry_date}\n\nConnection details:\n{connection_details}",
@@ -46,7 +46,6 @@
   "change_location": "🌍 Change Location",
   "change_protocol": "🔐 Change Protocol",
   "show_qrcode": "📱 Show QR Code",
-  
   "wallet_charge": "💰 Charge Wallet",
   "wallet_balance": "💰 Your wallet balance: {balance} Tomans",
   "select_charge_amount": "💸 Please select the charge amount:",
@@ -57,4 +56,4 @@
   "wallet_charged": "✅ Your wallet has been successfully charged with {amount} Tomans.\nCurrent balance: {balance} Tomans",
   "transaction_history": "📊 Transaction History",
   "no_transactions": "⚠️ No transaction history."
-} 
+}

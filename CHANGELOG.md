@@ -14,16 +14,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added language preference to user model
   - Added Persian and English translation files
   - Added language selection button to main menu
+- `RoleRepository` to fetch roles dynamically.
 
 ### Changed
 - Updated bot's main menu to include language selection
 - Improved user model to match database schema
 - Enhanced bot's response system to support multiple languages
+- **Schema Sync:** Refactored all SQLAlchemy models (`core/database/models/*`) to use Mapped/mapped_column syntax and aligned default values, constraints, and relationships with the `moonvpn_db.sql` schema.
+- **Alembic:** Generated and successfully applied migration `680e56ec8ff0` to update the database schema.
+- **CLI Script (`scripts/moonvpn.sh`):** Fixed argument parsing for the `revision` command.
+- **Seed Scripts:** Removed internal `session.commit()` calls from `seed_plans.py`, `seed_settings.py`, and `seed_notification_channels.py` to allow central commit in `seed_all.py`.
 
 ### Fixed
 - Database connection and Redis issues
 - Bot's health check implementation
 - API service version endpoint
+- **Default User Role:** Corrected user registration logic (`UserService`, `handle_start`) to dynamically fetch the 'USER' role ID by name using `RoleRepository` instead of relying on a hardcoded ID (like 1), preventing incorrect role assignments.
+
+## [0.2.1] - YYYY-MM-DD # Update Date
+### Changed
+- **Refactoring Phase 1:** Completed major refactoring tasks:
+  - Removed obsolete API service components (`api/` directory, `ApiClient`, etc.).
+  - Consolidated service logic into `bot/services/`.
+  - Refactored handlers in `bot/handlers/` to use new services directly.
+  - Cleaned up `core/` directory structure.
+  - Verified database setup (`session.py`, repositories).
+  - Verified panel integration client (`integrations/panels/client.py`).
+- **CLI Script (`scripts/moonvpn.sh`):** Updated to work with the bot-only architecture, executing commands like migrations and tests within the `moonvpn_bot` container.
+- **Project Structure:** Removed unnecessary files/directories (`multiple`, `core/monitoring`, `core/services`) to align with defined architecture.
+- **Documentation:** Updated `ARCHITECTURE.md` to reflect the simplified bot-centric architecture.
 
 ## [0.0.3] - 2024-03-19
 ### Added

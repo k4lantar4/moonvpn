@@ -1,0 +1,27 @@
+# core/database/repositories/__init__.py
+"""Repositories for accessing database models."""
+
+from .base_repo import BaseRepository
+from .user_repository import UserRepository
+from .role_repository import RoleRepository
+from .panel_repository import PanelRepository
+from .location_repository import LocationRepository
+from .plan_repository import PlanRepository, PlanCategoryRepository
+from .client_repository import ClientRepository
+from .transaction_repository import TransactionRepository
+from .notification_channel_repository import NotificationChannelRepository
+from .panel_inbound_repository import PanelInboundRepository
+
+__all__ = [
+    "BaseRepository",
+    "UserRepository",
+    "RoleRepository",
+    "PanelRepository",
+    "LocationRepository",
+    "PlanRepository",
+    "PlanCategoryRepository",
+    "ClientRepository",
+    "TransactionRepository",
+    "NotificationChannelRepository",
+    "PanelInboundRepository",
+]

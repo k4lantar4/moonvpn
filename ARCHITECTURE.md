@@ -1,188 +1,136 @@
-# MoonVPN System Architecture 🏗️
+# MoonVPN System Architecture 🏗️ (v3 - Bot-Centric & Service/Repository)
 
-This document outlines the architecture of the MoonVPN system, describing its components, interactions, and design decisions.
+This document outlines the architecture of the MoonVPN system, emphasizing the Telegram bot as the central interface and the Service-Repository pattern for backend logic and data access.
 
 ## System Overview
 
-MoonVPN is designed as a modular, service-oriented system that connects Telegram users with V2Ray VPN services through a central management platform. The system integrates with 3x-ui panels for VPN service management while providing user management, payment processing, and administration through a Telegram bot interface.
+MoonVPN operates as a bot-centric application. The Telegram bot (`aiogram`) handles all user interactions (Clients, Sellers, Admins) and orchestrates operations by calling dedicated services. These services encapsulate business logic and interact with the database via repositories (`SQLAlchemy`, `Alembic`) and with external systems (like 3x-ui) through integration clients.
 
 ### Key Components
 
-1. **Telegram Bot** - User-facing interface with different capabilities based on user role
-2. **FastAPI Backend** - Core business logic and data management
-3. **3x-ui Panel Integration** - Connection to VPN service management panels
-4. **MySQL Database** - Persistent data storage
-5. **Redis Cache** - Performance optimization and rate limiting
+1.  **Telegram Bot Application (`bot/`)**: The core user interface and application logic driver.
+    *   `handlers/`: Process incoming Telegram updates and map them to service calls.
+    *   `services/`: Contain the core business logic (User, Panel, Client, Payment, etc.). They orchestrate data access (via repositories) and external API calls.
+    *   `keyboards/`, `filters/`, `states/`, `middlewares/`: Support the bot's UI, flow control, and request processing.
+    *   `main.py`: Initializes and runs the bot, dispatcher, routers, and services.
+2.  **Core Components (`core/`)**: Foundation modules shared across the application.
+    *   `config.py`: Manages application settings.
+    *   `database/`:
+        *   `session.py`: Provides asynchronous `SQLAlchemy` sessions.
+        *   `models/`: Defines `SQLAlchemy` ORM models mirroring the database schema.
+        *   `repositories/`: Implement the Repository Pattern, abstracting data access logic for each model. Each service typically depends on one or more repositories.
+    *   `schemas/`: `Pydantic` schemas for data validation and transfer between layers.
+    *   `security.py`, `logging_config.py`, `cache.py`, `exceptions.py`, `utils.py`: Provide shared utilities.
+3.  **Integrations (`integrations/`)**: Clients for external services.
+    *   `panels/xui_client.py`: Interacts with the 3x-ui panel API.
+    *   `payments/`: Clients for payment gateways (e.g., Zarinpal).
+4.  **Database (`MySQL 8.0+`)**: Persistent storage managed by `SQLAlchemy` and `Alembic`.
+5.  **Caching (`Redis`)**: Used for `aiogram` FSM storage, potential data caching, and rate limiting.
+6.  **Deployment (`Docker`)**: Containerized setup (Bot, DB, Redis) managed via `docker-compose.yml` and the `moonvpn` CLI script.
 
-## Component Architecture
+## Component Interaction Flow
 
-### Telegram Bot (`bot/`)
+```mermaid
+graph LR
+    subgraph User Interface
+        User(👤 User) -- Telegram --> BotHandlers(bot/handlers)
+    end
 
-The bot is structured in a modular fashion:
+    subgraph Application Logic
+        BotHandlers -- Calls --> Services(bot/services)
+        Services -- Uses --> Repositories(core/database/repositories)
+        Services -- Uses --> IntegrationClients(integrations/)
+        Services -- Uses --> CoreUtils(core/utils, security, cache)
+    end
 
-```
-bot/
-├── main.py              # Bot initialization and webhook setup
-├── handlers/            # Command and callback query handlers
-│   ├── user.py          # Regular user commands 
-│   ├── admin.py         # Admin-specific commands
-│   └── seller.py        # Seller-specific commands
-├── keyboards.py         # UI keyboard definitions
-├── channels.py          # Channel notification management
-├── states.py            # Conversation state definitions
-└── utils.py             # Helper functions
-```
+    subgraph Data & External Systems
+        Repositories -- CRUD --> Database[(MySQL DB)]
+        IntegrationClients -- API Calls --> ExternalPanel(3x-ui Panel)
+        IntegrationClients -- API Calls --> ExternalPayment(Payment Gateway)
+        Services -- Cache Ops --> Redis[(Redis Cache)]
+    end
 
-**Design Considerations:**
-- Asynchronous implementation using python-telegram-bot v20+
-- Conversation handlers for multi-step processes
-- Role-based command access control
-- Persian language throughout user interface
-- Centralized keyboard definitions for consistency
-
-### API Backend (`api/`)
-
-The FastAPI backend handles business logic and provides endpoints:
-
-```
-api/
-├── main.py              # FastAPI app initialization
-├── routes/              # API route definitions
-├── models.py            # SQLAlchemy ORM models
-├── schemas.py           # Pydantic data validation schemas
-├── services/            # Business logic services
-└── dependencies.py      # Dependency injection functions
-```
-
-**Design Considerations:**
-- Asynchronous API design for high performance
-- Clean separation of routes and business logic
-- Type validation with Pydantic
-- Comprehensive API documentation via OpenAPI/Swagger
-- JWT-based authentication
-- Role-based access control
-
-### Core Components (`core/`)
-
-Shared functionality used across bot and API:
-
-```
-core/
-├── config.py            # Configuration management
-├── database.py          # Database connection and session management
-├── security.py          # Authentication and encryption utilities
-├── logging.py           # Centralized logging configuration
-└── cache.py             # Redis cache integration
+    style BotHandlers fill:#cde4ff,stroke:#333,stroke-width:2px
+    style Services fill:#a3d0ff,stroke:#333,stroke-width:2px
+    style Repositories fill:#e0e0e0,stroke:#333,stroke-width:1px
+    style IntegrationClients fill:#e0e0e0,stroke:#333,stroke-width:1px
+    style CoreUtils fill:#f0f0f0,stroke:#aaa,stroke-width:1px
+    style Database fill:#ffe0b2,stroke:#333,stroke-width:1px
+    style ExternalPanel fill:#ffcdd2,stroke:#333,stroke-width:1px
+    style ExternalPayment fill:#ffcdd2,stroke:#333,stroke-width:1px
+    style Redis fill:#b2dfdb,stroke:#333,stroke-width:1px
 ```
 
-**Design Considerations:**
-- Environment-based configuration with dotenv
-- Centralized database session management
-- Secure credential storage
-- Structured logging with appropriate levels
-- Performance optimization through caching
+**Explanation:**
+1.  User interacts via Telegram.
+2.  `Bot Handlers` receive the update, parse it, and call the appropriate `Service` method, passing necessary data (often using `Pydantic` schemas defined in `core/schemas/`).
+3.  `Services` contain the business rules. They coordinate actions:
+    *   They call `Repositories` to fetch or persist data in the `Database`.
+    *   They call `Integration Clients` to interact with external systems (Panels, Payment Gateways).
+    *   They use `Core Utilities` for tasks like hashing, caching, etc.
+    *   They may use `Redis` for caching data retrieved from the database or external APIs.
+4.  `Repositories` handle the specifics of `SQLAlchemy` queries (select, insert, update, delete) for their corresponding `Model`.
+5.  `Integration Clients` handle HTTP requests/responses and API-specific logic.
 
-### External Integrations (`integrations/`)
+## Data Flow Examples
 
-Connections to external services:
+### Client Provisioning Flow
+1.  User selects plan via `Bot Handlers`.
+2.  Handler calls `ClientService.create_client(user_id, plan_id, location_id)`.
+3.  `ClientService`:
+    *   Calls `PlanRepository.get_by_id(plan_id)` to get plan details.
+    *   Calls `UserRepository.get_by_id(user_id)` to get user info.
+    *   Calls `PanelService.select_panel_for_provisioning(location_id)` to get a suitable panel and inbound.
+    *   Generates client details (UUID, remark, email).
+    *   Calls `PanelService.add_client_to_panel(panel_id, inbound_id, client_details)`:
+        *   `PanelService` uses `XuiPanelClient.add_client(...)`.
+        *   `XuiPanelClient` makes the API call to 3x-ui.
+        *   `PanelService` receives the result (including `panel_native_identifier` and `subscription_url`).
+    *   Calls `ClientRepository.create(...)` to save the new client record in the `Database`, including `user_id`, `plan_id`, `panel_id`, `inbound_id`, `panel_native_identifier`, `expire_date`, etc.
+4.  `ClientService` returns success/failure details (or raises an exception).
+5.  Handler sends confirmation message and config details (formatted using `bot/utils/formatters.py`) to the user.
 
-```
-integrations/
-├── panels/              # 3x-ui panel integration
-├── payments/            # Payment gateway integration (future)
-└── sms.py               # SMS verification service (future)
-```
-
-**Design Considerations:**
-- Resilient API clients with retry logic
-- Connection pooling for performance
-- Proper error handling and reporting
-- Secure credential management
-- Monitoring of external service health
-
-## Data Flow
-
-### User Registration Flow
-1. User starts Telegram bot
-2. Bot collects user information
-3. API creates user record in database
-4. Bot confirms registration
-
-### Service Purchase Flow
-1. User selects plan via bot
-2. User selects payment method
-3. For card-to-card:
-   a. Bot displays card information
-   b. User uploads receipt
-   c. Receipt forwarded to admin for verification
-   d. On approval, wallet credited
-4. User selects location
-5. System selects appropriate panel
-6. API creates client on panel
-7. Bot provides configuration to user
-
-### Admin Panel Management Flow
-1. Admin adds panel details via bot
-2. API tests connection to panel
-3. Panel added to database if connection successful
-4. System begins monitoring panel health
+### Admin Sync Inbounds Flow
+1.  Admin uses `/syncinbounds` command.
+2.  `Admin Handler` calls `PanelService.sync_all_inbounds()`.
+3.  `PanelService`:
+    *   Calls `PanelRepository.get_all_active()` to fetch all active panels from the DB.
+    *   For each panel:
+        *   Uses `XuiPanelClient.login()` to authenticate.
+        *   Uses `XuiPanelClient.get_inbounds()` to fetch inbound list from the panel API.
+        *   Calls `PanelInboundRepository.sync_inbounds_for_panel(panel_id, fetched_inbounds)`:
+            *   `PanelInboundRepository` compares fetched data with existing DB records, updates existing ones, adds new ones, and potentially marks missing ones as inactive.
+4.  `PanelService` aggregates results.
+5.  Handler sends a summary report to the admin.
 
 ## Design Principles
 
-1. **Asynchronous Architecture** - Non-blocking operations for performance
-2. **Separation of Concerns** - Modular design with clear responsibilities
-3. **Security First** - Proper encryption, authentication, and validation
-4. **User Experience Focus** - Intuitive Persian interfaces with helpful feedback
-5. **Resilience** - Error handling and recovery mechanisms
-6. **Scalability** - Docker-based deployment for easy scaling
-7. **Maintainability** - Clean code, documentation, and testing
+1.  **Bot-Centric Interface**: Telegram is the primary user interaction point.
+2.  **Service Layer**: Encapsulates business logic (`bot/services/`). Services are the core orchestrators.
+3.  **Repository Pattern**: Abstracts data persistence logic (`core/database/repositories/`). Services depend on repositories, not directly on `SQLAlchemy` models or sessions outside the repo layer.
+4.  **Dependency Injection**: Services and repositories receive dependencies (like `AsyncSession` or other services/repositories) during instantiation (managed in `bot/main.py` or via a framework).
+5.  **Clear Separation of Concerns**: Presentation (Handlers), Logic (Services), Data Access (Repositories), External Communication (Integrations).
+6.  **Asynchronous**: Fully utilize `asyncio`.
+7.  **Modularity & Testability**: Components are designed for independent testing and replacement.
+8.  **Configuration Driven**: Use `core/config.py` for settings.
+9.  **Schema Validation**: Use `Pydantic` (`core/schemas/`) for data validation between layers.
+10. **User Experience**: Prioritize intuitive Persian bot interactions (`locales/`).
 
 ## Security Considerations
 
-1. **Data Protection**
-   - Encrypted panel credentials
-   - JWT-based API authentication
-   - Sensitive data handling according to best practices
+1.  **Authentication & Authorization**: Handled by `aiogram` middlewares (`bot/middlewares/auth.py`) checking user roles (`RoleRepo`) before allowing access to handlers/services.
+2.  **Input Validation**: Use `Pydantic` schemas in services/handlers. Sanitize user input.
+3.  **Data Encryption**: Encrypt sensitive configuration (panel passwords) using `core/security.py`.
+4.  **Rate Limiting**: Implement via `aiogram` middleware and `Redis`.
+5.  **Dependency Security**: Regularly scan dependencies.
 
-2. **Access Control**
-   - Role-based permissions in both bot and API
-   - Proper validation of commands and inputs
-   - Rate limiting to prevent abuse
+## Performance & Scalability
 
-3. **Monitoring & Logging**
-   - Activity logging for audit purposes
-   - Error reporting with appropriate detail level
-   - Health checks and alerts
+1.  **Async Operations**: Ensure all I/O is non-blocking.
+2.  **Database Optimization**: Efficient queries in repositories, proper indexing. Use `selectinload` or `joinedload` for relationships where appropriate.
+3.  **Caching**: Leverage `Redis` (`core/cache.py`) for frequently accessed, rarely changing data (e.g., plans, locations, user roles) and potentially for panel API responses to reduce load.
+4.  **Background Tasks**: Consider libraries like `arq` or Celery for long-running tasks (e.g., large-scale data syncs, notifications) if needed, to avoid blocking the main bot process.
+5.  **Bot Scaling**: Multiple bot instances can be run if state (FSM) is managed centrally (e.g., `RedisStorage` in `aiogram`).
 
-## Performance Considerations
-
-1. **Database Optimization**
-   - Proper indexing
-   - Async database operations
-   - Connection pooling
-
-2. **Caching Strategy**
-   - Redis for frequently accessed data
-   - User session caching
-   - Panel status caching
-
-3. **Efficient API Design**
-   - Pagination for large data sets
-   - Selective field loading
-   - Background processing for time-consuming tasks
-
-## Future Architecture Extensions
-
-1. **Horizontal Scaling**
-   - Multiple bot instances behind load balancer
-   - API service replication
-
-2. **Service Monitoring**
-   - Prometheus metrics collection
-   - Grafana dashboards
-   - Automated alerting
-
-3. **Advanced Security**
-   - Two-factor authentication
-   - IP-based access restrictions
-   - Advanced threat detection 
+---
+*This architecture aims for clarity, maintainability, and scalability within a bot-centric model.* 

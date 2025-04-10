@@ -7,5 +7,6 @@
 
 ### **Interactions**
 - [v0.0.1] Development: Initiated MoonVPN project based on old.md documentation, applying rules from scratchpad.md, memories.md, and lessons-learned.md. User requested initial focus on core infrastructure (install script, basic API/bot, DB structure, panel connection), iterative testing after tasks, use of real test data (user to provide credentials later), creative feature enhancement, Persian localization with engaging marketing tone & emojis ✨ for the bot (supporting commands, inline & keyboard menus), and necessary documentation creation. Prepared scratchpad for Phase 0 planning.
+- [v0.2.1] Refactoring: Completed Phase 1 refactoring tasks as per scratchpad.md (removed API, consolidated services, verified DB/Panel client). Cleaned project directory structure according to project-requirements.md. Updated `scripts/moonvpn.sh` to use `bot` container for exec commands. Updated `ARCHITECTURE.md` and `CHANGELOG.md`. Marked relevant tasks in scratchpad.md as complete. Requested next steps for shaping project logic. #refactoring #cleanup #cli #docs
 
 *Note: This memory file maintains chronological order and uses tags for better organization. Cross-reference with @memories2.md will be created when reaching 1000 lines.*

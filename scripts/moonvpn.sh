@@ -1,584 +1,313 @@
 #!/bin/bash
 
-# MoonVPN CLI Tool
-# This script is used to manage the MoonVPN project
-# through command line interface
+# --- Configuration ---
+# Service name for the main Python application/bot in docker-compose.yml
+BOT_SERVICE_NAME="bot"
+# Default docker-compose file(s)
+COMPOSE_FILES="-f docker-compose.yml"
+# Add override files if they exist (e.g., for dev)
+# if [ -f "docker-compose.override.yml" ]; then
+#   COMPOSE_FILES="$COMPOSE_FILES -f docker-compose.override.yml"
+# fi
 
-# Colors for better output
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-RED='\033[0;31m'
-BLUE='\033[0;34m'
-CYAN='\033[0;36m'
-NC='\033[0m' # No Color
+# --- Helper Functions ---
 
-# Path to this script, resolving any symlinks
-SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}")"
-# Project root is the parent directory of the scripts directory
-PROJECT_ROOT="$(dirname "$(dirname "$SCRIPT_PATH")")"
-
-# Show banner
-show_banner() {
-    echo -e "${BLUE}"
-    echo "  ╭──────────────────────────────────────╮"
-    echo "  │                                      │"
-    echo "  │       🌙 MoonVPN CLI Tool 🌙         │"
-    echo "  │                                      │"
-    echo "  ╰──────────────────────────────────────╯"
-    echo -e "${NC}"
-}
-
-# Show help
-show_help() {
-    echo -e "${CYAN}Usage:${NC} moonvpn [command]"
-    echo
-    echo -e "${CYAN}Commands:${NC}"
-    echo -e "  ${GREEN}start${NC}        Start MoonVPN services"
-    echo -e "  ${GREEN}stop${NC}         Stop MoonVPN services"
-    echo -e "  ${GREEN}restart${NC}      Restart MoonVPN services"
-    echo -e "  ${GREEN}status${NC}       Show MoonVPN services status"
-    echo -e "  ${GREEN}logs${NC} [service] Show service logs (api, bot, db)"
-    echo -e "  ${GREEN}backup${NC}       Create database backup"
-    echo -e "  ${GREEN}restore${NC} [file] Restore database from backup"
-    echo -e "  ${GREEN}update${NC}       Update to latest version"
-    echo -e "  ${GREEN}shell${NC} [service] Enter service shell"
-    echo -e "  ${GREEN}install${NC}      Install MoonVPN"
-    echo -e "  ${GREEN}uninstall${NC}    Uninstall MoonVPN"
-    echo -e "  ${GREEN}migrate${NC}      Run database migrations"
-    echo -e "  ${GREEN}seeddb${NC}       Seed database with initial data"
-    echo -e "  ${GREEN}cleanup${NC}      Clean temporary files and logs"
-    echo -e "  ${GREEN}monitor${NC}      Monitor system health"
-    echo -e "  ${GREEN}test${NC}         Run tests"
-    echo -e "  ${GREEN}help${NC}         Show this help"
-    echo
-    echo -e "${CYAN}Example:${NC}"
-    echo -e "  moonvpn start"
-    echo -e "  moonvpn logs api"
-    echo -e "  moonvpn migrate"
-    echo
-}
-
-# Check Docker installation
-check_docker() {
-    if ! command -v docker &> /dev/null; then
-        echo -e "${RED}Error: Docker is not installed. Please install Docker first.${NC}"
-        exit 1
-    fi
-    if ! command -v docker-compose &> /dev/null; then
-        echo -e "${RED}Error: Docker Compose is not installed. Please install Docker Compose first.${NC}"
-        exit 1
+# Function to check docker compose command result
+# Usage: check_result $? "Error message if failed"
+check_result() {
+    if [ $1 -ne 0 ]; then
+        echo "❌ Error: $2" >&2
+        exit $1
     fi
 }
 
-# Check container status
-check_containers() {
-    local container_name="$1"
-    docker ps -q -f name="$container_name"
+# Function to run commands inside a *running* bot container
+# Usage: exec_in_bot <command_with_args...>
+exec_in_bot() {
+    echo "⏳ Executing in running '$BOT_SERVICE_NAME' container: $@"
+    docker compose $COMPOSE_FILES exec --workdir /app "$BOT_SERVICE_NAME" "$@"
+    check_result $? "Command execution failed inside the container."
 }
 
-# Start services
-start_services() {
-    echo -e "${YELLOW}Checking existing services...${NC}"
-    
-    if [ -n "$(check_containers moonvpn)" ]; then
-        echo -e "${YELLOW}MoonVPN services are already running. Use 'moonvpn restart' to restart.${NC}"
-        return 0
-    fi
-    
-    # Check .env file
-    if [ ! -f "$PROJECT_ROOT/.env" ]; then
-        echo -e "${YELLOW}No .env file found. Creating from .env.example...${NC}"
-        if [ -f "$PROJECT_ROOT/.env.example" ]; then
-            cp "$PROJECT_ROOT/.env.example" "$PROJECT_ROOT/.env"
-            echo -e "${GREEN}.env file created. Please edit it with your settings.${NC}"
-            exit 1
+# Function to run commands inside a *temporary* bot container
+# Usage: run_in_temp_bot <command_with_args...>
+run_in_temp_bot() {
+    echo "⏳ Running in temporary '$BOT_SERVICE_NAME' container: $@"
+    docker compose $COMPOSE_FILES run --rm --workdir /app "$BOT_SERVICE_NAME" "$@"
+    check_result $? "Command execution failed inside temporary container."
+}
+
+# Function to print help message
+usage() {
+    echo "🚀 MoonVPN Project Management CLI (Improved) 🚀"
+    echo ""
+    echo "Usage: $0 <command> [options]"
+    echo ""
+    echo "Commands (Lifecycle):"
+    echo "  up [svc...]     Start specified services [svc...] or all if none specified (detached mode)."
+    echo "  stop [svc...]   Stop specified services [svc...] or all if none specified (does not remove)."
+    echo "  down            Stop and remove all services, networks (alias: rm)."
+    echo "  restart [svc...] Restart specified services [svc...] or all if none specified."
+    echo "  logs [svc]      Follow logs for all services or a specific service [svc]."
+    echo "  status, ps      Show status of running services."
+    echo "  build [svc...]  Build or rebuild images for specified services or all."
+    echo ""
+    echo "Commands (Development & Maintenance):"
+    echo "  install         Install/update Python dependencies using Poetry (runs in temp container)."
+    echo "  setup           Run the full setup: build, migrate, seed, start (use with caution!)."
+    echo "  clean           Stop and remove containers AND associated volumes."
+    echo "  migrate         Apply database migrations (alembic upgrade head) (runs in temp container)."
+    echo "  revision <msg>  Create a new DB migration file (alembic revision --autogenerate). Message is required."
+    echo "                  (runs in temp container)."
+    echo "  seed            Run the main DB seeding script (scripts.seed_all) (runs in temp container)."
+    echo ""
+    echo "Commands (Interaction):"
+    echo "  exec <cmd...>   Execute a custom command inside the *running* bot container."
+    echo "  shell, bash     Open a bash shell inside the *running* bot container."
+    echo ""
+    echo "  help            Show this help message."
+    echo ""
+    exit 1
+}
+
+# --- Command Handling ---
+COMMAND=$1
+shift || true # Remove command, ignore error if no args provided
+
+# Check if command is provided
+if [ -z "$COMMAND" ]; then
+    usage
+fi
+
+case "$COMMAND" in
+    up|start)
+        SERVICES_TO_START="$@"
+        if [ -z "$SERVICES_TO_START" ]; then
+            echo "🚀 Starting all MoonVPN services..."
+            docker compose $COMPOSE_FILES up -d --remove-orphans
+            check_result $? "Failed to start services."
+            echo "✅ All services started."
         else
-            echo -e "${RED}Error: .env.example file not found. Cannot continue.${NC}"
-            exit 1
+            echo "🚀 Starting specified services: $SERVICES_TO_START..."
+            # Use --no-deps maybe? Let's stick to default compose behavior for now
+            docker compose $COMPOSE_FILES up -d --remove-orphans $SERVICES_TO_START
+            check_result $? "Failed to start specified services."
+            echo "✅ Specified services started."
         fi
-    fi
-    
-    # Create logs directory if it doesn't exist
-    if [ ! -d "$PROJECT_ROOT/logs" ]; then
-        echo -e "${YELLOW}Creating logs directory...${NC}"
-        mkdir -p "$PROJECT_ROOT/logs"
-        echo -e "${GREEN}Logs directory created.${NC}"
-    fi
-    
-    # Build and start containers
-    echo -e "${YELLOW}Starting MoonVPN services...${NC}"
-    docker-compose -f "$PROJECT_ROOT/docker-compose.yml" down &> /dev/null  # Stop any existing containers
-    docker-compose -f "$PROJECT_ROOT/docker-compose.yml" up -d --build
-    
-    # Check if containers are running
-    if [ -z "$(check_containers moonvpn_db)" ] || [ -z "$(check_containers moonvpn_api)" ] || [ -z "$(check_containers moonvpn_bot)" ]; then
-        echo -e "${RED}Error: Failed to start some containers. Check logs with 'moonvpn logs'${NC}"
-        exit 1
-    fi
-    
-    # Wait for services to be ready
-    echo -e "${YELLOW}Waiting for services to be ready...${NC}"
-    sleep 10
-    
-    # Run database setup script
-    echo -e "${YELLOW}Initializing database...${NC}"
-    docker exec moonvpn_api python /app/scripts/setup_db.py
-    
-    # Show status
-    echo -e "${GREEN}"
-    echo "==============================================="
-    echo "      MoonVPN Started Successfully!            "
-    echo "==============================================="
-    echo "API: http://localhost:$(grep API_PORT "$PROJECT_ROOT/.env" | cut -d= -f2)"
-    echo "phpMyAdmin: http://localhost:$(grep PHPMYADMIN_PORT "$PROJECT_ROOT/.env" | cut -d= -f2)"
-    echo ""
-    echo "To view logs:"
-    echo "  API: moonvpn logs api"
-    echo "  Bot: moonvpn logs bot"
-    echo "  DB: moonvpn logs db"
-    echo ""
-    echo "To stop services:"
-    echo "  moonvpn stop"
-    echo "==============================================="
-    echo -e "${NC}"
-}
-
-# Stop services
-stop_services() {
-    echo -e "${YELLOW}Stopping MoonVPN services...${NC}"
-    docker-compose -f "$PROJECT_ROOT/docker-compose.yml" down
-    echo -e "${GREEN}MoonVPN services stopped successfully.${NC}"
-}
-
-# Restart services
-restart_services() {
-    echo -e "${YELLOW}Restarting MoonVPN services...${NC}"
-    docker-compose -f "$PROJECT_ROOT/docker-compose.yml" down
-    docker-compose -f "$PROJECT_ROOT/docker-compose.yml" up -d --build
-    echo -e "${GREEN}MoonVPN services restarted successfully.${NC}"
-}
-
-# Show services status
-show_status() {
-    echo -e "${YELLOW}MoonVPN Services Status:${NC}"
-    docker-compose -f "$PROJECT_ROOT/docker-compose.yml" ps
-}
-
-# Show logs
-show_logs() {
-    local service="$1"
-    
-    case "$service" in
-        api)
-            docker logs moonvpn_api --tail 100 -f
-            ;;
-        bot)
-            docker logs moonvpn_bot --tail 100 -f
-            ;;
-        db)
-            docker logs moonvpn_db --tail 100 -f
-            ;;
-        redis)
-            docker logs moonvpn_redis --tail 100 -f
-            ;;
-        phpmyadmin)
-            docker logs moonvpn_phpmyadmin --tail 100 -f
-            ;;
-        *)
-            echo -e "${YELLOW}Showing all services logs:${NC}"
-            docker-compose -f "$PROJECT_ROOT/docker-compose.yml" logs --tail 50
-            ;;
-    esac
-}
-
-# Create backup
-create_backup() {
-    local backup_dir="$PROJECT_ROOT/backups"
-    local date_str=$(date +"%Y%m%d_%H%M%S")
-    local backup_file="$backup_dir/moonvpn_backup_$date_str.sql"
-    
-    # Create backups directory if it doesn't exist
-    if [ ! -d "$backup_dir" ]; then
-        echo -e "${YELLOW}Creating backups directory...${NC}"
-        mkdir -p "$backup_dir"
-        echo -e "${GREEN}Backups directory created.${NC}"
-    fi
-    
-    echo -e "${YELLOW}Creating database backup...${NC}"
-    docker exec moonvpn_db mysqldump -u root --password="$(grep MYSQL_ROOT_PASSWORD "$PROJECT_ROOT/.env" | cut -d= -f2)" moonvpn > "$backup_file"
-    
-    if [ $? -eq 0 ]; then
-        echo -e "${GREEN}Backup saved successfully to $backup_file${NC}"
-        
-        # Compress backup file
-        gzip "$backup_file"
-        echo -e "${GREEN}Backup file compressed: ${backup_file}.gz${NC}"
-        
-        # Keep only last 5 backups
-        echo -e "${YELLOW}Cleaning old backups...${NC}"
-        ls -t "$backup_dir"/moonvpn_backup_*.gz | tail -n +6 | xargs -r rm
-        echo -e "${GREEN}Old backups cleaned.${NC}"
-    else
-        echo -e "${RED}Error: Backup failed!${NC}"
-        exit 1
-    fi
-}
-
-# Restore backup
-restore_backup() {
-    local backup_file="$1"
-    
-    if [ ! -f "$backup_file" ]; then
-        echo -e "${RED}Error: Backup file $backup_file not found!${NC}"
-        exit 1
-    fi
-    
-    echo -e "${YELLOW}Warning: This will overwrite all current data!${NC}"
-    echo -e "${YELLOW}Are you sure you want to continue? (y/n)${NC}"
-    read -r confirm
-    
-    if [ "$confirm" != "y" ]; then
-        echo -e "${YELLOW}Restore operation cancelled.${NC}"
-        exit 0
-    fi
-    
-    echo -e "${YELLOW}Restoring database from $backup_file...${NC}"
-    
-    # Handle compressed files
-    if [[ "$backup_file" == *.gz ]]; then
-        gunzip -c "$backup_file" | docker exec -i moonvpn_db mysql -u root --password="$(grep MYSQL_ROOT_PASSWORD "$PROJECT_ROOT/.env" | cut -d= -f2)" moonvpn
-    else
-        cat "$backup_file" | docker exec -i moonvpn_db mysql -u root --password="$(grep MYSQL_ROOT_PASSWORD "$PROJECT_ROOT/.env" | cut -d= -f2)" moonvpn
-    fi
-    
-    if [ $? -eq 0 ]; then
-        echo -e "${GREEN}Database restored successfully.${NC}"
-    else
-        echo -e "${RED}Error: Database restore failed!${NC}"
-        exit 1
-    fi
-}
-
-# Update MoonVPN
-update_moonvpn() {
-    echo -e "${YELLOW}Updating MoonVPN...${NC}"
-    
-    # Check for Git repository
-    if [ -d ".git" ]; then
-        git fetch
-        local_rev=$(git rev-parse HEAD)
-        remote_rev=$(git rev-parse @{upstream})
-        
-        if [ "$local_rev" = "$remote_rev" ]; then
-            echo -e "${GREEN}MoonVPN is already up to date.${NC}"
-            exit 0
-        fi
-        
-        echo -e "${YELLOW}New version available. Updating...${NC}"
-        
-        # Create backup before update
-        create_backup
-        
-        # Update code
-        git pull
-        
-        # Restart services
-        restart_services
-        
-        echo -e "${GREEN}MoonVPN updated successfully.${NC}"
-    else
-        echo -e "${RED}Error: This is not a Git installation. Update not supported.${NC}"
-        exit 1
-    fi
-}
-
-# Enter service shell
-enter_shell() {
-    local service="$1"
-    
-    case "$service" in
-        api)
-            docker exec -it moonvpn_api /bin/bash
-            ;;
-        bot)
-            docker exec -it moonvpn_bot /bin/bash
-            ;;
-        db)
-            docker exec -it moonvpn_db /bin/bash
-            ;;
-        redis)
-            docker exec -it moonvpn_redis /bin/sh
-            ;;
-        *)
-            echo -e "${RED}Error: Invalid service. Choose from: api, bot, db, redis${NC}"
-            exit 1
-            ;;
-    esac
-}
-
-# Install MoonVPN
-install_moonvpn() {
-    echo -e "${YELLOW}Installing MoonVPN...${NC}"
-    
-    # Check Docker
-    check_docker
-    
-    # Create .env if it doesn't exist
-    if [ ! -f "$PROJECT_ROOT/.env" ]; then
-        echo -e "${YELLOW}No .env file found. Creating from .env.example...${NC}"
-        if [ -f "$PROJECT_ROOT/.env.example" ]; then
-            cp "$PROJECT_ROOT/.env.example" "$PROJECT_ROOT/.env"
-            echo -e "${GREEN}.env file created. Please edit it with your settings.${NC}"
+        ;;
+    stop)
+        SERVICES_TO_STOP="$@"
+        if [ -z "$SERVICES_TO_STOP" ]; then
+            echo "🛑 Stopping all MoonVPN services (not removing)..."
+            docker compose $COMPOSE_FILES stop
+            check_result $? "Failed to stop services."
+            echo "✅ All services stopped."
         else
-            echo -e "${RED}Error: .env.example file not found. Cannot continue.${NC}"
+            echo "🛑 Stopping specified services: $SERVICES_TO_STOP..."
+            docker compose $COMPOSE_FILES stop $SERVICES_TO_STOP
+            check_result $? "Failed to stop specified services."
+            echo "✅ Specified services stopped."
+        fi
+        ;;
+    down|rm) # Added rm alias
+        echo "🛑 Stopping and removing all MoonVPN services and networks..."
+        docker compose $COMPOSE_FILES down
+        check_result $? "Failed to stop and remove services."
+        echo "✅ Services and networks removed."
+        ;;
+    restart)
+        SERVICES_TO_RESTART="$@"
+        TARGET_SERVICES_STR="" # String for messages and checks
+        ALL_SERVICES=false
+
+        if [ -z "$SERVICES_TO_RESTART" ]; then
+            echo "🔄 Restarting all services..."
+            TARGET_SERVICES_STR="all services"
+            ALL_SERVICES=true
+            docker compose $COMPOSE_FILES restart
+            check_result $? "Failed to initiate restart for all services."
+        else
+            echo "🔄 Restarting specified services: $SERVICES_TO_RESTART..."
+            TARGET_SERVICES_STR="specified services ($SERVICES_TO_RESTART)"
+            docker compose $COMPOSE_FILES restart $SERVICES_TO_RESTART
+            check_result $? "Failed to initiate restart for specified services."
+        fi
+
+        # --- Verification Step ---
+        echo "⏳ Waiting for services to stabilize..."
+        sleep 15 # Increased wait time to 15 seconds
+
+        echo "🔎 Verifying status of restarted services..."
+
+        # If specific services were restarted, check only those
+        if ! $ALL_SERVICES; then
+            FINAL_STATUS_OK=true
+            for service in $SERVICES_TO_RESTART; do
+                # Get status, filter for the service line, check if running/healthy/Up
+                # Using 'docker compose ps' which shows state
+                status=$(docker compose $COMPOSE_FILES ps "$service" | grep "$service")
+                # Updated regex to include "Up" status
+                if echo "$status" | grep -qE "(running|healthy|Up\\s)"; then 
+                    echo "  ✅ Service '$service' is running."
+                else
+                    echo "  ❌ Service '$service' is NOT running. Status: $status"
+                    # --- Added Log Output ---
+                    echo "  📋 Displaying last 10 log lines for '$service':"
+                    docker compose $COMPOSE_FILES logs --tail 10 "$service" || echo "  ⚠️ Could not retrieve logs for '$service'."
+                    # --- End Added Log Output ---
+                    FINAL_STATUS_OK=false
+                fi
+            done
+
+            if $FINAL_STATUS_OK; then
+                 echo "✅ Successfully restarted $TARGET_SERVICES_STR and they are running."
+            else
+                 echo "❌ Some specified services failed to restart correctly. Check logs ($0 logs <service_name>)."
+                 exit 1 # Exit with error if any specified service failed
+            fi
+        else
+            # If all services were restarted, do a general 'ps' and look for issues
+            # This is less precise but gives a general idea
+            DOCKER_PS_OUTPUT=$(docker compose $COMPOSE_FILES ps)
+            echo "$DOCKER_PS_OUTPUT" # Show the status
+
+            # Improved check for services not running properly
+            echo "🔍 Checking status of each service:"
+            SERVICES_LIST=$(docker compose $COMPOSE_FILES config --services)
+            FINAL_STATUS_OK=true
+            
+            for service in $SERVICES_LIST; do
+                # Get status for this specific service
+                status=$(docker compose $COMPOSE_FILES ps "$service" | grep "$service")
+                if echo "$status" | grep -qE "(Up|running|healthy)"; then 
+                    echo "  ✅ Service '$service' is running."
+                else
+                    echo "  ❌ Service '$service' is NOT running. Status: $status"
+                    echo "  📋 Displaying last 10 log lines for '$service':"
+                    docker compose $COMPOSE_FILES logs --tail 10 "$service" || echo "  ⚠️ Could not retrieve logs for '$service'."
+                    FINAL_STATUS_OK=false
+                fi
+            done
+            
+            if $FINAL_STATUS_OK; then
+                echo "✅ All services restarted successfully and are running."
+            else
+                echo "❌ Some services did not restart correctly or are unhealthy. See status details above." >&2
+                exit 1 # Exit with error if any service failed in 'all' restart
+            fi
+        fi
+        ;;
+    logs)
+        SERVICE_NAME=$1
+        
+        echo "📜 Showing last 100 lines of logs${SERVICE_NAME:+ for $SERVICE_NAME}..."
+        
+        # Capture log output into a variable first
+        log_output=$(docker compose $COMPOSE_FILES logs --no-color --no-log-prefix --tail 100 ${SERVICE_NAME:+"$SERVICE_NAME"} 2>&1)
+        
+        # Then print the captured output
+        echo "$log_output"
+        
+        # Ensure script exits cleanly
+        exit 0 # Explicitly exit after showing logs
+        ;;
+    status|ps)
+        echo "📊 Current service status:"
+        docker compose $COMPOSE_FILES ps
+        ;;
+    build)
+        SERVICES_TO_BUILD="$@"
+        echo "🛠️ Building images${SERVICES_TO_BUILD:+ for $SERVICES_TO_BUILD}..."
+        docker compose $COMPOSE_FILES build $SERVICES_TO_BUILD
+        check_result $? "Failed to build images."
+        echo "✅ Build complete."
+        ;;
+    install)
+        echo "📦 Installing dependencies via Poetry (in temporary container)..."
+        run_in_temp_bot poetry install --no-root # Use run_in_temp_bot
+        echo "✅ Dependencies installed/updated."
+        ;;
+    setup)
+        echo "⚙️ Starting full project setup..."
+        
+        echo "[1/4] Building images..."
+        docker compose $COMPOSE_FILES build
+        check_result $? "Build failed"
+        echo "✅ Images built."
+        
+        echo "[2/4] Applying database migrations..."
+        run_in_temp_bot alembic upgrade head
+        # run_in_temp_bot already checks result
+        echo "✅ Migrations applied."
+
+        echo "[3/4] Seeding database..."
+        SEED_MODULE_PATH="scripts.seed_all"
+        run_in_temp_bot python -m "$SEED_MODULE_PATH"
+        # run_in_temp_bot already checks result
+        echo "✅ Database seeded."
+        
+        echo "[4/4] Starting services..."
+        docker compose $COMPOSE_FILES up -d --remove-orphans
+        check_result $? "Failed to start services"
+        echo "✅ Setup complete! Services are running."
+        ;;
+    clean)
+        echo "🧹 Cleaning up environment (stopping containers and removing volumes)..."
+        docker compose $COMPOSE_FILES down -v
+        check_result $? "Failed to clean environment."
+        echo "✅ Environment cleaned."
+        ;;
+    migrate)
+        echo "💾 Applying database migrations (in temporary container)..."
+        run_in_temp_bot alembic upgrade head
+        # run_in_temp_bot already checks result
+        echo "✅ Migrations finished."
+        ;;
+    revision)
+        REVISION_MSG="$@"
+        if [ -z "$REVISION_MSG" ]; then
+            echo "❌ Error: Migration message is required." >&2
+            echo "Usage: $0 revision <Your migration message here>" >&2
             exit 1
         fi
-    fi
-    
-    # Create required directories
-    echo -e "${YELLOW}Creating required directories...${NC}"
-    mkdir -p "$PROJECT_ROOT/logs"
-    mkdir -p "$PROJECT_ROOT/backups"
-    mkdir -p "$PROJECT_ROOT/data"
-    echo -e "${GREEN}Directories created.${NC}"
-    
-    # Build and start containers
-    echo -e "${YELLOW}Starting MoonVPN services...${NC}"
-    docker-compose -f "$PROJECT_ROOT/docker-compose.yml" up -d --build
-    
-    # Check if containers are running
-    if [ -z "$(check_containers moonvpn_db)" ] || [ -z "$(check_containers moonvpn_api)" ] || [ -z "$(check_containers moonvpn_bot)" ]; then
-        echo -e "${RED}Error: Installation failed. Check logs with 'docker-compose logs'${NC}"
-        exit 1
-    fi
-    
-    # Wait for services to be ready
-    echo -e "${YELLOW}Waiting for services to be ready...${NC}"
-    sleep 10
-    
-    # Run database setup script
-    echo -e "${YELLOW}Initializing database...${NC}"
-    docker exec moonvpn_api python /app/scripts/setup_db.py
-    
-    # Create symlink for moonvpn command
-    sudo ln -sf "$PROJECT_ROOT/scripts/moonvpn.sh" /usr/local/bin/moonvpn
-    sudo chmod +x "$PROJECT_ROOT/scripts/moonvpn.sh"
-    
-    echo -e "${GREEN}"
-    echo "==============================================="
-    echo "      MoonVPN Installed Successfully!          "
-    echo "==============================================="
-    echo "You can now use the 'moonvpn' command from anywhere."
-    echo ""
-    echo "API: http://localhost:$(grep API_PORT "$PROJECT_ROOT/.env" | cut -d= -f2)"
-    echo "phpMyAdmin: http://localhost:$(grep PHPMYADMIN_PORT "$PROJECT_ROOT/.env" | cut -d= -f2)"
-    echo ""
-    echo "To see available commands:"
-    echo "  moonvpn help"
-    echo "==============================================="
-    echo -e "${NC}"
-}
-
-# Uninstall MoonVPN
-uninstall_moonvpn() {
-    echo -e "${YELLOW}Warning: This will remove all MoonVPN data!${NC}"
-    echo -e "${YELLOW}Are you sure you want to continue? (y/n)${NC}"
-    read -r confirm
-    
-    if [ "$confirm" != "y" ]; then
-        echo -e "${YELLOW}Uninstall cancelled.${NC}"
-        exit 0
-    fi
-    
-    echo -e "${YELLOW}Uninstalling MoonVPN...${NC}"
-    
-    # Stop and remove containers
-    docker-compose -f "$PROJECT_ROOT/docker-compose.yml" down -v
-    
-    # Remove symlink
-    if [ -L "/usr/local/bin/moonvpn" ]; then
-        sudo rm -f /usr/local/bin/moonvpn
-    fi
-    
-    echo -e "${GREEN}MoonVPN uninstalled successfully.${NC}"
-}
-
-# Run database migrations
-run_migrations() {
-    echo -e "${YELLOW}Running database migrations...${NC}"
-    
-    # Check if API container is running
-    if [ -z "$(check_containers moonvpn_api)" ]; then
-        echo -e "${RED}Error: API container is not running. Start services first.${NC}"
-        exit 1
-    fi
-    
-    # Run migrations
-    docker exec moonvpn_api alembic upgrade head
-    
-    if [ $? -eq 0 ]; then
-        echo -e "${GREEN}Database migrations completed successfully.${NC}"
-    else
-        echo -e "${RED}Error: Database migrations failed!${NC}"
-        exit 1
-    fi
-}
-
-# Seed database with initial data
-seed_database() {
-    echo -e "${YELLOW}Seeding database with initial data...${NC}"
-    
-    # Check if API container is running
-    if [ -z "$(check_containers moonvpn_api)" ]; then
-        echo -e "${RED}Error: API container is not running. Start services first.${NC}"
-        exit 1
-    fi
-    
-    # Run seed script
-    docker exec moonvpn_api python /app/scripts/seed_db.py
-    
-    if [ $? -eq 0 ]; then
-        echo -e "${GREEN}Database seeded successfully.${NC}"
-    else
-        echo -e "${RED}Error: Database seeding failed!${NC}"
-        exit 1
-    fi
-}
-
-# Clean temporary files and logs
-cleanup_system() {
-    echo -e "${YELLOW}Cleaning up temporary files and logs...${NC}"
-    
-    # Remove old log files (older than 7 days)
-    find "$PROJECT_ROOT/logs" -name "*.log" -type f -mtime +7 -delete
-    
-    # Clean Docker system
-    docker system prune -f
-    
-    # Remove temporary files
-    find /tmp -name "moonvpn_*" -type f -delete 2>/dev/null
-    
-    echo -e "${GREEN}Cleanup completed successfully.${NC}"
-}
-
-# Monitor system health
-monitor_system() {
-    echo -e "${YELLOW}Monitoring system health...${NC}"
-    
-    # Check container status
-    echo -e "${CYAN}Container Status:${NC}"
-    docker-compose -f "$PROJECT_ROOT/docker-compose.yml" ps
-    
-    # Check disk usage
-    echo -e "\n${CYAN}Disk Usage:${NC}"
-    df -h
-    
-    # Check memory usage
-    echo -e "\n${CYAN}Memory Usage:${NC}"
-    free -h
-    
-    # Check Docker stats
-    echo -e "\n${CYAN}Docker Stats:${NC}"
-    docker stats --no-stream
-    
-    # Check logs for errors
-    echo -e "\n${CYAN}Recent Errors in Logs:${NC}"
-    docker-compose -f "$PROJECT_ROOT/docker-compose.yml" logs --tail=50 | grep -i "error\|fail\|exception" || echo "No recent errors found."
-}
-
-# Run tests
-run_tests() {
-    echo -e "${YELLOW}Running tests...${NC}"
-    
-    # Check if API container is running
-    if [ -z "$(check_containers moonvpn_api)" ]; then
-        echo -e "${RED}Error: API container is not running. Start services first.${NC}"
-        exit 1
-    fi
-    
-    # Run tests
-    docker exec moonvpn_api pytest
-    
-    if [ $? -eq 0 ]; then
-        echo -e "${GREEN}Tests completed successfully.${NC}"
-    else
-        echo -e "${RED}Error: Tests failed!${NC}"
-        exit 1
-    fi
-}
-
-# Process arguments
-main() {
-    show_banner
-    
-    # Check Docker
-    check_docker
-    
-    # Make sure we're in the project root
-    # cd "$PROJECT_ROOT" || exit 1
-    
-    local command="$1"
-    shift
-    
-    case "$command" in
-        start)
-            start_services
-            ;;
-        stop)
-            stop_services
-            ;;
-        restart)
-            restart_services
-            ;;
-        status)
-            show_status
-            ;;
-        logs)
-            show_logs "$1"
-            ;;
-        backup)
-            create_backup
-            ;;
-        restore)
-            restore_backup "$1"
-            ;;
-        update)
-            update_moonvpn
-            ;;
-        shell)
-            enter_shell "$1"
-            ;;
-        install)
-            install_moonvpn
-            ;;
-        uninstall)
-            uninstall_moonvpn
-            ;;
-        migrate)
-            run_migrations
-            ;;
-        seeddb)
-            seed_database
-            ;;
-        cleanup)
-            cleanup_system
-            ;;
-        monitor)
-            monitor_system
-            ;;
-        test)
-            run_tests
-            ;;
-        help|--help|-h|"")
-            show_help
-            ;;
-        *)
-            echo -e "${RED}Error: Invalid command: $command${NC}"
-            show_help
+        echo "📝 Creating new migration: '$REVISION_MSG' (in temporary container)..."
+        run_in_temp_bot alembic revision --autogenerate -m "$REVISION_MSG"
+        # run_in_temp_bot already checks result
+        echo "✅ Revision created successfully (check migrations/versions)."
+        ;;
+    exec)
+        if [ $# -eq 0 ]; then
+            echo "❌ Error: Please provide a command to execute." >&2
+            echo "Usage: $0 exec <command...>" >&2
             exit 1
-            ;;
-    esac
-}
+        fi
+        # exec needs the running container, so use exec_in_bot
+        exec_in_bot "$@"
+        echo "✅ Command finished."
+        ;;
+    shell|bash)
+        echo "💻 Opening shell in running '$BOT_SERVICE_NAME' container..."
+        # shell needs the running container
+        # Don't use helper for interactive session, check result manually
+        docker compose $COMPOSE_FILES exec --workdir /app "$BOT_SERVICE_NAME" /bin/bash
+        if [ $? -ne 0 ]; then
+            echo "⚠️ Shell exited with non-zero status." >&2
+        fi
+        ;;
+    seed)
+        SEED_MODULE_PATH="scripts.seed_all"
+        echo "🌱 Running main database seed script (module: $SEED_MODULE_PATH) (in temporary container)..."
+        run_in_temp_bot python -m "$SEED_MODULE_PATH"
+        # run_in_temp_bot already checks result
+        echo "✅ Database seeding finished."
+        ;;
+    help|--help|-h)
+        usage
+        ;;
+    *)
+        echo "❌ Unknown command: $COMMAND" >&2
+        usage
+        ;;
+esac
 
-# Main execution
-main "$@" 
+exit 0
