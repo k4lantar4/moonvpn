@@ -4,13 +4,14 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload # Use selectinload for eager loading
 from typing import Optional, Sequence, Any, Dict, List, Type, Union
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import SQLAlchemyError, NoResultFound
 import logging
 import asyncio
 
 from core.database.models.panel import Panel, PanelType
 from core.schemas.panel import PanelCreate, PanelUpdate
 from core.database.repositories.base_repo import BaseRepository
+from core.exceptions import ServiceError
 
 logger = logging.getLogger(__name__)
 
@@ -98,11 +99,11 @@ class PanelRepository(BaseRepository[Panel, Any, Any]):
                 f"Unexpected error while getting all panels with location: {e}", exc_info=True)
             return []
 
-    async def get_by_name(self, session: AsyncSession, name: str) -> Optional[Panel]:
+    async def get_by_name(self, db_session: AsyncSession, name: str) -> Optional[Panel]:
         """Retrieve a Panel by its name."""
         try:
             statement = select(self._model).where(self._model.name == name)
-            result = await session.execute(statement)
+            result = await db_session.execute(statement)
             return result.scalars().one_or_none()
         except NoResultFound:
             return None
@@ -112,12 +113,12 @@ class PanelRepository(BaseRepository[Panel, Any, Any]):
             )
             raise ServiceError(f"Database error while retrieving panel with name {name}") from e
 
-    async def get_all_active(self, session: AsyncSession, options: Optional[Sequence] = None) -> Sequence[Panel]:
+    async def get_all_active(self, db_session: AsyncSession, options: Optional[Sequence] = None) -> Sequence[Panel]:
         """Retrieve all active Panels."""
         try:
             query_options = options if options is not None else []
             statement = select(self._model).where(self._model.is_active == True).options(*query_options)
-            result = await session.execute(statement)
+            result = await db_session.execute(statement)
             return result.scalars().all()
         except Exception as e:
             logger.error(f"Error retrieving all active {self._model.__name__}s: {e}", exc_info=True)

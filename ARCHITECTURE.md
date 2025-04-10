@@ -4,104 +4,204 @@ This document outlines the architecture of the MoonVPN system, emphasizing the T
 
 ## System Overview
 
-MoonVPN operates as a bot-centric application. The Telegram bot (`aiogram`) handles all user interactions (Clients, Sellers, Admins) and orchestrates operations by calling dedicated services. These services encapsulate business logic and interact with the database via repositories (`SQLAlchemy`, `Alembic`) and with external systems (like 3x-ui) through integration clients.
+MoonVPN is a Telegram-based VPN service management system built around a bot-centric architecture. The application enables users to purchase, manage, and monitor VPN services directly through a Telegram bot interface, while administrators can manage panels, plans, and user accounts.
 
-### Key Components
+## Core Architecture Principles
 
-1.  **Telegram Bot Application (`bot/`)**: The core user interface and application logic driver.
-    *   `handlers/`: Process incoming Telegram updates and map them to service calls.
-    *   `services/`: Contain the core business logic (User, Panel, Client, Payment, etc.). They orchestrate data access (via repositories) and external API calls.
-    *   `keyboards/`, `filters/`, `states/`, `middlewares/`: Support the bot's UI, flow control, and request processing.
-    *   `main.py`: Initializes and runs the bot, dispatcher, routers, and services.
-2.  **Core Components (`core/`)**: Foundation modules shared across the application.
-    *   `config.py`: Manages application settings.
-    *   `database/`:
-        *   `session.py`: Provides asynchronous `SQLAlchemy` sessions.
-        *   `models/`: Defines `SQLAlchemy` ORM models mirroring the database schema.
-        *   `repositories/`: Implement the Repository Pattern, abstracting data access logic for each model. Each service typically depends on one or more repositories.
-    *   `schemas/`: `Pydantic` schemas for data validation and transfer between layers.
-    *   `security.py`, `logging_config.py`, `cache.py`, `exceptions.py`, `utils.py`: Provide shared utilities.
-3.  **Integrations (`integrations/`)**: Clients for external services.
-    *   `panels/xui_client.py`: Interacts with the 3x-ui panel API.
-    *   `payments/`: Clients for payment gateways (e.g., Zarinpal).
-4.  **Database (`MySQL 8.0+`)**: Persistent storage managed by `SQLAlchemy` and `Alembic`.
-5.  **Caching (`Redis`)**: Used for `aiogram` FSM storage, potential data caching, and rate limiting.
-6.  **Deployment (`Docker`)**: Containerized setup (Bot, DB, Redis) managed via `docker-compose.yml` and the `moonvpn` CLI script.
+1. **Bot-Centric Design**: All user interactions flow through the Telegram bot, eliminating the need for a separate frontend.
+2. **Service-Oriented Structure**: Business logic is encapsulated in service classes that orchestrate repositories and external integrations.
+3. **Repository Pattern**: Data access is abstracted through repositories, providing a clean separation from business logic.
+4. **Clear Separation of Concerns**: The system follows a layered architecture with distinct responsibilities:
+   - **Handlers**: Process Telegram updates and user interactions
+   - **Services**: Implement core business logic
+   - **Repositories**: Manage data persistence
+   - **Integrations**: Connect to external systems (panels, payment gateways)
 
 ## Component Interaction Flow
 
-```mermaid
-graph LR
-    subgraph User Interface
-        User(👤 User) -- Telegram --> BotHandlers(bot/handlers)
-    end
-
-    subgraph Application Logic
-        BotHandlers -- Calls --> Services(bot/services)
-        Services -- Uses --> Repositories(core/database/repositories)
-        Services -- Uses --> IntegrationClients(integrations/)
-        Services -- Uses --> CoreUtils(core/utils, security, cache)
-    end
-
-    subgraph Data & External Systems
-        Repositories -- CRUD --> Database[(MySQL DB)]
-        IntegrationClients -- API Calls --> ExternalPanel(3x-ui Panel)
-        IntegrationClients -- API Calls --> ExternalPayment(Payment Gateway)
-        Services -- Cache Ops --> Redis[(Redis Cache)]
-    end
-
-    style BotHandlers fill:#cde4ff,stroke:#333,stroke-width:2px
-    style Services fill:#a3d0ff,stroke:#333,stroke-width:2px
-    style Repositories fill:#e0e0e0,stroke:#333,stroke-width:1px
-    style IntegrationClients fill:#e0e0e0,stroke:#333,stroke-width:1px
-    style CoreUtils fill:#f0f0f0,stroke:#aaa,stroke-width:1px
-    style Database fill:#ffe0b2,stroke:#333,stroke-width:1px
-    style ExternalPanel fill:#ffcdd2,stroke:#333,stroke-width:1px
-    style ExternalPayment fill:#ffcdd2,stroke:#333,stroke-width:1px
-    style Redis fill:#b2dfdb,stroke:#333,stroke-width:1px
+```
+User/Admin → Telegram Bot → Handler → Service(s) → Repository(ies)/Integration(s) → Database/External Systems
 ```
 
-**Explanation:**
-1.  User interacts via Telegram.
-2.  `Bot Handlers` receive the update, parse it, and call the appropriate `Service` method, passing necessary data (often using `Pydantic` schemas defined in `core/schemas/`).
-3.  `Services` contain the business rules. They coordinate actions:
-    *   They call `Repositories` to fetch or persist data in the `Database`.
-    *   They call `Integration Clients` to interact with external systems (Panels, Payment Gateways).
-    *   They use `Core Utilities` for tasks like hashing, caching, etc.
-    *   They may use `Redis` for caching data retrieved from the database or external APIs.
-4.  `Repositories` handle the specifics of `SQLAlchemy` queries (select, insert, update, delete) for their corresponding `Model`.
-5.  `Integration Clients` handle HTTP requests/responses and API-specific logic.
+### Example: Client Account Creation Flow
+
+1. User selects a plan and initiates purchase
+2. `OrderService` creates an order and handles payment
+3. On successful payment, `ClientService` provisions a new VPN account:
+   - Selects appropriate panel and inbound via `PanelService`
+   - Generates client details
+   - Calls panel integration to create client on VPN panel
+   - Stores client record in database via `ClientRepository`
+4. User receives confirmation and connection details
+
+### Discount Code Application Flow
+
+1. User enters a discount code during checkout
+2. `DiscountCodeService` validates the code:
+   - Checks if code exists and is active
+   - Verifies the code hasn't expired
+   - Ensures usage limit hasn't been reached
+   - Validates any user-specific restrictions
+3. If valid, the discount is applied to the order:
+   - `OrderService` calculates the final amount
+   - The discount is recorded against the order
+   - The discount code usage count is incremented
+4. User sees the updated price with discount applied
+
+## Key Components
+
+### Bot Core (`/bot`)
+
+The heart of the application, handling all Telegram interactions and orchestrating business logic.
+
+#### Handlers
+Process incoming Telegram updates and map them to appropriate service calls.
+
+#### Services
+Implement core business logic and orchestrate repositories and integrations.
+
+#### Middlewares & Filters
+Intercept updates for authentication, logging, and filtering based on user roles.
+
+#### FSM (Finite State Machine)
+Manages multi-step conversation flows (e.g., registration, purchase process).
+
+### Core Components (`/core`)
+
+Shared foundation used across the application.
+
+#### Database Models
+SQLAlchemy ORM models mapping to database tables.
+
+#### Repositories
+Data access layer implementing the repository pattern.
+
+#### Schemas
+Pydantic models for data validation and transfer.
+
+#### Configuration
+Environment-based configuration management.
+
+### Integrations (`/integrations`)
+
+Connectors to external systems.
+
+#### Panel Clients
+Interface with VPN panel APIs (e.g., 3x-ui).
+
+#### Payment Gateways
+Connect to payment processors (e.g., ZarinPal).
 
 ## Data Flow Examples
 
-### Client Provisioning Flow
-1.  User selects plan via `Bot Handlers`.
-2.  Handler calls `ClientService.create_client(user_id, plan_id, location_id)`.
-3.  `ClientService`:
-    *   Calls `PlanRepository.get_by_id(plan_id)` to get plan details.
-    *   Calls `UserRepository.get_by_id(user_id)` to get user info.
-    *   Calls `PanelService.select_panel_for_provisioning(location_id)` to get a suitable panel and inbound.
-    *   Generates client details (UUID, remark, email).
-    *   Calls `PanelService.add_client_to_panel(panel_id, inbound_id, client_details)`:
-        *   `PanelService` uses `XuiPanelClient.add_client(...)`.
-        *   `XuiPanelClient` makes the API call to 3x-ui.
-        *   `PanelService` receives the result (including `panel_native_identifier` and `subscription_url`).
-    *   Calls `ClientRepository.create(...)` to save the new client record in the `Database`, including `user_id`, `plan_id`, `panel_id`, `inbound_id`, `panel_native_identifier`, `expire_date`, etc.
-4.  `ClientService` returns success/failure details (or raises an exception).
-5.  Handler sends confirmation message and config details (formatted using `bot/utils/formatters.py`) to the user.
+### Client Purchase Flow
 
-### Admin Sync Inbounds Flow
-1.  Admin uses `/syncinbounds` command.
-2.  `Admin Handler` calls `PanelService.sync_all_inbounds()`.
-3.  `PanelService`:
-    *   Calls `PanelRepository.get_all_active()` to fetch all active panels from the DB.
-    *   For each panel:
-        *   Uses `XuiPanelClient.login()` to authenticate.
-        *   Uses `XuiPanelClient.get_inbounds()` to fetch inbound list from the panel API.
-        *   Calls `PanelInboundRepository.sync_inbounds_for_panel(panel_id, fetched_inbounds)`:
-            *   `PanelInboundRepository` compares fetched data with existing DB records, updates existing ones, adds new ones, and potentially marks missing ones as inactive.
-4.  `PanelService` aggregates results.
-5.  Handler sends a summary report to the admin.
+```mermaid
+sequenceDiagram
+    User->>Bot: Select Plan
+    Bot->>UserHandler: Process Selection
+    UserHandler->>PlanService: Get Plan Details
+    PlanService->>PlanRepository: Fetch Plan
+    PlanRepository-->>PlanService: Plan Data
+    UserHandler->>OrderService: Create Order
+    OrderService->>OrderRepository: Store Order
+    OrderRepository-->>OrderService: Order Created
+    UserHandler->>PaymentService: Process Payment
+    PaymentService->>WalletService: Check/Deduct Balance
+    WalletService->>TransactionRepository: Record Transaction
+    PaymentService-->>UserHandler: Payment Complete
+    UserHandler->>ClientService: Provision Client
+    ClientService->>PanelService: Select Panel/Inbound
+    PanelService->>PanelRepository: Get Panel Data
+    PanelService->>PanelClient: Create Client
+    PanelClient->>VPNPanel: API Call
+    VPNPanel-->>PanelClient: Success
+    ClientService->>ClientRepository: Store Client
+    Bot-->>User: Account Details
+```
+
+## Order Management System
+
+The Order Management System handles the entire lifecycle of user orders from creation to completion.
+
+### Components:
+
+1. **OrderRepository**: Handles data persistence for orders, including:
+   - Creating new order records
+   - Retrieving orders by ID, user, or status
+   - Updating order status and details
+   - Managing relationships with users, plans, and discount codes
+
+2. **OrderService**: Implements business logic for orders:
+   - Creating orders with appropriate validation
+   - Processing payments and status transitions
+   - Applying discount codes
+   - Generating order statistics for admin dashboards
+   - Coordinating with other services (Client, Payment, Notification)
+
+3. **Order Schema**: Defines data validation and structure:
+   - Core order attributes (ID, user, plan, status)
+   - Financial details (amount, discount_amount, final_amount)
+   - Timestamps for tracking order lifecycle
+   - Validation logic for ensuring data integrity
+
+### Order State Transitions:
+```
+PENDING → PROCESSING → COMPLETED
+      ↘           ↘
+        CANCELLED   FAILED
+```
+
+## Discount Code System
+
+The Discount Code System enables flexible promotions and discounts for users.
+
+### Components:
+
+1. **DiscountCodeRepository**: Manages discount code data:
+   - Creating and retrieving discount codes
+   - Tracking usage counts
+   - Validating discount code status and expiration
+   - Managing relationships with orders and users
+
+2. **DiscountCodeService**: Implements business logic for discounts:
+   - Validating codes during checkout
+   - Applying discounts to order amounts
+   - Enforcing usage limits and expiration dates
+   - Providing admin tools for discount management
+
+3. **DiscountCode Schema**: Defines data structure and validation:
+   - Code attributes (code, description, discount_type)
+   - Value and constraints (discount_value, max_uses)
+   - Temporal boundaries (start_date, end_date)
+   - Validation logic for percentage vs. fixed amount discounts
+
+### Discount Types:
+- **Percentage**: Applies a percentage discount (e.g., 10% off)
+- **Fixed Amount**: Applies a specific amount discount (e.g., 50,000 IRR off)
+
+## Cloud Architecture (Future)
+
+*[Details about potential cloud deployment, scaling strategies, and high-availability configurations would go here.]*
+
+## Security Considerations
+
+- **Authentication**: Role-based access control for bot commands
+- **Data Protection**: Secure storage of panel credentials and user information
+- **API Security**: Secure communication with external panels and payment gateways
+- **Rate Limiting**: Protection against abuse through command throttling
+
+## Resource Management
+
+- **Database Connection Pooling**: Efficient handling of database connections
+- **Redis Caching**: Performance optimization for frequently accessed data
+- **Asynchronous Processing**: Non-blocking I/O for responsive user experience
+
+## Monitoring & Logging
+
+- **Structured Logging**: Comprehensive logging with context for troubleshooting
+- **Admin Notifications**: Critical events sent to admin channels
+- **Health Checks**: Regular verification of system components
 
 ## Design Principles
 
@@ -116,14 +216,6 @@ graph LR
 9.  **Schema Validation**: Use `Pydantic` (`core/schemas/`) for data validation between layers.
 10. **User Experience**: Prioritize intuitive Persian bot interactions (`locales/`).
 
-## Security Considerations
-
-1.  **Authentication & Authorization**: Handled by `aiogram` middlewares (`bot/middlewares/auth.py`) checking user roles (`RoleRepo`) before allowing access to handlers/services.
-2.  **Input Validation**: Use `Pydantic` schemas in services/handlers. Sanitize user input.
-3.  **Data Encryption**: Encrypt sensitive configuration (panel passwords) using `core/security.py`.
-4.  **Rate Limiting**: Implement via `aiogram` middleware and `Redis`.
-5.  **Dependency Security**: Regularly scan dependencies.
-
 ## Performance & Scalability
 
 1.  **Async Operations**: Ensure all I/O is non-blocking.
@@ -131,6 +223,25 @@ graph LR
 3.  **Caching**: Leverage `Redis` (`core/cache.py`) for frequently accessed, rarely changing data (e.g., plans, locations, user roles) and potentially for panel API responses to reduce load.
 4.  **Background Tasks**: Consider libraries like `arq` or Celery for long-running tasks (e.g., large-scale data syncs, notifications) if needed, to avoid blocking the main bot process.
 5.  **Bot Scaling**: Multiple bot instances can be run if state (FSM) is managed centrally (e.g., `RedisStorage` in `aiogram`).
+
+## Recent Extensions & Subsystems
+
+### Order Management System
+The order management system handles the entire purchasing process, tracking state transitions from pending to completed, and integrating with the payment and discount systems. Key components:
+
+- `OrderRepository`: Manages CRUD operations for orders, with specialized methods for retrieving orders by user, status, and discount code.
+- `OrderService`: Orchestrates order creation, status updates, and discount code application.
+- Related schemas: `OrderBase`, `OrderCreate`, `OrderUpdate`, `OrderRead`, and relationship-aware `OrderWithRelations`.
+
+### Discount Code System
+The discount system manages the creation, validation, and application of discount codes. Key components:
+
+- `DiscountCodeRepository`: Handles persistence and validation of discount codes, including status, expiration, and usage count tracking.
+- `DiscountCodeService`: Provides methods for creating, validating, and applying discount codes to orders.
+- Supports two discount types: fixed amount and percentage-based discounts.
+- Validates codes against expiration dates and usage limits.
+
+Both systems follow the established architectural patterns with asynchronous operations, clear separation of concerns, and comprehensive error handling.
 
 ---
 *This architecture aims for clarity, maintainability, and scalability within a bot-centric model.* 

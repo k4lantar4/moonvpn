@@ -6,11 +6,14 @@ from .user_repository import UserRepository
 from .role_repository import RoleRepository
 from .panel_repository import PanelRepository
 from .location_repository import LocationRepository
-from .plan_repository import PlanRepository, PlanCategoryRepository
+from .plan_repository import PlanRepository
+from .plan_category_repository import PlanCategoryRepository
 from .client_repository import ClientRepository
 from .transaction_repository import TransactionRepository
 from .notification_channel_repository import NotificationChannelRepository
 from .panel_inbound_repository import PanelInboundRepository
+from .discount_code_repository import DiscountCodeRepository
+from .order_repository import OrderRepository
 
 __all__ = [
     "BaseRepository",
@@ -24,4 +27,6 @@ __all__ = [
     "TransactionRepository",
     "NotificationChannelRepository",
     "PanelInboundRepository",
+    "DiscountCodeRepository",
+    "OrderRepository",
 ]
