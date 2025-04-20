@@ -1,114 +1,106 @@
-# 📁 Project Structure (Finalized, Strict, and Modular)
+# 🗂️ MoonVPN - Project Directory Structure
 
-```
-moonvpn/
-├── bot/
-│   ├── commands/              # Command handlers: /start, /buy, /profile, etc.
-│   │   ├── __init__.py
-│   │   ├── start.py           # /start command logic
-│   │   ├── profile.py         # /profile and user info
-│   │   ├── plans.py           # /plans and plan selection
-│   │   └── admin.py           # Admin-only commands like /add_panel
-│   │
-│   ├── callbacks/             # Callback query handlers for inline buttons
-│   │   ├── __init__.py
-│   │   └── common.py          # Shared callbacks for menu navigation
-│   │
-│   ├── keyboards/             # ReplyKeyboardMarkup definitions
-│   │   ├── __init__.py
-│   │   └── user_keyboard.py   # Keyboards for user navigation
-│   │
-│   ├── buttons/               # InlineKeyboardMarkup definitions
-│   │   ├── __init__.py
-│   │   └── plan_buttons.py    # Buttons for plan selection
-│   │
-│   ├── notifications/         # Notification dispatcher: user, admin, channel
-│   │   ├── __init__.py
-│   │   └── dispatcher.py      # notify_user(), notify_admin(), notify_channel()
-│   │
-│   ├── middlewares/           # Middleware for auth, throttling
-│   │   ├── __init__.py
-│   │   └── auth_middleware.py # Authenticate and role-check
-│   │
-│   ├── main.py                # Entry point, Dispatcher & Router setup
-│   └── __init__.py
-│
-├── core/
-│   ├── integrations/
-│   │   └── xui_client.py      # Wrapper for 3x-ui API using py3xui
-│   ├── services/
-│   │   ├── user_service.py        # User registration, profile, permission logic
-│   │   ├── account_service.py     # VPN account creation, renewal, deletion, renaming
-│   │   ├── panel_service.py       # Add/edit/remove panels, fetch inbounds, defaults
-│   │   ├── payment_service.py     # Wallet and transaction logic
-│   │   ├── discount_service.py    # Code validation and application
-│   │   ├── notification_service.py# Routing messages (Telegram, admin, channel)
-│   │   └── settings_service.py    # Manage and fetch dynamic settings
-│   └── settings.py                # Static config (API tokens, channel IDs, naming rules)
-│
-├── db/
-│   ├── models/
-│   │   ├── user.py
-│   │   ├── panel.py
-│   │   ├── inbound.py
-│   │   ├── client_account.py
-│   │   ├── plan.py
-│   │   ├── order.py
-│   │   ├── transaction.py
-│   │   ├── discount_code.py
-│   │   ├── test_account_log.py
-│   │   └── account_transfer.py
-│   ├── schemas/
-│   │   ├── user_schema.py
-│   │   └── account_schema.py
-│   ├── repositories/
-│   │   ├── user_repo.py
-│   │   └── account_repo.py
-│   └── migrations/              # Alembic migration scripts
-│
-├── scripts/
-│   └── moonvpn                 # CLI tool to manage the project
-│
-├── tests/
-│   ├── test_user.py
-│   ├── test_account.py
-│   └── __init__.py
-│
-├── docker-compose.yml         # Compose file for all services
-├── Dockerfile                 # App build configuration
-├── pyproject.toml             # Poetry project and dependencies
-├── .env                       # Environment config for app/docker
-└── README.md                  # Project overview and development guide
-```
+> Updated: 2025-04-21
+
+ساختار دایرکتوری MoonVPN طوری طراحی شده که توسعه‌پذیر، تمیز، و قابل فهم برای هر توسعه‌دهنده یا مدل هوش مصنوعی باشد. تمامی فایل‌ها در محل مشخص و مجاز قرار دارند.
 
 ---
 
-## 📦 Explanation of Key Files in `bot/`
+## 📁 Root Directory: `/root/moonvpn`
 
-- `main.py` → ستاپ ربات، ثبت فرمان‌ها و اتصال به event handlers
-
-### `commands/`
-- `start.py` → خوشامدگویی، ثبت‌نام اولیه
-- `profile.py` → نمایش اطلاعات و تنظیمات کاربر
-- `plans.py` → لیست و انتخاب پلن‌ها
-- `admin.py` → دستورات ادمین مثل اضافه کردن پنل
-
-### `callbacks/`
-- `common.py` → مدیریت دکمه‌های inline مثل بازگشت، جزئیات پلن
-
-### `keyboards/`
-- `user_keyboard.py` → ReplyKeyboardMarkup برای کاربران (مثل منو اصلی)
-
-### `buttons/`
-- `plan_buttons.py` → دکمه‌های inline مربوط به پلن‌ها
-
-### `notifications/`
-- `dispatcher.py` → تابع‌های `notify_user()`, `notify_admin()`, `notify_channel()` برای ارسال نوتیفیکیشن
-
-### `middlewares/`
-- `auth_middleware.py` → اعتبارسنجی و تشخیص نقش کاربر برای مدیریت دسترسی‌ها
+| Path | توضیح |
+|------|-------|
+| `.env` | تنظیمات محیطی برای کل سیستم |
+| `docker-compose.yml` | اجرای تمام سرویس‌ها در داکر |
+| `Dockerfile` | تصویر اپلیکیشن اصلی پایتون (poetry) |
+| `pyproject.toml` | پیکربندی پویتری و وابستگی‌ها |
+| `README.md` | توضیح کلی پروژه |
+| `scripts/moonvpn.sh` | CLI مدیریت پروژه با دستورات مثل `moonvpn restart` |
 
 ---
 
-✅ با مشخص‌کردن دقیق فایل‌ها و وظایف، دستیار هوش مصنوعی هیچ فایلی خارج از این لیست ایجاد نمی‌کند و مسیر توسعه شفاف و قابل پیگیری باقی می‌ماند.
+## 🤖 bot/
+
+| Path | نقش |
+|------|-----|
+| `bot/main.py` | اجرای ربات Aiogram |
+| `bot/commands/` | دستورات اصلی ربات (start, buy, wallet, etc.) |
+| `bot/callbacks/` | هندلرهای دکمه‌های اینلاین |
+| `bot/buttons/` | دکمه‌های اینلاین سفارشی برای هر بخش |
+| `bot/keyboards/` | دکمه‌های Reply برای ناوبری ربات |
+| `bot/states.py` | تعریف Stateهای Form و Multi-step operations |
+| `bot/middlewares/` | میدلویرها مانند AuthMiddleware برای نقش‌ها |
+| `bot/notifications/` | مدیریت صف نوتیفیکیشن، اطلاع‌رسانی، پیام‌ها |
+| `bot/receipts/` | مدیریت دریافت، لاگ و پاسخ رسیدهای کارت به کارت |
+
+---
+
+## 🧠 core/
+
+| Path | نقش |
+|------|-----|
+| `core/services/` | منطق بیزینسی پروژه (UserService, PaymentService...) |
+| `core/integrations/xui_client.py` | ارتباط با پنل 3x-ui با `py3xui.async_api.AsyncApi` |
+| `core/scripts/` | ابزارهای جانبی مثل confirm_payment.py، تست‌ها، ابزارهای داخلی |
+| `core/settings.py` | تنظیمات پیکربندی پروژه |
+
+---
+
+## 🧩 db/
+
+| Path | نقش |
+|------|-----|
+| `db/models/` | مدل‌های SQLAlchemy (User, Panel, Inbound, Plan, Receipt, etc.) |
+| `db/repositories/` | عملیات DB پیچیده و دسترسی ساده‌تر |
+| `db/schemas/` | اسکیماهای Pydantic (در صورت نیاز) |
+| `db/migrations/` | ساختار Alembic برای migration دیتابیس |
+| `db/config.py` | اتصال به دیتابیس و راه‌اندازی Base ORM |
+
+---
+
+## 🧪 tests/
+
+| Path | توضیح |
+|------|------|
+| `tests/test_*.py` | تست واحد برای سرویس‌ها و منطق اصلی |
+
+---
+
+## 📜 docs/
+
+| فایل | کاربرد |
+|------|--------|
+| `project-requirements.md` | نیازمندی‌های پروژه (MVP و آینده) |
+| `project-structure.md` | ساختار پوشه‌ها و فایل‌های پروژه |
+| `database-structure.md` | مدل داده‌ها، روابط، ویژگی‌ها |
+| `project-relationships.md` | جریان اطلاعات و تعامل بین اجزای سیستم |
+
+---
+
+## 🛠 scripts/
+
+| فایل | توضیح |
+|------|------|
+| `moonvpn.sh` | اجرای دستورات CLI: up, down, restart, migrate, logs |
+| `add_plans.py`، `check_code.py` | ابزارهای توسعه و رفع خطا یا داده اولیه |
+
+---
+
+## 📦 سایر موارد
+
+| فایل/پوشه | توضیح |
+|------------|------|
+| `.cursor/rules/` | رول‌ها برای Cursor AI assistant (مدیریت رفتار مدل) |
+| `.vscode/` | تنظیمات توسعه محلی برای VS Code |
+
+---
+
+## ✅ قوانین مهم ساختار
+
+- هیچ فایل یا دایرکتوری خارج از مسیرهای فوق نباید ساخته شود.
+- هر ماژول باید فقط وظیفه خودش را انجام دهد (Single Responsibility).
+- فایل‌هایی که به بیش از 300 خط برسند باید تفکیک شوند.
+- مسیر دسترسی به هر ماژول باید شفاف باشد تا مدل‌های هوش مصنوعی به‌درستی فایل‌ها را شناسایی کنند.
+- فایل‌های رسید و پرداخت فقط در `bot/receipts` و `core/services/payment_service.py` باید توسعه یابند.
+- ارتباط با پنل فقط از طریق `core/integrations/xui_client.py` مجاز است.
 

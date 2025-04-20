@@ -1,0 +1,92 @@
+---
+description: MoonVPN Account Management Guide
+globs: 
+alwaysApply: false
+---
+# 🔒 MoonVPN Account Management Guide
+
+## 📝 VPN Account Components
+The VPN account management system consists of:
+
+- [ClientService](mdc:core/services/client_service.py) - VPN account logic
+- [PanelService](mdc:core/services/panel_service.py) - Panel management
+- [XUI Client](mdc:core/integrations/xui_client.py) - Panel API integration
+- [ClientAccount Model](mdc:db/models/client_account.py) - Account records
+- [Inbound Model](mdc:db/models/inbound.py) - Inbound configurations
+- [Panel Model](mdc:db/models/panel.py) - Panel connection info
+
+## 🧱 Account Creation Flow
+1. User purchases a plan for a specific location
+2. Order is processed and payment confirmed
+3. System selects appropriate inbound based on location and load
+4. ClientService creates account in panel via XUI Client
+5. System stores account details and config URL
+6. Config and QR code delivered to user
+
+## ✅ VPN Account Rules
+1. Client names must follow pattern: `{LOCATION}-Moonvpn-{ID}`
+2. Account traffic and expiry tracked in both panel and database
+3. Movement between locations requires proper transfer records
+4. Inbound health and capacity regularly synced from panels
+5. Config URLs must be properly formatted and valid
+6. Account renewals extend expiry and reset traffic as needed
+
+## 🧩 Account Creation Pattern
+```python
+# SERVICE LAYER: Client creation
+async def create_client_account(self, user_id, order_id, inbound_id, plan_id):
+    # 1. Get required data
+    user = await self.user_repository.get_by_id(user_id)
+    inbound = await self.inbound_repository.get_by_id(inbound_id)
+    panel = await self.panel_repository.get_by_id(inbound.panel_id)
+    plan = await self.plan_repository.get_by_id(plan_id)
+    
+    # 2. Generate client details
+    client_name = f"{panel.location_name}-Moonvpn-{user.id}"
+    email = f"{client_name.lower()}@moonvpn.com"
+    
+    # 3. Create client in panel
+    remote_client = await self.xui_client.add_client(
+        panel_url=panel.url,
+        panel_user=panel.username,
+        panel_pass=panel.password,
+        inbound_id=inbound.remote_id,
+        email=email,
+        client_name=client_name,
+        traffic_limit_gb=plan.traffic_gb,
+        expires_in_days=plan.duration_days
+    )
+    
+    # 4. Store client in database
+    client_account = await self.client_repository.create({
+        'user_id': user_id,
+        'panel_id': panel.id,
+        'inbound_id': inbound_id,
+        'plan_id': plan_id,
+        'order_id': order_id,
+        'remote_uuid': remote_client.id,
+        'client_name': client_name,
+        'email_name': email,
+        'traffic_limit': plan.traffic_gb * 1024 * 1024 * 1024,
+        'traffic_used': 0,
+        'expires_at': datetime.now() + timedelta(days=plan.duration_days),
+        'status': 'active',
+        'config_url': remote_client.config_url,
+        'qr_code_path': generate_qr_code(remote_client.config_url)
+    })
+    
+    return client_account
+```
+
+## 📊 Panel Synchronization
+- Regular sync of inbound stats (availability, clients, traffic)
+- Health checking for panel connectivity
+- Traffic usage sync from panel to database
+- Auto-detection of expired accounts
+
+## 🔄 Account Management Operations
+- Creation (after purchase)
+- Renewal (extend expiry, reset traffic)
+- Transfer (move to different location/inbound)
+- Termination (expired or manual)
+- Stats synchronization (traffic usage)

@@ -1,101 +1,139 @@
-# 🌙 MoonVPN - Project Requirements (Final)
+# 🚀 MoonVPN - Project Requirements
 
-## 🧩 Project Goal
-Create a full-featured Telegram-based VPN service management system using Python, Docker, and 3x-ui integration, with full role-based user access, wallet system, order tracking, notifications, and CLI automation.
-
----
-
-## ✅ Key Functional Requirements
-
-### 1. User Roles
-- `user`: خرید پلن و مشاهده اطلاعات اکانت و تمدید
-- `admin`: افزودن پنل، تعریف پلن، بررسی سفارشات، تنظیمات سیستمی
-- `reseller`: فروشنده‌ها با دسترسی محدود، امکان فروش با پلن‌های تخفیفی در آینده
-
-### 2. User Features
-- ثبت‌نام خودکار با start
-- دریافت پلن تست در صورت فعال بودن
-- لیست پلن‌ها بر اساس لوکیشن
-- خرید پلن و دریافت لینک کانفیگ نهایی
-- تمدید اکانت، ریست ترافیک و حذف دستی توسط کاربر
-- مشاهده اعتبار، ترافیک باقیمانده، و تاریخ انقضا
-
-### 3. Admin Features
-- افزودن و مدیریت پنل 3x-ui (تنها توسط admin)
-- مانیتورینگ وضعیت پنل و inbounds
-- ایجاد، ویرایش و غیرفعال کردن پلن‌ها
-- مدیریت سفارشات و تراکنش‌ها
-- مدیریت کدهای تخفیف، درصدی/ثابت، محدودیت، انقضا
-- نوتیفیکیشن گروهی (اطلاع‌رسانی عمومی)
-
-### 4. Notifications
-- پیام به کاربران درباره اتمام حجم/تاریخ
-- ارسال اعلان‌های خرید موفق یا رد سفارش
-- آمار کلی پیام‌ها: موفق / ناموفق / در صف
-- ارسال به کانال عمومی یا ادمین در صورت نیاز
-
-### 5. VPN Panel Integration
-- اتصال مستقیم با 3x-ui پنل از طریق py3xui
-- دریافت لیست inbounds
-- ساخت، حذف، تمدید، و ریست اکانت کاربران
-- UUID و config_url گرفته‌شده از پنل ذخیره می‌شود
-
-### 6. Account Naming
-- بر اساس الگوی: `FR-Moonvpn-012[-01]`
-- شمارنده با هر انتقال لوکیشن افزایش می‌یابد
-- کاربران می‌توانند نام سفارشی بدهند یا از پیش‌فرض استفاده کنند
-
-### 7. Location Switching Logic
-- بررسی باقی‌مانده حجم/زمان
-- ساخت اکانت جدید در پنل مقصد
-- ارسال لینک جدید
-- حذف اکانت قبلی
-- ذخیره‌سازی در جدول `account_transfer`
-
-### 8. Payment & Wallet System
-- کیف پول داخلی با تراکنش‌های قابل پیگیری
-- درگاه مستقیم (مثلاً زرین‌پال) + دستی کارت به کارت
-- تخفیف‌ قابل تنظیم و مدیریت کامل
-
-### 9. Test Account Control
-- فقط ۱ بار برای هر پلن/کاربر
-- ثبت در جدول `test_account_log`
-
-### 10. Deployment Requirements
-- اجرای کامل با Docker
-- استفاده از `moonvpn` CLI برای مدیریت:
-  - اجرای سرویس‌ها، مشاهده لاگ، انجام migrations
-- دسترسی گرافیکی به دیتابیس از طریق phpMyAdmin
+> Updated: 2025-04-21  
+> Version: 1.1.0 (MVP + Enhanced Payment)
 
 ---
 
-## ⚙️ Technologies
-- Python 3.12+
-- Aiogram 3.x
-- SQLAlchemy 2.x
-- Alembic
-- Redis
-- MySQL 8.3+
-- Docker & Compose
-- Poetry
-- py3xui (3x-ui SDK)
+## 🧭 Overview
+MoonVPN is a scalable and modular VPN service management system built on Python, Docker, and Telegram Bot. It allows users to purchase, manage, and use VPN services while enabling admins to control panels, inbounds, plans, clients, and payments. The system is designed for automation and future expansion including reseller support and potential web UI integration.
 
 ---
 
-## 🔐 Security & Performance
-- دسترسی بر اساس نقش‌ها
-- فیلتر پلن‌ها بر اساس لوکیشن
-- ذخیره فقط اطلاعات ضروری اکانت‌ها و ترافیک مصرف‌شده
-- استفاده از Redis برای session و caching
-- لاگ‌گیری دقیق، ارور هندلینگ، نوتیف به ادمین در رخدادها
+## 👥 User Roles
+
+1. **User** – Can register, view plans, buy services, manage accounts, and check balance.
+2. **Admin** – Manages users, panels, inbounds, orders, payments, and notifications.
+3. **Seller (future)** – Can define custom plans and discounts, track orders, and earn commission.
+4. **SuperAdmin** – Full access to override actions, review logs, and audit systems.
 
 ---
 
-## 🛠 Roadmap Summary (Phases)
-1. راه‌اندازی ساختار و پایگاه داده
-2. اتصال به پنل و تست ساخت اکانت
-3. پیاده‌سازی ربات با خرید پلن کامل
-4. مدیریت سفارش و کیف پول
-5. نوتیفیکیشن، تست اکانت و تخفیف
-6. پنل ادمین و امکانات مکمل
+## 🧩 Core Features
+
+### 1. User System
+- Role-based registration via Telegram bot
+- Wallet balance tracking (transactional)
+- User profile and account history
+
+### 2. Plan System
+- Support for fixed and dynamic plans (volume/duration based)
+- Per-location plan assignment
+- Discounts (percentage, fixed, limited use, expiry)
+- Future-ready for seller-defined plans
+
+### 3. Panel Management
+- Add/edit/delete 3x-ui panels (by Admin only)
+- Sync panel health, stats, and inbounds
+- Restart panel core (optional for troubleshooting)
+
+### 4. Inbound Management
+- Sync inbounds from each panel
+- Store complete specs in DB (port, protocol, sniffing, tag, max clients)
+- Internal unique ID for each inbound (mapped to panel-specific ID)
+
+### 5. Client Account Management
+- Create clients on selected inbound
+- Auto-generate names (e.g., `FR-Moonvpn-1001`, with location suffixes)
+- Store config URL (vmess/vless) and QR
+- Ability to reset, renew, or move to a new location (inbound switch logic)
+- Track traffic usage and expiration
+
+### 6. Payment System
+- Wallet system (recharge and use)
+- Card-to-card payments with manual receipt confirmation
+- Auto-generated transaction tracking code
+- Multi-card support with intelligent card rotation
+- Discount support and internal balance refund logic
+- Admin approval via inline buttons
+
+### 7. Receipt & Card System
+- Bank card registry for manual transfers
+- Each card linked to specific admin and Telegram channel
+- Receipts (text/image/both) logged and sent to designated channels
+- Status updates to user after submission (pending/approved/rejected/expired)
+- Superadmin oversight and centralized audit channel
+- Future-ready for OCR and AI-based validation
+
+### 8. Notification System
+- Notify users: expiration, low balance, successful purchase
+- Notify admins: receipt submission, new order, failed sync
+- Queue support & summary stats for bulk sends
+- Telegram and future-ready for other channels
+
+### 9. Order System
+- Multi-stage order status: pending → confirmed → fulfilled → failed → expired
+- Order tracking (volume, expiry, client UUID, receipt ID)
+- Linked to discount usage and transaction record
+
+### 10. Location Logic
+- Human-readable name (e.g., Germany 🇩🇪)
+- Stored in DB (without requiring separate location table unless extended later)
+- Used to group inbounds and filter plans
+
+### 11. Admin Tools
+- Add panels and inbounds
+- Monitor panel health
+- Send mass or targeted notifications
+- Approve payments and manage receipts
+- View logs and override actions (SuperAdmin)
+
+---
+
+## 🛠️ Technology Stack
+
+| Component | Stack |
+|----------|-------|
+| Language | Python 3.12 |
+| Bot Framework | Aiogram 3.x |
+| ORM | SQLAlchemy 2.x |
+| Migrations | Alembic |
+| HTTP Client | aiohttp |
+| DB | MySQL 8.x |
+| Caching | Redis (optional) |
+| Deployment | Docker, Docker Compose |
+| Dev Tools | Poetry, Black, Pytest, GitHub Actions |
+
+---
+
+## ✅ MVP Milestones
+
+1. Panel & inbound sync
+2. User wallet & registration
+3. Plan browsing and purchase (via wallet or card)
+4. Client creation in panel
+5. Delivery of config + QR
+6. Admin receipt approval via Telegram
+7. Notifications (basic)
+8. Full receipt management for manual card payments
+9. Internal ID tracking for transactions and audit
+
+---
+
+## 🔮 Future Features
+
+- Seller/reseller support (panel assignments, custom plans)
+- In-app analytics and admin dashboard
+- Web UI or RESTful API
+- Telegram-native subscription renewal system
+- User support requests and reporting tools
+- OCR receipt parsing
+- Admin commission reporting system
+
+---
+
+## 📁 References
+- `docs/project-structure.md`
+- `docs/database-structure.md`
+- `docs/project-relationships.md`
 

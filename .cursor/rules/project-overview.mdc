@@ -1,0 +1,31 @@
+---
+description: MoonVPN Project Overview
+globs: 
+alwaysApply: false
+---
+# 🌙 MoonVPN Project Overview
+
+MoonVPN is a scalable VPN service management system built on Python, Docker, and Telegram Bot. It allows users to purchase, manage, and use VPN services while enabling admins to control panels, inbounds, plans, clients, and payments.
+
+## 📌 Core Documentation References
+- [Project Requirements](mdc:docs/project-requirements.md)
+- [Project Structure](mdc:docs/project-structure.md)
+- [Database Structure](mdc:docs/database-structure.md)
+- [Project Relationships](mdc:docs/Project-relationships.md)
+
+## 🚀 Main Components
+- Telegram Bot (aiogram 3.x) - User interface
+- Core Services - Business logic
+- Database (MySQL) - Data persistence
+- 3x-ui Integration - VPN panel management
+
+## 🧰 Technology Stack
+- Python 3.12
+- SQLAlchemy 2.x with Alembic
+- Docker & Docker Compose
+- Poetry for dependency management
+
+## 🛠️ Development Workflow
+All development must follow the architectural patterns defined in the documentation. Always work through the `moonvpn` CLI (not direct Python execution), and ensure all changes are properly containerized.
+
+For assistance with specific areas of the codebase, refer to the specialized rules in this directory.

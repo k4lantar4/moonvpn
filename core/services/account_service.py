@@ -9,7 +9,7 @@ from typing import Dict, Any, Optional, Tuple
 
 from sqlalchemy.orm import Session
 
-from core.integrations.xui_client import XUIClient
+from core.integrations.xui_client import XuiClient
 from core.services.panel_service import PanelService
 from db.models.client_account import ClientAccount, AccountStatus
 from db.models.inbound import Inbound
@@ -60,7 +60,7 @@ class AccountService:
         """
         return f"{panel.flag_emoji}-{panel.default_label}-{user_id:03d}"
     
-    def provision_account(self, user_id: int, plan_id: int, inbound_id: int) -> ClientAccount:
+    async def provision_account(self, user_id: int, plan_id: int, inbound_id: int) -> ClientAccount:
         """
         ایجاد اکانت VPN جدید برای کاربر بر اساس پلن انتخابی
         
@@ -112,23 +112,34 @@ class AccountService:
         logger.info(f"Generated account details: label={label}, uuid={client_uuid}")
         
         # ایجاد کلاینت در پنل با استفاده از XuiClient
-        xui_client = XUIClient(panel.url, panel.username, panel.password)
+        xui_client = XuiClient(panel.url, panel.username, panel.password)
         
         try:
-            logger.info(f"Calling XUIClient.create_client with inbound_id={inbound.inbound_id}, email={label}, traffic={traffic}GB")
+            await xui_client.login()
+            logger.info(f"Calling XuiClient.create_client with inbound_id={inbound.inbound_id}, email={label}, traffic={traffic}GB")
             
-            client_data = xui_client.create_client(
+            # تبدیل تاریخ انقضا به میلی‌ثانیه
+            expire_timestamp = int(datetime.timestamp(expires_at)) * 1000  # تبدیل به میلی‌ثانیه
+            
+            # ایجاد دیکشنری اطلاعات کلاینت
+            client_data = {
+                "email": label,
+                "id": client_uuid,
+                "enable": True,
+                "total_gb": traffic,
+                "expiry_time": expire_timestamp,
+                "flow": None
+            }
+            
+            result = await xui_client.create_client(
                 inbound_id=inbound.inbound_id,  # استفاده از inbound_id واقعی در پنل
-                email=label,
-                traffic=traffic,
-                expires_at=expires_at,
-                uuid=client_uuid
+                client_data=client_data
             )
             
             logger.info(f"Successfully created client in panel for user {user_id}, plan {plan_id}")
             
             # ساخت URL کانفیگ
-            config_url = f"{panel.url}/api/config?uuid={client_uuid}&inbound_id={inbound.inbound_id}"
+            config_url = await xui_client.get_config(client_uuid)
             
             # ایجاد اکانت VPN در دیتابیس
             client_account = ClientAccount(
@@ -160,7 +171,7 @@ class AccountService:
             logger.error(f"Failed to provision account for user {user_id}, plan {plan_id}: {e}")
             raise
     
-    def delete_account(self, account_id: int) -> bool:
+    async def delete_account(self, account_id: int) -> bool:
         """
         حذف اکانت VPN
         
@@ -181,8 +192,9 @@ class AccountService:
             raise ValueError(f"Panel for account {account_id} not found")
         
         # اتصال به پنل و حذف کلاینت
-        xui_client = XUIClient(panel.url, panel.username, panel.password)
-        success = xui_client.delete_client(account.uuid)
+        xui_client = XuiClient(panel.url, panel.username, panel.password)
+        await xui_client.login()
+        success = await xui_client.delete_client(account.uuid)
         
         if success:
             # حذف از دیتابیس یا تغییر وضعیت
@@ -206,3 +218,162 @@ class AccountService:
             ClientAccount.user_id == user_id,
             ClientAccount.status == AccountStatus.ACTIVE
         ).all()
+    
+    async def reset_account_traffic(self, account_id: int) -> bool:
+        """
+        ریست کردن ترافیک یک اکانت
+        
+        Args:
+            account_id: شناسه اکانت
+            
+        Returns:
+            موفقیت عملیات
+        """
+        # دریافت اطلاعات اکانت از دیتابیس
+        account = self.db_session.query(ClientAccount).filter(ClientAccount.id == account_id).first()
+        if not account:
+            raise ValueError(f"Account with ID {account_id} not found")
+            
+        # دریافت اطلاعات پنل
+        panel = self.db_session.query(Panel).filter(Panel.id == account.panel_id).first()
+        if not panel:
+            raise ValueError(f"Panel for account {account_id} not found")
+        
+        # اتصال به پنل و ریست ترافیک
+        xui_client = XuiClient(panel.url, panel.username, panel.password)
+        await xui_client.login()
+        success = await xui_client.reset_client_traffic(account.uuid)
+        
+        if success:
+            # به‌روزرسانی در دیتابیس
+            account.traffic_used = 0
+            self.db_session.commit()
+            logger.info(f"Reset traffic for account {account_id} of user {account.user_id}")
+            
+        return success
+    
+    async def renew_account(self, account_id: int, plan_id: int) -> bool:
+        """
+        تمدید یک اکانت بر اساس پلن جدید
+        
+        Args:
+            account_id: شناسه اکانت
+            plan_id: شناسه پلن جدید
+            
+        Returns:
+            موفقیت عملیات
+        """
+        # دریافت اطلاعات اکانت و پلن از دیتابیس
+        account = self.db_session.query(ClientAccount).filter(ClientAccount.id == account_id).first()
+        if not account:
+            raise ValueError(f"Account with ID {account_id} not found")
+            
+        plan = self.db_session.query(Plan).filter(Plan.id == plan_id).first()
+        if not plan:
+            raise ValueError(f"Plan with ID {plan_id} not found")
+            
+        panel = self.db_session.query(Panel).filter(Panel.id == account.panel_id).first()
+        if not panel:
+            raise ValueError(f"Panel for account {account_id} not found")
+        
+        # محاسبه تاریخ انقضای جدید و حجم ترافیک
+        # اگر اکانت منقضی شده باشد، از تاریخ امروز محاسبه می‌شود
+        # در غیر این صورت به تاریخ فعلی اضافه می‌شود
+        now = datetime.now()
+        if account.expires_at and account.expires_at > now:
+            new_expires_at = account.expires_at + timedelta(days=plan.duration_days)
+        else:
+            new_expires_at = now + timedelta(days=plan.duration_days)
+        
+        # اتصال به پنل و به‌روزرسانی کلاینت
+        xui_client = XuiClient(panel.url, panel.username, panel.password)
+        await xui_client.login()
+        
+        # تبدیل تاریخ انقضا به میلی‌ثانیه
+        expire_timestamp = int(datetime.timestamp(new_expires_at)) * 1000
+        
+        # داده‌های به‌روزرسانی کلاینت
+        client_data = {
+            "email": account.label,
+            "id": account.uuid,
+            "enable": True,
+            "total_gb": plan.traffic,
+            "expiry_time": expire_timestamp,
+        }
+        
+        try:
+            result = await xui_client.update_client(account.uuid, client_data)
+            
+            # ریست ترافیک درصورت درخواست
+            if plan.reset_traffic_on_renew:
+                await xui_client.reset_client_traffic(account.uuid)
+                account.traffic_used = 0
+            
+            # به‌روزرسانی در دیتابیس
+            account.expires_at = new_expires_at
+            account.traffic_total = plan.traffic
+            account.status = AccountStatus.ACTIVE
+            
+            self.db_session.commit()
+            logger.info(f"Renewed account {account_id} with plan {plan_id}, new expiry: {new_expires_at}")
+            
+            return True
+            
+        except Exception as e:
+            self.db_session.rollback()
+            logger.error(f"Failed to renew account {account_id} with plan {plan_id}: {e}")
+            raise
+    
+    async def update_account_traffic(self, account_id: int) -> Dict[str, Any]:
+        """
+        به‌روزرسانی اطلاعات ترافیک یک اکانت از پنل
+        
+        Args:
+            account_id: شناسه اکانت
+            
+        Returns:
+            اطلاعات به‌روزشده ترافیک
+        """
+        # دریافت اطلاعات اکانت از دیتابیس
+        account = self.db_session.query(ClientAccount).filter(ClientAccount.id == account_id).first()
+        if not account:
+            raise ValueError(f"Account with ID {account_id} not found")
+            
+        panel = self.db_session.query(Panel).filter(Panel.id == account.panel_id).first()
+        if not panel:
+            raise ValueError(f"Panel for account {account_id} not found")
+        
+        # اتصال به پنل و دریافت اطلاعات ترافیک
+        xui_client = XuiClient(panel.url, panel.username, panel.password)
+        await xui_client.login()
+        
+        try:
+            traffic_info = await xui_client.get_client_traffic(account.uuid)
+            
+            if traffic_info:
+                # به‌روزرسانی اطلاعات در دیتابیس
+                account.traffic_used = traffic_info.get("up", 0) + traffic_info.get("down", 0)
+                self.db_session.commit()
+                
+                logger.info(f"Updated traffic for account {account_id}: {account.traffic_used / (1024*1024*1024):.2f} GB used")
+                
+                return {
+                    "account_id": account.id,
+                    "uuid": account.uuid,
+                    "traffic_used": account.traffic_used,
+                    "traffic_total": account.traffic_total,
+                    "traffic_percent": (account.traffic_used / account.traffic_total) * 100 if account.traffic_total > 0 else 0
+                }
+            
+            logger.warning(f"No traffic information found for account {account_id}")
+            return {
+                "account_id": account.id,
+                "uuid": account.uuid,
+                "traffic_used": account.traffic_used,
+                "traffic_total": account.traffic_total,
+                "traffic_percent": (account.traffic_used / account.traffic_total) * 100 if account.traffic_total > 0 else 0
+            }
+            
+        except Exception as e:
+            logger.error(f"Failed to update traffic for account {account_id}: {e}")
+            raise

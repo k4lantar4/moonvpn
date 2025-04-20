@@ -1,239 +1,331 @@
 """
-کلاس کلاینت برای ارتباط با پنل‌های 3x-ui
+کلاس کلاینت برای ارتباط با پنل‌های 3x-ui بر پایه AsyncApi
 """
 
 import logging
-from typing import List, Dict, Any, Optional, Tuple
-from datetime import datetime, timedelta
+from typing import Dict, List, Any, Optional
+from datetime import datetime
 import time
 
-# استفاده از کلاس‌های اصلی کتابخانه py3xui
-from py3xui import Api, Client
+# استفاده از کلاس AsyncApi از کتابخانه py3xui
+from py3xui import AsyncApi
 
 logger = logging.getLogger(__name__)
 
 
-class XUIClient:
+class XuiClient:
     """
-    کلاس کلاینت برای ارتباط با پنل‌های 3x-ui با استفاده از SDK py3xui
+    کلاس کلاینت برای ارتباط با پنل‌های 3x-ui با استفاده از AsyncApi
+    این کلاس یک wrapper سبک روی AsyncApi است
     """
     
-    def __init__(self, panel_url: str, username: str, password: str):
+    def __init__(self, host: str, username: str, password: str, token: str = ""):
         """
         راه‌اندازی کلاینت با آدرس و اطلاعات ورود پنل
+        
+        Args:
+            host: آدرس پنل (همراه با http/https)
+            username: نام کاربری پنل
+            password: رمز عبور پنل
+            token: توکن احراز هویت (اختیاری)
         """
-        self.panel_url = panel_url.rstrip("/")  # حذف اسلش انتهایی اگر وجود داشته باشد
+        # حذف اسلش انتهایی اگر وجود داشته باشد
+        self.host = host.rstrip("/")
         self.username = username
         self.password = password
-        self.client = None
-        self._connect()
-    
-    def _connect(self) -> None:
-        """
-        اتصال به پنل و احراز هویت
-        """
-        try:
-            self.client = Api(self.panel_url, self.username, self.password)
-            self.client.login()
-            logger.info(f"Successfully connected to panel at {self.panel_url}")
-        except Exception as e:
-            logger.error(f"Failed to connect to panel at {self.panel_url}: {e}")
-            raise
-    
-    def get_inbounds(self) -> List[Dict[str, Any]]:
-        """
-        دریافت لیست تمام inbound‌های پنل
-        """
-        if not self.client:
-            self._connect()
+        self.token = token
         
-        try:
-            inbounds = self.client.inbound.get_list()
-            logger.info(f"Retrieved {len(inbounds)} inbounds from panel")
-            return inbounds
-        except Exception as e:
-            logger.error(f"Failed to get inbounds: {e}")
-            raise
+        # ایجاد نمونه AsyncApi
+        self.api = AsyncApi(self.host, self.username, self.password, self.token)
+        logger.info(f"XuiClient initialized for panel at {self.host}")
     
-    def get_inbound(self, inbound_id: int) -> Dict[str, Any]:
+    async def login(self) -> bool:
         """
-        دریافت اطلاعات یک inbound خاص با شناسه آن
-        """
-        if not self.client:
-            self._connect()
+        احراز هویت و ورود به پنل
         
+        Returns:
+            True در صورت موفقیت
+        """
         try:
-            inbound = self.client.inbound.get_by_id(inbound_id)
-            return inbound
+            result = await self.api.login()
+            logger.info(f"Successfully logged in to panel at {self.host}")
+            return result
         except Exception as e:
-            logger.error(f"Failed to get inbound {inbound_id}: {e}")
+            logger.error(f"Failed to login to panel at {self.host}: {e}")
             raise
     
-    def create_client(self, inbound_id: int, email: str, traffic: int = None,
-                     expires_at: datetime = None, uuid: Optional[str] = None,
-                     flow: Optional[str] = None) -> Dict[str, Any]:
+    # --------- مدیریت کلاینت‌ها ---------
+    
+    async def create_client(self, inbound_id: int, client_data: Dict[str, Any]) -> Dict[str, Any]:
         """
         ایجاد کلاینت جدید در یک inbound خاص
         
         Args:
             inbound_id: شناسه inbound
-            email: آدرس ایمیل/نام کلاینت
-            traffic: مقدار کل حجم مصرفی به GB
-            expires_at: زمان انقضا به صورت شیء datetime
-            uuid: UUID اختیاری (اگر نباشد، به صورت خودکار ساخته می‌شود)
-            flow: جریان داده برای پروتکل vless
-        
+            client_data: داده‌های کلاینت شامل email، uuid، total_gb و...
+            
         Returns:
             اطلاعات کلاینت ایجاد شده
         """
-        if not self.client:
-            self._connect()
-        
         try:
-            # تبدیل تاریخ انقضا به میلی‌ثانیه (timestamp در فرمت 3x-ui)
-            expire_time = None
-            if expires_at:
-                expire_timestamp = int(time.mktime(expires_at.timetuple())) * 1000  # تبدیل به میلی‌ثانیه
-                expire_time = expire_timestamp
-                logger.debug(f"Setting expiry time to {expires_at} ({expire_timestamp})")
-            
-            # تبدیل ترافیک به بایت (براساس فرمت 3x-ui)
-            total_gb = None
-            if traffic:
-                total_gb = traffic
-                logger.debug(f"Setting traffic to {traffic} GB")
-                
-            # ایجاد یک کلاینت جدید
-            new_client = Client(email=email, id=uuid, enable=True)
-            if total_gb is not None:
-                new_client.total_gb = total_gb
-            if expire_time is not None:
-                new_client.expiry_time = expire_time
-            if flow is not None:
-                new_client.flow = flow
-            
-            logger.info(f"Creating new client in inbound {inbound_id} with email {email}, UUID {uuid}")    
-            client_data = self.client.client.add(inbound_id, [new_client])
-            logger.info(f"Successfully created client: {client_data}")
-            return client_data
+            result = await self.api.client.create(inbound_id, client_data)
+            logger.info(f"Successfully created client in inbound {inbound_id}")
+            return result
         except Exception as e:
-            logger.error(f"Failed to create client for inbound {inbound_id}: {e}")
+            logger.error(f"Failed to create client in inbound {inbound_id}: {e}")
             raise
     
-    def delete_client(self, uuid: str) -> bool:
+    async def get_client(self, email: str) -> Dict[str, Any]:
+        """
+        دریافت اطلاعات یک کلاینت با ایمیل/نام آن
+        
+        Args:
+            email: آدرس ایمیل/نام کلاینت
+            
+        Returns:
+            اطلاعات کلاینت
+        """
+        try:
+            result = await self.api.client.get_by_email(email)
+            if result:
+                logger.info(f"Successfully retrieved client with email {email}")
+            else:
+                logger.warning(f"Client with email {email} not found")
+            return result
+        except Exception as e:
+            logger.error(f"Failed to get client with email {email}: {e}")
+            raise
+    
+    async def get_client_by_uuid(self, uuid: str) -> Dict[str, Any]:
+        """
+        دریافت اطلاعات یک کلاینت با UUID آن
+        
+        Args:
+            uuid: UUID کلاینت
+            
+        Returns:
+            اطلاعات کلاینت
+        """
+        try:
+            result = await self.api.client.get(uuid)
+            if result:
+                logger.info(f"Successfully retrieved client with UUID {uuid}")
+            else:
+                logger.warning(f"Client with UUID {uuid} not found")
+            return result
+        except Exception as e:
+            logger.error(f"Failed to get client with UUID {uuid}: {e}")
+            raise
+    
+    async def delete_client(self, uuid: str) -> bool:
         """
         حذف یک کلاینت با UUID آن
         
         Args:
             uuid: UUID کلاینت
-        
+            
         Returns:
             True در صورت موفقیت
         """
-        if not self.client:
-            self._connect()
-        
         try:
-            logger.info(f"Deleting client with UUID {uuid}")
-            success = self.client.client.remove(uuid)
-            if success:
-                logger.info(f"Successfully deleted client with UUID {uuid}")
-            else:
-                logger.warning(f"Failed to delete client with UUID {uuid}")
-            return success
+            result = await self.api.client.delete(uuid)
+            logger.info(f"Successfully deleted client with UUID {uuid}")
+            return result
         except Exception as e:
-            logger.error(f"Error deleting client with UUID {uuid}: {e}")
+            logger.error(f"Failed to delete client with UUID {uuid}: {e}")
             raise
     
-    def delete_client_by_email(self, inbound_id: int, email: str) -> bool:
+    async def update_client(self, uuid: str, client_data: Dict[str, Any]) -> Dict[str, Any]:
         """
-        حذف یک کلاینت از inbound با ایمیل/نام آن
+        به‌روزرسانی اطلاعات یک کلاینت
         
         Args:
-            inbound_id: شناسه inbound
-            email: آدرس ایمیل/نام کلاینت
-        
+            uuid: UUID کلاینت
+            client_data: داده‌های جدید کلاینت
+            
         Returns:
-            True در صورت موفقیت
+            اطلاعات به‌روز شده کلاینت
         """
-        if not self.client:
-            self._connect()
-        
         try:
-            # ابتدا باید شناسه کلاینت را پیدا کنیم
-            client = self.client.client.get_by_email(email)
-            if client:
-                success = self.client.client.remove(client.id)
-                return success
-            else:
-                raise ValueError(f"Client {email} not found")
+            result = await self.api.client.update(uuid, client_data)
+            logger.info(f"Successfully updated client with UUID {uuid}")
+            return result
         except Exception as e:
-            logger.error(f"Failed to delete client {email} from inbound {inbound_id}: {e}")
+            logger.error(f"Failed to update client with UUID {uuid}: {e}")
             raise
     
-    def reset_client_traffic(self, inbound_id: int, email: str) -> bool:
+    async def reset_client_traffic(self, uuid: str) -> bool:
         """
         ریست کردن ترافیک یک کلاینت
         
         Args:
+            uuid: UUID کلاینت
+            
+        Returns:
+            True در صورت موفقیت
+        """
+        try:
+            result = await self.api.client.reset_traffic(uuid)
+            logger.info(f"Successfully reset traffic for client with UUID {uuid}")
+            return result
+        except Exception as e:
+            logger.error(f"Failed to reset traffic for client with UUID {uuid}: {e}")
+            raise
+    
+    async def get_client_traffic(self, uuid: str) -> Dict[str, Any]:
+        """
+        دریافت اطلاعات ترافیک یک کلاینت
+        
+        Args:
+            uuid: UUID کلاینت
+            
+        Returns:
+            اطلاعات ترافیک کلاینت
+        """
+        try:
+            result = await self.api.client.get_traffic(uuid)
+            logger.info(f"Successfully retrieved traffic info for client with UUID {uuid}")
+            return result
+        except Exception as e:
+            logger.error(f"Failed to get traffic info for client with UUID {uuid}: {e}")
+            raise
+    
+    async def get_config(self, uuid: str) -> str:
+        """
+        دریافت لینک کانفیگ یک کلاینت
+        
+        Args:
+            uuid: UUID کلاینت
+            
+        Returns:
+            لینک کانفیگ کلاینت
+        """
+        try:
+            result = await self.api.client.get_config(uuid)
+            logger.info(f"Successfully retrieved config for client with UUID {uuid}")
+            return result
+        except Exception as e:
+            logger.error(f"Failed to get config for client with UUID {uuid}: {e}")
+            raise
+    
+    # --------- مدیریت Inbound‌ها ---------
+    
+    async def get_inbounds(self) -> List[Dict[str, Any]]:
+        """
+        دریافت لیست تمام inbound‌های پنل
+        
+        Returns:
+            لیست inbound‌ها
+        """
+        try:
+            result = await self.api.inbound.get_list()
+            logger.info(f"Successfully retrieved {len(result)} inbounds")
+            return result
+        except Exception as e:
+            logger.error(f"Failed to get inbounds: {e}")
+            raise
+    
+    async def get_inbound(self, inbound_id: int) -> Dict[str, Any]:
+        """
+        دریافت اطلاعات یک inbound خاص با شناسه آن
+        
+        Args:
             inbound_id: شناسه inbound
-            email: آدرس ایمیل/نام کلاینت
+            
+        Returns:
+            اطلاعات inbound
+        """
+        try:
+            result = await self.api.inbound.get(inbound_id)
+            logger.info(f"Successfully retrieved inbound with ID {inbound_id}")
+            return result
+        except Exception as e:
+            logger.error(f"Failed to get inbound with ID {inbound_id}: {e}")
+            raise
+    
+    async def create_inbound(self, inbound_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        ایجاد یک inbound جدید
+        
+        Args:
+            inbound_data: داده‌های inbound
+            
+        Returns:
+            اطلاعات inbound ایجاد شده
+        """
+        try:
+            result = await self.api.inbound.create(inbound_data)
+            logger.info("Successfully created new inbound")
+            return result
+        except Exception as e:
+            logger.error(f"Failed to create inbound: {e}")
+            raise
+    
+    async def update_inbound(self, inbound_id: int, inbound_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        به‌روزرسانی یک inbound
+        
+        Args:
+            inbound_id: شناسه inbound
+            inbound_data: داده‌های جدید inbound
+            
+        Returns:
+            اطلاعات به‌روز شده inbound
+        """
+        try:
+            result = await self.api.inbound.update(inbound_id, inbound_data)
+            logger.info(f"Successfully updated inbound with ID {inbound_id}")
+            return result
+        except Exception as e:
+            logger.error(f"Failed to update inbound with ID {inbound_id}: {e}")
+            raise
+    
+    async def delete_inbound(self, inbound_id: int) -> bool:
+        """
+        حذف یک inbound
+        
+        Args:
+            inbound_id: شناسه inbound
+            
+        Returns:
+            True در صورت موفقیت
+        """
+        try:
+            result = await self.api.inbound.delete(inbound_id)
+            logger.info(f"Successfully deleted inbound with ID {inbound_id}")
+            return result
+        except Exception as e:
+            logger.error(f"Failed to delete inbound with ID {inbound_id}: {e}")
+            raise
+    
+    # --------- مدیریت سرور ---------
+    
+    async def get_stats(self) -> Dict[str, Any]:
+        """
+        دریافت آمار کلی سرور
+        
+        Returns:
+            آمار سرور شامل CPU، RAM، ترافیک و...
+        """
+        try:
+            result = await self.api.server.get_stats()
+            logger.info("Successfully retrieved server stats")
+            return result
+        except Exception as e:
+            logger.error(f"Failed to get server stats: {e}")
+            raise
+    
+    async def restart_core(self) -> bool:
+        """
+        راه‌اندازی مجدد هسته xray/v2ray
         
         Returns:
             True در صورت موفقیت
         """
-        if not self.client:
-            self._connect()
-        
         try:
-            # ابتدا باید شناسه کلاینت را پیدا کنیم
-            client = self.client.client.get_by_email(email)
-            if client:
-                success = self.client.client.reset_traffic(client.id)
-                return success
-            else:
-                raise ValueError(f"Client {email} not found")
+            result = await self.api.server.restart_core()
+            logger.info("Successfully restarted xray/v2ray core")
+            return result
         except Exception as e:
-            logger.error(f"Failed to reset traffic for client {email} in inbound {inbound_id}: {e}")
-            raise
-    
-    def get_client_usage(self, inbound_id: int, email: str) -> Tuple[int, int]:
-        """
-        دریافت میزان مصرف ترافیک و تاریخ انقضای یک کلاینت
-        
-        Args:
-            inbound_id: شناسه inbound
-            email: آدرس ایمیل/نام کلاینت
-        
-        Returns:
-            (traffic_used, expire_time) ترافیک مصرف شده و زمان انقضا
-        """
-        if not self.client:
-            self._connect()
-        
-        try:
-            client = self.client.client.get_by_email(email)
-            if client:
-                # مصرف ترافیک و زمان انقضا در کلاینت
-                return client.up + client.down, client.expiry_time
-            raise ValueError(f"Client {email} not found")
-        except Exception as e:
-            logger.error(f"Failed to get usage for client {email} in inbound {inbound_id}: {e}")
-            raise
-            
-    def get_panel_stats(self) -> Dict[str, Any]:
-        """
-        دریافت آمار کلی پنل
-        
-        Returns:
-            آمار کلی شامل CPU، RAM، و ترافیک
-        """
-        if not self.client:
-            self._connect()
-        
-        try:
-            stats = self.client.server.get_status()
-            return stats
-        except Exception as e:
-            logger.error(f"Failed to get panel stats: {e}")
+            logger.error(f"Failed to restart xray/v2ray core: {e}")
             raise

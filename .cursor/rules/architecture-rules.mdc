@@ -1,0 +1,43 @@
+---
+description: MoonVPN Architecture Rules
+globs: 
+alwaysApply: false
+---
+# 🏗️ MoonVPN Architecture Rules
+
+## 📊 Layered Architecture
+MoonVPN follows a strict layered architecture:
+```
+User ↔ Telegram Bot ↔ Services ↔ Repositories ↔ Database ↔ External APIs (3x-ui)
+```
+
+## 🚫 Absolute Architectural Restrictions
+1. **NEVER run Python files directly** — all operations MUST use the `moonvpn` CLI
+2. **NEVER install packages globally** — only use Docker
+3. **NEVER access models directly from the bot layer** — use services
+4. **NEVER bypass the service layer** — even for simple operations
+5. **NEVER create new directories outside of approved structure**
+
+## ✅ Module Responsibility Rules
+- [Bot Commands](mdc:bot/commands) - Handle Telegram commands only
+- [Bot Callbacks](mdc:bot/callbacks) - Process inline button callbacks
+- [Bot Buttons](mdc:bot/buttons) - Define inline button layouts
+- [Core Services](mdc:core/services) - Contain all business logic
+- [DB Repositories](mdc:db/repositories) - Wrap complex database operations
+- [DB Models](mdc:db/models) - Define SQLAlchemy models (no business logic)
+- [Core Integrations](mdc:core/integrations) - Handle external API communication
+
+## 🔄 Data Flow Rules
+1. Telegram Bot receives user input
+2. Bot routes to appropriate service
+3. Service performs business logic
+4. Service uses repositories for data access
+5. Repositories interact with models
+6. Results flow back up the chain
+
+## 💡 Key Patterns
+- **Repository Pattern** - All DB access through repositories
+- **Service Layer** - Business logic isolated in services
+- **Command Pattern** - Bot commands as entry points
+- **Dependency Injection** - Services receive repositories they need
+- **Single Responsibility** - Each module has one clear purpose

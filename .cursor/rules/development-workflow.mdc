@@ -1,0 +1,73 @@
+---
+description: MoonVPN Development Workflow Guide
+globs: 
+alwaysApply: false
+---
+# 🛠️ MoonVPN Development Workflow Guide
+
+## 📝 Development Environment
+MoonVPN is developed and deployed using Docker:
+
+- [docker-compose.yml](mdc:docker-compose.yml) - Service definitions
+- [Dockerfile](mdc:Dockerfile) - Python application container
+- [moonvpn CLI](mdc:scripts/moonvpn.sh) - Project management tool
+- [poetry.lock](mdc:poetry.lock) - Dependency lock file
+
+## 🧱 Development Workflow
+1. Code changes are made in development
+2. Tests are run using `moonvpn test`
+3. Database migrations created if needed
+4. Services restarted with `moonvpn restart`
+5. Changes validated in deployed environment
+6. Commits pushed to repository
+
+## ✅ Development Rules
+1. **NEVER run Python files directly** - always use `moonvpn` CLI
+2. **NEVER install packages globally** - use Poetry and Docker
+3. All changes must be documented in comments and docstrings
+4. Database changes require migration files
+5. Follow existing code patterns and conventions
+6. Core business logic must have test coverage
+
+## 🧩 MoonVPN CLI Commands
+```bash
+# Start all services
+moonvpn up
+
+# Stop all services
+moonvpn down
+
+# Restart services after code changes
+moonvpn restart
+
+# View logs
+moonvpn logs [service]
+
+# Run migrations
+moonvpn migrate [command]
+
+# Run tests
+moonvpn test
+
+# Access Python shell
+moonvpn shell
+```
+
+## 📊 Docker Architecture
+- MySQL container for database
+- Python application container for bot and services
+- Volume mounts for code and data persistence
+- Network configuration for service communication
+
+## 🔄 Code Update Process
+1. Make changes to relevant files
+2. If database schema changed:
+   - Run `moonvpn migrate generate "description"`
+   - Review migration file
+3. If dependencies changed:
+   - Update `pyproject.toml`
+   - Run `poetry update` locally (if needed)
+   - Rebuild containers
+4. Run `moonvpn restart` to apply changes
+5. Verify changes through bot interaction or logs
+6. Document changes in code and commit history

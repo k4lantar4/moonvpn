@@ -10,7 +10,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from db.models.panel import Panel
 from db.models.inbound import Inbound
-from core.integrations.xui_client import XUIClient
+from core.integrations.xui_client import XuiClient
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +22,7 @@ class PanelService:
         """مقداردهی اولیه سرویس"""
         self.db_session = db_session
     
-    def add_panel(self, name: str, location: str, flag_emoji: str,
+    async def add_panel(self, name: str, location: str, flag_emoji: str,
                  url: str, username: str, password: str, default_label: str) -> Panel:
         """
         اضافه کردن پنل جدید به سیستم
@@ -53,7 +53,7 @@ class PanelService:
         
         try:
             # تست اتصال به پنل
-            self._test_panel_connection(url, username, password)
+            await self._test_panel_connection(url, username, password)
             
             # افزودن به دیتابیس
             self.db_session.add(new_panel)
@@ -68,7 +68,7 @@ class PanelService:
             logger.error(f"Failed to add panel {name}: {str(e)}")
             raise
     
-    def _test_panel_connection(self, url: str, username: str, password: str) -> bool:
+    async def _test_panel_connection(self, url: str, username: str, password: str) -> bool:
         """
         تست اتصال به پنل قبل از ذخیره‌سازی
         
@@ -82,9 +82,10 @@ class PanelService:
         """
         try:
             # تلاش برای ایجاد کلاینت و اتصال به پنل
-            client = XUIClient(url, username, password)
+            client = XuiClient(url, username, password)
+            await client.login()
             # تست دریافت inbounds
-            client.get_inbounds()
+            await client.get_inbounds()
             return True
         except Exception as e:
             logger.error(f"Panel connection test failed: {str(e)}")
@@ -143,7 +144,7 @@ class PanelService:
             logger.error(f"Failed to update panel status: {e}")
             raise
     
-    def _get_xui_client(self, panel: Panel) -> XUIClient:
+    def _get_xui_client(self, panel: Panel) -> XuiClient:
         """
         ایجاد کلاینت XUI برای پنل
         
@@ -153,9 +154,9 @@ class PanelService:
         Returns:
             کلاینت XUI
         """
-        return XUIClient(panel.url, panel.username, panel.password)
+        return XuiClient(panel.url, panel.username, panel.password)
     
-    def sync_panel_inbounds(self, panel_id: int) -> List[Inbound]:
+    async def sync_panel_inbounds(self, panel_id: int) -> List[Inbound]:
         """
         همگام‌سازی inbound‌های پنل با دیتابیس
         
@@ -175,7 +176,8 @@ class PanelService:
         
         # ایجاد کلاینت و دریافت inbound‌ها از پنل
         client = self._get_xui_client(panel)
-        inbounds_from_panel = client.get_inbounds()
+        await client.login()
+        inbounds_from_panel = await client.get_inbounds()
         
         # لیست inbound‌های به‌روزشده یا جدید
         updated_inbounds = []
@@ -241,7 +243,7 @@ class PanelService:
             logger.error(f"Failed to sync inbounds for panel {panel.name}: {str(e)}")
             raise
 
-    def sync_all_panels_inbounds(self) -> Dict[int, List[Inbound]]:
+    async def sync_all_panels_inbounds(self) -> Dict[int, List[Inbound]]:
         """
         همگام‌سازی inbound‌های تمام پنل‌های فعال با دیتابیس
         
@@ -253,7 +255,7 @@ class PanelService:
         
         for panel in panels:
             try:
-                inbounds = self.sync_panel_inbounds(panel.id)
+                inbounds = await self.sync_panel_inbounds(panel.id)
                 results[panel.id] = inbounds
                 logger.info(f"Successfully synced {len(inbounds)} inbounds for panel {panel.name}")
             except Exception as e:

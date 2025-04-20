@@ -1,0 +1,72 @@
+---
+description: MoonVPN Database Layer Guide
+globs: 
+alwaysApply: false
+---
+# 🗄️ MoonVPN Database Layer Guide
+
+## 📝 Database Structure Overview
+The database layer consists of:
+
+- [Models](mdc:db/models) - SQLAlchemy ORM classes
+- [Repositories](mdc:db/repositories) - Data access patterns
+- [Schemas](mdc:db/schemas) - Pydantic schemas (optional)
+- [Migrations](mdc:db/migrations) - Alembic database migrations
+- [Config](mdc:db/config.py) - Database connection and settings
+
+## 🧱 Core Database Entities
+- [User](mdc:db/models/user.py) - User accounts and profiles
+- [Panel](mdc:db/models/panel.py) - 3x-ui panel configurations
+- [Inbound](mdc:db/models/inbound.py) - VPN inbound configurations
+- [ClientAccount](mdc:db/models/client_account.py) - User VPN accounts
+- [Plan](mdc:db/models/plan.py) - Service plans and pricing
+- [Order](mdc:db/models/order.py) - Purchase orders
+- [Transaction](mdc:db/models/transaction.py) - Financial transactions
+- [BankCard](mdc:db/models/bank_card.py) - Payment card info
+- [ReceiptLog](mdc:db/models/receipt_log.py) - Payment receipts
+- [DiscountCode](mdc:db/models/discount_code.py) - Promotion codes
+
+## ✅ Database Layer Rules
+1. Model classes should be pure data structures without business logic
+2. All database access must go through repositories
+3. Use SQLAlchemy core for complex queries
+4. Complex operations must be transactional
+5. Always create migrations for schema changes
+
+## 🧩 Repository Pattern
+```python
+class ExampleRepository:
+    def __init__(self, session_factory):
+        self.session_factory = session_factory
+    
+    async def get_by_id(self, id):
+        async with self.session_factory() as session:
+            query = select(ExampleModel).where(ExampleModel.id == id)
+            result = await session.execute(query)
+            return result.scalar_one_or_none()
+    
+    async def create(self, data):
+        async with self.session_factory() as session:
+            entity = ExampleModel(**data)
+            session.add(entity)
+            await session.commit()
+            await session.refresh(entity)
+            return entity
+```
+
+## 📊 Database Relationships
+Follow the relationship diagram in [Project Relationships](mdc:docs/Project-relationships.md):
+
+- User → ClientAccount (1:N)
+- Panel → Inbound (1:N)
+- Inbound → ClientAccount (1:N)
+- Plan → ClientAccount (1:N)
+- User → Order (1:N)
+- Order → ClientAccount (1:1)
+- BankCard → ReceiptLog (1:N)
+
+## 🔄 Migration Workflow
+1. Create models in SQLAlchemy
+2. Generate migration with `moonvpn migrate generate "message"`
+3. Apply migration with `moonvpn migrate upgrade`
+4. Never edit migrations manually after application in production

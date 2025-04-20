@@ -6,11 +6,12 @@
 
 import logging
 from aiogram import Router, F
-from aiogram.types import CallbackQuery
+from aiogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from datetime import datetime
 
 from core.services.plan_service import PlanService
 from core.services.user_service import UserService
+from core.services.order_service import OrderService
 from bot.buttons.plan_buttons import get_plans_keyboard, get_plan_details_keyboard
 from db.models.order import Order, OrderStatus
 
@@ -97,6 +98,7 @@ def register_callbacks(router: Router, session_pool):
             session.commit()
             logger.info(f"Created new order ID: {new_order.id} for user {telegram_user_id} (DB ID: {db_user.id})")
             
+            # پیام موفقیت ثبت سفارش
             text = (
                 f"✅ سفارش شما با موفقیت ثبت شد!\n\n"
                 f"🔹 شناسه سفارش: {new_order.id}\n"
@@ -105,7 +107,19 @@ def register_callbacks(router: Router, session_pool):
                 f"سفارش شما در انتظار پرداخت است. لطفاً روش پرداخت را انتخاب کنید."
             )
             
-            await callback.message.edit_text(text=text)
+            # ایجاد دکمه‌های پرداخت
+            # در اینجا inbound_id نداریم، پس آن را صفر می‌گذاریم. سرویس پرداخت بعداً تعیین می‌کند
+            default_inbound_id = 0
+            
+            payment_keyboard = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="💰 پرداخت با کیف پول", callback_data=f"pay_with_wallet:{new_order.id}")],
+                [InlineKeyboardButton(text="🔙 بازگشت", callback_data="back_to_plans")]
+            ])
+            
+            await callback.message.edit_text(
+                text=text,
+                reply_markup=payment_keyboard
+            )
             
             await callback.answer()
         except Exception as e:
@@ -155,3 +169,63 @@ def register_callbacks(router: Router, session_pool):
         except Exception as e:
             logger.error(f"Error in back_to_main_callback: {e}", exc_info=True)
             await callback.answer("خطایی رخ داد. لطفاً دوباره تلاش کنید.", show_alert=True)
+    
+    @router.callback_query(F.data.startswith("pay_with_wallet:"))
+    async def pay_with_wallet_callback(callback: CallbackQuery):
+        """پرداخت سفارش با استفاده از موجودی کیف پول"""
+        session = None
+        try:
+            # استخراج order_id از callback_data
+            order_id = int(callback.data.split(":")[-1])
+            telegram_user_id = callback.from_user.id
+            
+            logger.info(f"User {telegram_user_id} is paying order {order_id} with wallet balance")
+            
+            # پیام موقت برای نشان دادن وضعیت پردازش
+            process_message = await callback.message.edit_text(
+                "⏳ در حال پردازش پرداخت...\n"
+                "لطفاً چند لحظه صبر کنید."
+            )
+            
+            session = session_pool()
+            
+            # دریافت اطلاعات کاربر
+            user_service = UserService(session)
+            db_user = user_service.get_user_by_telegram_id(telegram_user_id)
+            
+            if not db_user:
+                logger.error(f"User with telegram_id {telegram_user_id} not found in database.")
+                await callback.answer("کاربر شما در سیستم یافت نشد! لطفاً ابتدا /start را بزنید.", show_alert=True)
+                return
+            
+            # پرداخت با کیف پول
+            order_service = OrderService(session)
+            success, message = order_service.pay_with_balance(order_id)
+            
+            if not success:
+                # دریافت اطلاعات سفارش برای نمایش مبلغ مورد نیاز
+                order = order_service.get_order_by_id(order_id)
+                
+                # اگر موجودی کافی نیست، پیغام مناسب ارسال می‌شود
+                await process_message.edit_text(
+                    f"❌ {message}\n\n"
+                    f"موجودی فعلی: {int(db_user.balance):,} تومان\n"
+                    f"مبلغ لازم: {int(order.amount):,} تومان\n\n"
+                    "لطفاً ابتدا کیف پول خود را شارژ کنید."
+                )
+                return
+                
+            # اگر پرداخت موفقیت‌آمیز بود
+            await process_message.edit_text(
+                "✅ پرداخت با موفقیت انجام شد!\n\n"
+                "سفارش شما در حال پردازش است. کانفیگ VPN شما به زودی آماده خواهد شد.\n"
+                "لطفاً منتظر بمانید..."
+            )
+            
+        except Exception as e:
+            logger.error(f"Error in pay_with_wallet_callback: {e}", exc_info=True)
+            await callback.answer("خطایی رخ داد. لطفاً دوباره تلاش کنید.", show_alert=True)
+        finally:
+            if session:
+                session.close()
+                logger.debug("Database session closed in pay_with_wallet_callback")

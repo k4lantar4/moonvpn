@@ -1,48 +1,43 @@
 """
-تست سرویس اکانت‌ها - MoonVPN
+تست‌های سرویس مدیریت اکانت‌های VPN
 """
 
 import logging
-from datetime import datetime, timedelta
-import os
-import uuid as uuid_lib
 import time
+import uuid as uuid_lib
+from datetime import datetime, timedelta
 from unittest.mock import patch, MagicMock
+import asyncio
 
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.orm import sessionmaker
 
 from core.services.account_service import AccountService
-from db.models import Base
-from db.models.user import User
-from db.models.plan import Plan
-from db.models.panel import Panel
-from db.models.inbound import Inbound
+from db.models.base import Base
 from db.models.client_account import ClientAccount, AccountStatus
+from db.models.inbound import Inbound
+from db.models.panel import Panel
+from db.models.plan import Plan
+from db.models.user import User
 
-# تنظیم لاگر
-logging.basicConfig(level=logging.INFO, 
-                   format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
-
-# مشخصات اتصال به دیتابیس تستی (از محیط Docker)
-DATABASE_URL = os.getenv("DATABASE_URL", "mysql+pymysql://moonvpn_user:strong_password_here@db:3306/moonvpn")
-logger.info(f"Using database URL: {DATABASE_URL}")
+logger.setLevel(logging.INFO)
+handler = logging.StreamHandler()
+handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+logger.addHandler(handler)
 
 
 def setup_test_db():
-    """آماده‌سازی دیتابیس تست"""
+    """راه‌اندازی دیتابیس تست"""
+    # استفاده از دیتابیس تست (با تنظیمات اولیه پروژه)
+    DATABASE_URL = "mysql+pymysql://moonvpn:moonvpn@localhost:3306/moonvpn"
     engine = create_engine(DATABASE_URL)
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-    db = SessionLocal()
-    return db
+    return SessionLocal()
 
 
-def test_manually_create_client_account():
-    """
-    تست ساخت دستی اکانت کلاینت با استفاده از XuiClient
-    این تست مستقیماً کلاینت را در پنل ایجاد می‌کند و سپس رکورد آن را در دیتابیس ذخیره می‌کند
-    """
+async def test_manually_create_client_account():
+    """تست ساخت دستی اکانت کلاینت با استفاده از XuiClient"""
     try:
         # ساخت نشست دیتابیس
         db = setup_test_db()
@@ -67,15 +62,14 @@ def test_manually_create_client_account():
         if not panel:
             logger.error(f"Panel for inbound {inbound.id} not found")
             return False
-        
-        # دریافت سرویس و پارامترهای لازم برای ایجاد اکانت
-        account_service = AccountService(db)
-        
-        # محاسبه تاریخ انقضا و حجم ترافیک بر اساس پلن
+            
+        # محاسبه تاریخ انقضا و حجم ترافیک
         expires_at = datetime.now() + timedelta(days=plan.duration_days)
         traffic = plan.traffic  # حجم ترافیک به GB
         
-        # ایجاد یک transfer_id منحصر به فرد
+        logger.info(f"Plan details: traffic={traffic}GB, duration={plan.duration_days} days, expires_at={expires_at}")
+        
+        # ایجاد یک timestamp منحصر به فرد برای تست
         timestamp = int(time.time())
         transfer_id = f"moonvpn-{user.id:03d}-test-{timestamp}"
         
@@ -88,24 +82,35 @@ def test_manually_create_client_account():
         logger.info(f"Generated test account details: label={label}, uuid={client_uuid}, transfer_id={transfer_id}")
         
         # ایجاد کلاینت در پنل
-        from core.integrations.xui_client import XUIClient
-        xui_client = XUIClient(panel.url, panel.username, panel.password)
+        from core.integrations.xui_client import XuiClient
+        xui_client = XuiClient(panel.url, panel.username, panel.password)
         
         try:
+            await xui_client.login()
             logger.info(f"Creating client in panel: inbound_id={inbound.inbound_id}, email={label}")
             
-            client_data = xui_client.create_client(
-                inbound_id=inbound.inbound_id,  # استفاده از inbound_id واقعی در پنل
-                email=label,
-                traffic=traffic,
-                expires_at=expires_at,
-                uuid=client_uuid
+            # تبدیل تاریخ انقضا به میلی‌ثانیه
+            expire_timestamp = int(datetime.timestamp(expires_at)) * 1000
+            
+            # ایجاد دیکشنری اطلاعات کلاینت
+            client_data = {
+                "email": label,
+                "id": client_uuid,
+                "enable": True,
+                "total_gb": traffic,
+                "expiry_time": expire_timestamp,
+                "flow": None
+            }
+            
+            result = await xui_client.create_client(
+                inbound_id=inbound.inbound_id,
+                client_data=client_data
             )
             
             logger.info(f"Successfully created client in panel for user {user.id}, plan {plan.id}")
             
-            # ساخت URL کانفیگ
-            config_url = f"{panel.url}/api/config?uuid={client_uuid}&inbound_id={inbound.inbound_id}"
+            # دریافت لینک کانفیگ
+            config_url = await xui_client.get_config(client_uuid)
             
             # ایجاد اکانت VPN در دیتابیس
             client_account = ClientAccount(
@@ -157,7 +162,7 @@ def test_manually_create_client_account():
             # پاکسازی - حذف کلاینت از پنل در صورت خطا
             try:
                 logger.info(f"Cleaning up by deleting client from panel: {client_uuid}")
-                xui_client.delete_client(client_uuid)
+                await xui_client.delete_client(client_uuid)
             except Exception as cleanup_error:
                 logger.error(f"Error during cleanup: {cleanup_error}")
                 
@@ -172,7 +177,7 @@ def test_manually_create_client_account():
             db.close()
 
 
-def test_account_service_provision_account():
+async def test_account_service_provision_account():
     """تست متد provision_account سرویس AccountService"""
     try:
         # ساخت نشست دیتابیس
@@ -228,7 +233,7 @@ def test_account_service_provision_account():
                 account_service._create_label = MagicMock(return_value=unique_label)
                 
                 # ایجاد اکانت جدید
-                client_account = account_service.provision_account(
+                client_account = await account_service.provision_account(
                     user_id=user.id,
                     plan_id=plan.id,
                     inbound_id=inbound.id
@@ -266,16 +271,19 @@ def test_account_service_provision_account():
             db.close()
 
 
-if __name__ == "__main__":
+async def run_tests():
+    """اجرای تست‌ها به صورت آسنکرون"""
     logger.info("Starting account service tests...")
     
     logger.info("=== Test 1: Manual client creation ===")
-    result1 = test_manually_create_client_account()
+    result1 = await test_manually_create_client_account()
     
     logger.info("\n=== Test 2: Account service provision_account method ===")
-    result2 = test_account_service_provision_account()
+    result2 = await test_account_service_provision_account()
     
     if result1 and result2:
         logger.info("All tests passed successfully! 🎉")
-    else:
-        logger.error("Some tests failed! ❌") 
+
+
+if __name__ == "__main__":
+    asyncio.run(run_tests()) 
