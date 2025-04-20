@@ -1,0 +1,56 @@
+# تنظیمات و وابستگی‌های پروژه با Poetry
+
+[tool.poetry]
+name = "moonvpn"
+version = "0.1.0"
+description = "Telegram-based VPN management bot"
+authors = ["MoonVPN Team"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+aiogram = "^3.2.0"
+sqlalchemy = "^2.0.23"
+alembic = "^1.12.1"
+python-dotenv = "^1.0.0"
+redis = "^5.0.1"
+pymysql = "^1.1.0"
+py3xui = { git = "https://github.com/iwatkot/py3xui.git", rev = "main" }
+cryptography = "^41.0.5"
+orjson = "^3.9.10"
+pydantic = "^2.5.2"
+pydantic-settings = "^2.1.0"
+watchdog = "^3.0.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4.3"
+black = "^23.11.0"
+isort = "^5.12.0"
+mypy = "^1.7.1"
+ruff = "^0.1.6"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 100
+target-version = ["py312"]
+
+[tool.isort]
+profile = "black"
+line_length = 100
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.poetry.scripts]
+moonvpn = "scripts.moonvpn:main"

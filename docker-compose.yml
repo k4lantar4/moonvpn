@@ -1,0 +1,82 @@
+# فایل Docker Compose برای مدیریت سرویس‌ها
+
+services:
+  # سرویس اصلی برنامه
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: moonvpn_app
+    restart: always
+    depends_on:
+      - db
+      - redis
+    env_file:
+      - .env
+    volumes:
+      - .:/app
+    networks:
+      - moonvpn_network
+    command: python -m bot.main
+
+  # پایگاه داده MySQL
+  db:
+    image: mysql:8.3
+    container_name: moonvpn_db
+    restart: always
+    environment:
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - moonvpn_network
+    ports:
+      - "3306:3306"
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # Redis برای کش و مدیریت نشست‌ها
+  redis:
+    image: redis:latest
+    container_name: moonvpn_redis
+    restart: always
+    networks:
+      - moonvpn_network
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+
+  # phpMyAdmin برای مدیریت پایگاه داده
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin:latest
+    container_name: moonvpn_phpmyadmin
+    restart: always
+    environment:
+      - PMA_HOST=db
+      - PMA_PORT=3306
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+    depends_on:
+      - db
+    networks:
+      - moonvpn_network
+    ports:
+      - "8080:80"
+
+# حجم‌های ذخیره‌سازی
+volumes:
+  mysql_data:
+  redis_data:
+
+# شبکه داخلی
+networks:
+  moonvpn_network:
+    driver: bridge

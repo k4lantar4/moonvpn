@@ -1,0 +1,78 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# MoonVPN Database and Services Architecture
+
+This rule outlines the database structure, models, and service layer of the MoonVPN project.
+
+## 1. Database Models
+
+All database models are defined in [db/models/](mdc:db/models) and follow SQLAlchemy declarative base pattern:
+
+- Each model corresponds to a database table
+- Models define relationships between tables
+- Enums are defined as Python classes inheriting from `str, Enum`
+- Column types are explicitly defined with appropriate constraints
+
+Example model structure:
+```python
+class MyModel(Base):
+    __tablename__ = "my_models"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(255), nullable=False)
+    created_at = Column(DateTime, default=datetime.now, nullable=False)
+    
+    # Relationships
+    related_items: Mapped[List["RelatedItem"]] = relationship(back_populates="my_model")
+```
+
+## 2. Service Layer
+
+Services in [core/services/](mdc:core/services) implement business logic and provide an abstraction layer:
+
+- Each service focuses on a specific domain (users, payments, accounts, etc.)
+- Services accept a database session in their constructor
+- CRUD operations are delegated to repositories when appropriate
+- Business logic and validations happen at the service level
+
+Service implementation pattern:
+```python
+class MyService:
+    def __init__(self, db_session: Session):
+        self.db_session = db_session
+        self.repo = MyRepository(db_session)
+    
+    def some_business_operation(self, param1, param2):
+        # Implement business logic here
+        # Use self.repo for data access when appropriate
+```
+
+## 3. Repository Pattern
+
+Repositories in [db/repositories/](mdc:db/repositories) handle direct database operations:
+
+- Basic CRUD operations for specific models
+- Complex queries that don't contain business logic
+- Repositories work with a specific model or a closely related set of models
+
+## 4. Transaction Management
+
+When working with database operations:
+
+- **ALWAYS** pass the session from the service to the repository
+- Use explicit transactions with commit/rollback
+- Handle exceptions and perform rollback when errors occur
+- Ensure sessions are closed properly to prevent leaks
+
+## 5. DateTime Handling
+
+When working with datetime fields:
+
+- Always use `datetime.now()` in Python code
+- For database default values, use `default=datetime.now` not `server_default`
+- Be consistent with timezone handling
+
+By following these patterns, we maintain data integrity and clean separation of concerns.
