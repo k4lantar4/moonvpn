@@ -80,8 +80,12 @@ show_help() {
     echo "  logs [service]  View last 50 lines of logs (app, db, redis, phpmyadmin)"
     echo "  logs-follow [s] Follow logs continuously (app, db, redis, phpmyadmin)"
     echo "  bot-logs        View last 50 lines of bot logs"
-    echo "  migrate         Run database migrations"
-    echo "  migrate-create  Create a new migration with message"
+    echo "  migrate         Run database migrations (alias for migrate upgrade)"
+    echo "  migrate upgrade Run all pending migrations"
+    echo "  migrate show    Show current migration state"
+    echo "  migrate history Show migration history"
+    echo "  migrate generate Create a new migration with message"
+    echo "  migrate stamp   Set current migration version without running migrations"
     echo "  shell [service] List available containers or open shell in specified service"
     echo "  status          Check status of all services"
     echo "  build           Build the app container"
@@ -144,6 +148,15 @@ list_containers() {
 
 # Ensure we're in the project directory
 cd "$PROJECT_ROOT" || { echo -e "${RED}Error: Could not change to project directory${NC}"; exit 1; }
+
+# Check if we're in production environment
+is_production() {
+    if [ -f "$PROJECT_ROOT/.env" ]; then
+        grep -q "^ENVIRONMENT=production" "$PROJECT_ROOT/.env"
+        return $?
+    fi
+    return 1
+}
 
 # Main command handler
 case "$1" in
@@ -219,21 +232,130 @@ case "$1" in
     
     migrate)
         check_docker
-        echo -e "${BLUE}Running database migrations...${NC}"
-        docker compose exec app alembic upgrade head
-        echo -e "${GREEN}Migrations completed${NC}"
+        case "$2" in
+            ""|"upgrade")
+                echo -e "${BLUE}Running database migrations...${NC}"
+                docker compose exec app alembic upgrade head
+                if [ $? -eq 0 ]; then
+                    echo -e "${GREEN}✓ Migrations completed successfully${NC}"
+                else
+                    echo -e "${RED}❌ Migration failed${NC}"
+                    exit 1
+                fi
+                ;;
+            
+            "generate")
+                if [ -z "$3" ]; then
+                    echo -e "${RED}Error: Migration message is required${NC}"
+                    echo -e "Usage: moonvpn migrate generate \"your migration message\""
+                    echo -e "Example: moonvpn migrate generate \"add users table\""
+                    exit 1
+                fi
+
+                if is_production; then
+                    echo -e "${RED}⚠️ Warning: You are in PRODUCTION environment!${NC}"
+                    echo -e "Are you sure you want to generate a new migration? (y/N)"
+                    read -r response
+                    if [[ ! "$response" =~ ^[Yy]$ ]]; then
+                        echo -e "${YELLOW}Migration cancelled${NC}"
+                        exit 0
+                    fi
+                fi
+
+                # Validate migration message format
+                if [[ ! "$3" =~ ^[a-zA-Z0-9_]+[a-zA-Z0-9_\ \-]*$ ]]; then
+                    echo -e "${RED}Error: Invalid migration message format${NC}"
+                    echo -e "Migration message should:"
+                    echo -e "- Start with a letter, number, or underscore"
+                    echo -e "- Contain only letters, numbers, spaces, underscores, or hyphens"
+                    echo -e "Example: moonvpn migrate generate \"add_users_table\""
+                    exit 1
+                fi
+
+                echo -e "${BLUE}Generating new migration...${NC}"
+                echo -e "${YELLOW}Message: ${NC}$3"
+                
+                # Try to create the migration
+                if ! output=$(docker compose exec app alembic revision --autogenerate -m "$3" 2>&1); then
+                    echo -e "${RED}Error generating migration:${NC}"
+                    echo "$output"
+                    echo -e "\n${YELLOW}Troubleshooting:${NC}"
+                    echo "1. Check if the database is running and accessible"
+                    echo "2. Ensure your SQLAlchemy models have the required changes"
+                    echo "3. Verify that alembic.ini is properly configured"
+                    echo "4. Check if there are pending migrations to apply first"
+                    exit 1
+                fi
+
+                # Extract the migration file name from the output
+                migration_file=$(echo "$output" | grep -o "migrations/versions/[a-zA-Z0-9_]*.py")
+                
+                if [ -n "$migration_file" ]; then
+                    echo -e "${GREEN}✓ Migration generated successfully!${NC}"
+                    echo -e "${YELLOW}Migration file: ${NC}$migration_file"
+                    echo -e "\n${BLUE}Next steps:${NC}"
+                    echo "1. Review the migration file to ensure changes are correct"
+                    echo "2. Run 'moonvpn migrate upgrade' to apply the migration"
+                    echo "3. Test the changes in your development environment"
+                    echo -e "4. Commit the migration file to version control\n"
+                else
+                    echo -e "${RED}Warning: Migration was generated but couldn't locate the file${NC}"
+                    echo -e "Please check the migrations/versions directory manually"
+                fi
+                ;;
+
+            "show")
+                echo -e "${BLUE}Current migration state:${NC}"
+                docker compose exec app alembic current
+                ;;
+
+            "history")
+                echo -e "${BLUE}Migration history:${NC}"
+                docker compose exec app alembic history --verbose
+                ;;
+
+            "stamp")
+                if [ -z "$3" ]; then
+                    echo -e "${RED}Error: Version is required for stamp command${NC}"
+                    echo -e "Usage: moonvpn migrate stamp <version>"
+                    echo -e "Example: moonvpn migrate stamp head"
+                    exit 1
+                fi
+
+                if is_production; then
+                    echo -e "${RED}⚠️ WARNING: You are in PRODUCTION environment!${NC}"
+                    echo -e "Stamping migrations can be dangerous in production."
+                    echo -e "Are you absolutely sure you want to proceed? (yes/N)"
+                    read -r response
+                    if [[ ! "$response" == "yes" ]]; then
+                        echo -e "${YELLOW}Operation cancelled${NC}"
+                        exit 0
+                    fi
+                fi
+
+                echo -e "${BLUE}Stamping database with version $3...${NC}"
+                docker compose exec app alembic stamp "$3"
+                ;;
+
+            *)
+                echo -e "${RED}Error: Unknown migrate subcommand: $2${NC}"
+                echo -e "Available subcommands:"
+                echo -e "  moonvpn migrate          # Run all pending migrations"
+                echo -e "  moonvpn migrate upgrade  # Run all pending migrations"
+                echo -e "  moonvpn migrate generate # Create a new migration"
+                echo -e "  moonvpn migrate show     # Show current migration state"
+                echo -e "  moonvpn migrate history  # Show migration history"
+                echo -e "  moonvpn migrate stamp    # Set current migration version"
+                exit 1
+                ;;
+        esac
         ;;
 
     migrate-create)
-        check_docker
-        if [ -z "$2" ]; then
-            echo -e "${RED}Error: Migration message is required${NC}"
-            echo -e "Usage: moonvpn migrate-create \"your migration message\""
-            exit 1
-        fi
-        echo -e "${BLUE}Creating new migration with message: $2${NC}"
-        docker compose exec app alembic revision --autogenerate -m "$2"
-        echo -e "${GREEN}Migration created. Run 'moonvpn migrate' to apply it.${NC}"
+        echo -e "${YELLOW}⚠️ Warning: 'migrate-create' is deprecated${NC}"
+        echo -e "Please use 'moonvpn migrate generate' instead"
+        echo -e "Example: moonvpn migrate generate \"your migration message\""
+        exit 1
         ;;
     
     shell)

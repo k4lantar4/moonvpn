@@ -30,3 +30,21 @@ ACCOUNT_NAMING_TEMPLATE: str = "{location}-Moonvpn-{id}"
 MAX_TRIAL_ACCOUNTS_PER_USER: int = 1
 TRIAL_DURATION_DAYS: int = 1
 TRIAL_TRAFFIC_GB: int = 1
+
+# تنظیمات دیتابیس
+# تعریف URL اتصال به دیتابیس با درایور aiomysql
+MYSQL_HOST: str = os.getenv("MYSQL_HOST", "db")
+MYSQL_PORT: int = int(os.getenv("MYSQL_PORT", "3306"))
+MYSQL_USER: str = os.getenv("MYSQL_USER", "moonvpn_user")
+MYSQL_PASSWORD: str = os.getenv("MYSQL_PASSWORD", "strong_password_here")
+MYSQL_DATABASE: str = os.getenv("MYSQL_DATABASE", "moonvpn")
+
+# ساخت URL دیتابیس با استفاده از درایور aiomysql
+DATABASE_URL: str = os.getenv(
+    "DATABASE_URL",
+    f"mysql+aiomysql://{MYSQL_USER}:{MYSQL_PASSWORD}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DATABASE}?charset=utf8mb4"
+)
+
+# اطمینان از استفاده از درایور aiomysql
+if "pymysql" in DATABASE_URL:
+    DATABASE_URL = DATABASE_URL.replace("pymysql", "aiomysql")

@@ -10,6 +10,7 @@ from sqlalchemy import engine_from_config, pool
 
 # ایمپورت مدل‌های پایگاه داده
 from db.models import Base
+from core.settings import DATABASE_URL as ASYNC_DATABASE_URL
 
 # این بخش تنظیمات اصلی Alembic را بارگذاری می‌کند
 config = context.config
@@ -21,11 +22,11 @@ if config.config_file_name is not None:
 # مشخص کردن target برای autogenerate
 target_metadata = Base.metadata
 
-# خواندن DATABASE_URL از متغیرهای محیطی و تبدیل به نسخه سنکرون
-DATABASE_URL = os.getenv("DATABASE_URL", "mysql+pymysql://moonvpn_user:strong_password_here@localhost:3306/moonvpn")
+# تبدیل URL غیرهمزمان به URL همزمان برای Alembic
+DATABASE_URL = ASYNC_DATABASE_URL
 if "aiomysql" in DATABASE_URL:
     DATABASE_URL = DATABASE_URL.replace("aiomysql", "pymysql")
-print(f"Using database URL: {DATABASE_URL}")
+    print(f"Alembic: درایور از aiomysql به pymysql تغییر یافت: {DATABASE_URL}")
 
 # اگر DB در داکر اجرا می‌شود، باید URL را تغییر دهیم
 if "localhost" in DATABASE_URL or "127.0.0.1" in DATABASE_URL:
@@ -54,16 +55,6 @@ def run_migrations_offline() -> None:
         context.run_migrations()
 
 
-def do_run_migrations(connection):
-    """
-    تابع کمکی برای اجرای مهاجرت‌ها
-    """
-    context.configure(connection=connection, target_metadata=target_metadata)
-
-    with context.begin_transaction():
-        context.run_migrations()
-
-
 def run_migrations_online() -> None:
     """
     اجرای مهاجرت‌ها در حالت آنلاین
@@ -82,6 +73,20 @@ def run_migrations_online() -> None:
 
     with engine.connect() as connection:
         do_run_migrations(connection)
+
+
+def do_run_migrations(connection):
+    """
+    اجرای مهاجرت‌ها با کانکشنی که از قبل ایجاد شده است
+    """
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata,
+        compare_type=True,
+    )
+
+    with context.begin_transaction():
+        context.run_migrations()
 
 
 if context.is_offline_mode():

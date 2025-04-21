@@ -2,15 +2,12 @@
 ماژول دیتابیس - نقطه دسترسی مرکزی به پایگاه داده
 """
 
-import os
 from typing import AsyncGenerator
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.pool import NullPool
 
+from core.settings import DATABASE_URL
 from db.models import Base
-
-# خواندن رشته اتصال از متغیرهای محیطی
-DATABASE_URL = os.getenv("DATABASE_URL", "mysql+aiomysql://user:password@db:3306/moonvpn")
 
 # ایجاد موتور SQL آسنکرون
 engine = create_async_engine(

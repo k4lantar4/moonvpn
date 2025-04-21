@@ -24,6 +24,7 @@ from bot.commands.buy import register_buy_command
 from bot.callbacks import setup_callback_handlers
 from core.services.notification_service import NotificationService
 from core.services.panel_service import PanelService
+from core.settings import DATABASE_URL, BOT_TOKEN as ENV_BOT_TOKEN
 
 # تنظیمات لاگینگ
 logging.basicConfig(
@@ -36,16 +37,13 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 # دریافت توکن بات از محیط
-BOT_TOKEN = os.getenv("BOT_TOKEN")
+BOT_TOKEN = ENV_BOT_TOKEN or os.getenv("BOT_TOKEN")
 if not BOT_TOKEN:
     logger.critical("BOT_TOKEN یافت نشد! لطفاً فایل .env را بررسی کنید.")
     exit(1)
 
 # دریافت آدرس Redis از محیط
 REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379/0")
-
-# تنظیمات دیتابیس
-DATABASE_URL = os.getenv("DATABASE_URL", "mysql+aiomysql://root:password@db:3306/moonvpn")
 
 # ایجاد اتصال به دیتابیس
 engine = create_async_engine(DATABASE_URL)

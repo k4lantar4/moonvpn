@@ -1,0 +1,84 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# 🗃️ MoonVPN Database Migrations Guide
+
+## 📋 Migration Workflow Overview
+
+The MoonVPN project uses Alembic for database migrations, integrated with SQLAlchemy models. Follow this workflow for database changes:
+
+1. **Create/Modify Models**
+   - Update SQLAlchemy models in [db/models/](mdc:db/models)
+   - Follow existing patterns and relationships
+   - Add proper docstrings and type hints
+
+2. **Generate Migration**
+   ```bash
+   moonvpn migrate generate "descriptive_message"
+   ```
+   - Use clear, descriptive messages (e.g., "add_user_settings_column")
+   - Review generated migration file in `db/migrations/versions/`
+   - Commit migration file to version control
+
+3. **Apply Migration**
+   ```bash
+   moonvpn migrate upgrade
+   ```
+   - Run in development first
+   - Test thoroughly before applying to production
+   - Never modify applied migrations in production
+
+## 🛠️ Available Commands
+
+- `moonvpn migrate` or `moonvpn migrate upgrade`
+  - Run all pending migrations
+  - Use in both development and production
+
+- `moonvpn migrate generate "message"`
+  - Create new migration from model changes
+  - Requires descriptive message
+  - Extra confirmation in production
+
+- `moonvpn migrate show`
+  - Display current migration state
+  - Useful for troubleshooting
+
+- `moonvpn migrate history`
+  - Show migration version history
+  - Includes timestamps and messages
+
+- `moonvpn migrate stamp`
+  - Set migration version without running
+  - Use with extreme caution in production
+  - Requires explicit confirmation
+
+## ⚠️ Production Safeguards
+
+- Extra confirmation required for sensitive operations
+- Detects production environment via `ENVIRONMENT=production` in `.env`
+- Never edit applied migrations
+- Always test migrations in development first
+- Backup database before applying migrations
+
+## 🔍 Troubleshooting
+
+If migration generation fails:
+1. Check if database is accessible
+2. Verify SQLAlchemy model changes
+3. Ensure alembic.ini is configured
+4. Check for pending migrations
+
+If migration apply fails:
+1. Review migration file
+2. Check database connectivity
+3. Look for conflicting changes
+4. Review alembic logs
+
+## 📚 Related Files
+
+- [alembic.ini](mdc:alembic.ini) - Migration configuration
+- [db/models/](mdc:db/models) - SQLAlchemy models
+- [db/migrations/](mdc:db/migrations) - Migration files
+- [scripts/moonvpn.sh](mdc:scripts/moonvpn.sh) - CLI tool

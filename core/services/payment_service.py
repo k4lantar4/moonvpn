@@ -33,7 +33,7 @@ class PaymentService:
         self, 
         user_id: int, 
         amount: Decimal,
-        transaction_type: TransactionType = TransactionType.PAYMENT,
+        transaction_type: TransactionType = TransactionType.DEPOSIT,
         order_id: Optional[int] = None,
         status: TransactionStatus = TransactionStatus.PENDING
     ) -> Transaction:
@@ -72,7 +72,7 @@ class PaymentService:
         transaction.status = new_status
         
         # اگر تراکنش تکمیل شد و از نوع شارژ بود، موجودی کاربر را افزایش دهیم
-        if new_status == TransactionStatus.SUCCESS and (transaction.type == TransactionType.PAYMENT or transaction.type == TransactionType.DEPOSIT):
+        if new_status == TransactionStatus.SUCCESS and transaction.type == TransactionType.DEPOSIT:
             user = await self.user_repo.get_by_id(transaction.user_id)
             if user:
                 user.balance += transaction.amount
@@ -98,8 +98,8 @@ class PaymentService:
         # تغییر وضعیت تراکنش
         transaction.status = TransactionStatus.SUCCESS
         
-        # افزایش موجودی کاربر اگر تراکنش از نوع پرداخت یا شارژ است
-        if transaction.type == TransactionType.PAYMENT or transaction.type == TransactionType.DEPOSIT:
+        # افزایش موجودی کاربر اگر تراکنش از نوع شارژ است
+        if transaction.type == TransactionType.DEPOSIT:
             user = await self.user_repo.get_by_id(transaction.user_id)
             if user:
                 user.balance += transaction.amount

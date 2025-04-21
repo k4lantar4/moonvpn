@@ -29,16 +29,15 @@ COPY pyproject.toml poetry.lock* ./
 
 # Install dependencies
 RUN poetry config virtualenvs.create false \
-  && poetry install --no-interaction --no-ansi \
-  && pip install aiomysql pymysql watchdog
+  && poetry install --no-interaction --no-ansi
 
 # Copy the project code
 COPY . .
 
 # Create scripts directory and copy the CLI script
 RUN mkdir -p /usr/local/bin
-COPY scripts/moonvpn /usr/local/bin/
-RUN chmod +x /usr/local/bin/moonvpn
+COPY scripts/moonvpn.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/moonvpn.sh
 
 # Command to run
 CMD ["python", "-m", "bot.main"]

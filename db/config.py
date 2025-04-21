@@ -2,20 +2,13 @@
 تنظیمات و پیکربندی اتصال به پایگاه داده
 """
 
-import os
 from typing import AsyncGenerator
 
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.pool import NullPool
 
+from core.settings import DATABASE_URL
 from db.models import Base
-
-# خواندن رشته اتصال از متغیرهای محیطی
-DATABASE_URL = os.getenv("DATABASE_URL", "mysql+aiomysql://user:password@db:3306/moonvpn")
-
-# اگر URL حاوی pymysql است، آن را با aiomysql جایگزین کنیم
-if "pymysql" in DATABASE_URL:
-    DATABASE_URL = DATABASE_URL.replace("pymysql", "aiomysql")
 
 # ایجاد موتور AsyncSQL
 engine = create_async_engine(

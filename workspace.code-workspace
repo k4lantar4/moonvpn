@@ -1,0 +1,90 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"terminal.integrated.profiles.linux": {
+			"bash": {
+				"path": "bash",
+				"args": [
+					"--login"
+				],
+				"icon": "terminal-bash"
+			}
+		},
+		"terminal.integrated.defaultProfile.linux": "bash",
+		"terminal.integrated.shellIntegration.enabled": true,
+		"terminal.integrated.commandsToSkipShell": [
+			"exit",
+			"quit",
+			"clear",
+			"cls"
+		],
+		"terminal.integrated.cwd": "/root/moonvpn",
+		"terminal.integrated.inheritEnv": true,
+		"terminal.integrated.confirmOnExit": "never",
+		"terminal.integrated.autoReplies": {
+			"Do you want to exit the Python shell?": "yes",
+			"Do you really want to exit [y/N]": "y",
+			"Press any key to continue...": "\r",
+			"Type 'exit' to exit": "exit",
+			"--More--": "q",
+			"[Y/n]": "Y",
+			"(y/N)": "y",
+			"Continue? [y/N]": "y",
+			"Are you sure? [y/N]": "y",
+			"Terminate batch job (Y/N)?": "Y",
+			"Do you want to terminate the batch job (Y/N)?": "Y",
+			"Press Enter to continue...": "\r",
+			"Press ENTER to continue": "\r",
+			"Press any key to continue . . .": "\r",
+			"Would you like to continue [Y/n]?": "Y",
+			"Press Ctrl+C to abort": "\u0003",
+			"Press RETURN to continue, or q to quit": "\r",
+			"Do you wish to continue [y/N]?": "y",
+			"Are you sure you want to continue connecting (yes/no/[fingerprint])?": "yes",
+			"Password:": "${input:sshPassword}"
+		},
+		"terminal.integrated.defaultLocation": "view",
+		"terminal.integrated.autoExitBehavior": "never",
+		"terminal.integrated.exitBehavior": "always",
+		"terminal.integrated.env.linux": {
+			"TERM": "xterm-256color"
+		},
+		"terminal.integrated.gpuAcceleration": "on",
+		"terminal.integrated.scrollback": 1000,
+		"terminal.integrated.enablePersistentSessions": true,
+		"terminal.integrated.persistentSessionReviveProcess": "never",
+		"terminal.integrated.shellArgs.linux": [
+			"--login"
+		],
+		"terminal.integrated.limitCharacters": 10000,
+		"terminal.integrated.shellIntegration.history": 2000,
+		"terminal.integrated.allowChords": true,
+		"terminal.integrated.automationProfile.linux": {
+			"path": "bash",
+			"args": [
+				"--login"
+			],
+			"icon": "terminal-bash"
+		},
+		"terminal.integrated.copyOnSelection": true,
+		"terminal.integrated.cursorBlinking": true,
+		"terminal.integrated.cursorStyle": "line",
+		"terminal.integrated.fontFamily": "MesloLGS NF, Consolas, 'Courier New', monospace",
+		"terminal.integrated.fontSize": 14,
+		"terminal.integrated.rightClickBehavior": "selectWord",
+		"terminal.integrated.shellIntegration.decorationsEnabled": "both",
+		"terminal.integrated.splitCwd": "inherited",
+		"terminal.integrated.persistentSessionScrollback": 5000,
+		"terminal.integrated.detectLocale": "auto",
+		"terminal.integrated.showExitAlert": false,
+		"terminal.integrated.tabs.enabled": true,
+		"terminal.integrated.tabs.location": "bottom",
+		"terminal.integrated.tabs.showActiveTerminal": "always",
+		"terminal.integrated.tabs.hideCondition": "never",
+		"nxConsole.nxWorkspacePath": ""
+	}
+}

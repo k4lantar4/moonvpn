@@ -18,6 +18,11 @@ class PanelStatus(str, Enum):
     DELETED = "deleted"
 
 
+class PanelType(str, Enum):
+    """نوع پنل"""
+    XUI = "xui"
+
+
 class Panel(Base):
     """مدل پنل‌های 3x-ui در سیستم MoonVPN"""
     
@@ -26,17 +31,17 @@ class Panel(Base):
     # فیلدهای اصلی
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(255), nullable=False)
-    location = Column(String(100), nullable=False)
-    flag_emoji = Column(String(5), nullable=True)
+    location_name = Column(String(100), nullable=False)
     url = Column(Text, nullable=False)
     username = Column(String(100), nullable=False)
     password = Column(String(255), nullable=False)
+    type = Column(SQLEnum(PanelType), default=PanelType.XUI, nullable=False)
     status = Column(SQLEnum(PanelStatus), default=PanelStatus.ACTIVE, nullable=False)
-    default_label = Column(String(50), nullable=False)
+    notes = Column(Text, nullable=True)
     
     # ارتباط با سایر مدل‌ها
     inbounds: Mapped[List["Inbound"]] = relationship(back_populates="panel")
     client_accounts: Mapped[List["ClientAccount"]] = relationship(back_populates="panel")
     
     def __repr__(self) -> str:
-        return f"<Panel(id={self.id}, name={self.name}, location={self.location})>"
+        return f"<Panel(id={self.id}, name={self.name}, location={self.location_name})>"

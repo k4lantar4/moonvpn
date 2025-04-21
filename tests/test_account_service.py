@@ -11,6 +11,7 @@ import asyncio
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 
 from core.services.account_service import AccountService
 from db.models.base import Base
@@ -30,9 +31,9 @@ logger.addHandler(handler)
 def setup_test_db():
     """راه‌اندازی دیتابیس تست"""
     # استفاده از دیتابیس تست (با تنظیمات اولیه پروژه)
-    DATABASE_URL = "mysql+pymysql://moonvpn:moonvpn@localhost:3306/moonvpn"
-    engine = create_engine(DATABASE_URL)
-    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    DATABASE_URL = "mysql+aiomysql://moonvpn:moonvpn@localhost:3306/moonvpn"
+    engine = create_async_engine(DATABASE_URL)
+    SessionLocal = async_sessionmaker(class_=AsyncSession, expire_on_commit=False, bind=engine)
     return SessionLocal()
 
 

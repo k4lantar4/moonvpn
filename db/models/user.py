@@ -7,7 +7,7 @@ from decimal import Decimal
 from enum import Enum
 from typing import List, Optional
 
-from sqlalchemy import BigInteger, Boolean, DateTime, String, Column, Enum as SQLEnum, ForeignKey, Text, DECIMAL
+from sqlalchemy import BigInteger, DateTime, String, Column, Enum as SQLEnum, ForeignKey, Text, JSON
 from sqlalchemy.orm import relationship, Mapped
 
 from . import Base
@@ -17,7 +17,13 @@ class UserRole(str, Enum):
     """نقش‌های کاربران در سیستم"""
     USER = "user"
     ADMIN = "admin"
-    RESELLER = "reseller"
+    SELLER = "seller"
+
+
+class UserStatus(str, Enum):
+    """وضعیت‌های کاربر"""
+    ACTIVE = "active"
+    BLOCKED = "blocked"
 
 
 class User(Base):
@@ -29,10 +35,11 @@ class User(Base):
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     telegram_id = Column(BigInteger, unique=True, index=True, nullable=False)
     username = Column(String(255), nullable=True)
+    full_name = Column(String(255), nullable=True)
     role = Column(SQLEnum(UserRole), default=UserRole.USER, nullable=False)
-    balance = Column(DECIMAL(10, 2), default=0.0, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    status = Column(Boolean, default=True, nullable=False)
+    status = Column(SQLEnum(UserStatus), default=UserStatus.ACTIVE, nullable=False)
+    settings = Column(JSON, nullable=True)
     
     # ارتباط با سایر مدل‌ها
     client_accounts: Mapped[List["ClientAccount"]] = relationship(back_populates="user")
