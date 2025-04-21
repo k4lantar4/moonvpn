@@ -105,6 +105,12 @@ def register_wallet_command(router: Router, session_maker: async_sessionmaker[As
         Command("wallet")
     )
     
+    # هندلر دکمه متن "کیف پول"
+    router.message.register(
+        wallet_command, 
+        F.text == "💳 کیف پول"
+    )
+    
     # پردازش مبلغ وارد شده
     router.message.register(
         handle_amount_message,

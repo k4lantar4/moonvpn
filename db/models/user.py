@@ -5,13 +5,22 @@
 from datetime import datetime
 from decimal import Decimal
 from enum import Enum
-from typing import List, Optional
+from typing import List, Optional, TYPE_CHECKING
 
 from sqlalchemy import BigInteger, DateTime, String, Column, Enum as SQLEnum, ForeignKey, Text, JSON
 from sqlalchemy.orm import relationship, Mapped
 
 from . import Base
+from .plan import Plan
+from .receipt_log import ReceiptLog
+from .test_account_log import TestAccountLog
 
+if TYPE_CHECKING:
+    from .client_account import ClientAccount
+    from .order import Order
+    from .transaction import Transaction
+    # from .receipt_log import ReceiptLog
+    # from .test_account_log import TestAccountLog
 
 class UserRole(str, Enum):
     """نقش‌های کاربران در سیستم"""
@@ -46,6 +55,13 @@ class User(Base):
     orders: Mapped[List["Order"]] = relationship(back_populates="user")
     transactions: Mapped[List["Transaction"]] = relationship(back_populates="user")
     test_account_logs: Mapped[List["TestAccountLog"]] = relationship(back_populates="user")
+    
+    # Relationships related to ReceiptLog
+    receipt_logs: Mapped[List["ReceiptLog"]] = relationship(back_populates="user", foreign_keys=[ReceiptLog.user_id])
+    reviewed_receipts: Mapped[List["ReceiptLog"]] = relationship(back_populates="admin", foreign_keys=[ReceiptLog.admin_id])
+
+    # Relationship related to Plan creation
+    created_plans: Mapped[List["Plan"]] = relationship(back_populates="created_by", foreign_keys=[Plan.created_by_id])
     
     def __repr__(self) -> str:
         return f"<User(id={self.id}, telegram_id={self.telegram_id}, role={self.role})>"

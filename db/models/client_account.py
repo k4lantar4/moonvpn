@@ -4,13 +4,21 @@
 
 from datetime import datetime
 from enum import Enum
-from typing import List, Optional
+from typing import List, Optional, TYPE_CHECKING
 import uuid
 
 from sqlalchemy import BigInteger, Boolean, DateTime, String, Text, Column, ForeignKey, Integer, Enum as SQLEnum
 from sqlalchemy.orm import relationship, Mapped
 
 from . import Base
+
+if TYPE_CHECKING:
+    from .user import User
+    from .panel import Panel
+    from .inbound import Inbound
+    from .plan import Plan
+    from .order import Order
+    from .account_transfer import AccountTransfer
 
 
 class AccountStatus(str, Enum):
@@ -48,8 +56,22 @@ class ClientAccount(Base):
     user: Mapped["User"] = relationship(back_populates="client_accounts")
     panel: Mapped["Panel"] = relationship(back_populates="client_accounts")
     inbound: Mapped["Inbound"] = relationship("Inbound", back_populates="client_accounts")
-    plan: Mapped["Plan"] = relationship()
-    order: Mapped["Order"] = relationship()
+    plan: Mapped["Plan"] = relationship(back_populates="client_accounts")
+    orders: Mapped[List["Order"]] = relationship(
+        "Order",
+        back_populates="client_account",
+        foreign_keys="Order.client_account_id"
+    )
+    
+    # Relationships for AccountTransfer
+    from_transfers: Mapped[List["AccountTransfer"]] = relationship(
+        foreign_keys="AccountTransfer.old_account_id", 
+        back_populates="old_account"
+    )
+    to_transfers: Mapped[List["AccountTransfer"]] = relationship(
+        foreign_keys="AccountTransfer.new_account_id", 
+        back_populates="new_account"
+    )
     
     def __repr__(self) -> str:
         return f"<ClientAccount(id={self.id}, user_id={self.user_id}, expires_at={self.expires_at})>"

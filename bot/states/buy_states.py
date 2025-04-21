@@ -1,14 +1,16 @@
 """
-کلاس‌های state مربوط به فرآیند خرید اشتراک
+وضعیت‌های مربوط به فرایند خرید اشتراک
 """
 
 from aiogram.fsm.state import State, StatesGroup
 
 
 class BuyState(StatesGroup):
-    """کلاس state برای فرآیند خرید اشتراک"""
+    """
+    وضعیت‌های مختلف در فرایند خرید
+    """
     select_plan = State()  # انتخاب پلن
     select_location = State()  # انتخاب لوکیشن
     select_inbound = State()  # انتخاب پروتکل
-    confirm_purchase = State()  # تایید نهایی
+    confirm_purchase = State()  # تایید نهایی خرید
     payment = State()  # پرداخت 

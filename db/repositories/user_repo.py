@@ -1,35 +1,35 @@
 """
-ریپوزیتوری عملیات دیتابیسی مرتبط با کاربران
+User repository for database operations
 """
 
+from typing import List, Optional
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
-from typing import Optional, List
 
 from db.models.user import User, UserRole
 from .base_repository import BaseRepository
 
 
 class UserRepository(BaseRepository[User]):
-    """کلاس مدیریت عملیات CRUD کاربران در دیتابیس"""
+    """Repository for user-related database operations"""
     
     def __init__(self, session: AsyncSession):
         """مقداردهی اولیه با سشن دیتابیس"""
-        super().__init__(User, session)
+        super().__init__(session, User)
         
-    async def get_by_telegram_id(self, telegram_id: int) -> Optional[User]:
-        """دریافت کاربر با آیدی تلگرام"""
+    async def get_user_by_telegram_id(self, telegram_id: int) -> Optional[User]:
+        """Get user by Telegram ID"""
         query = select(User).where(User.telegram_id == telegram_id)
         result = await self.session.execute(query)
         return result.scalar_one_or_none()
     
-    async def get_by_id(self, user_id: int) -> Optional[User]:
-        """دریافت کاربر با شناسه داخلی"""
+    async def get_user_by_id(self, user_id: int) -> Optional[User]:
+        """Get user by ID"""
         return await super().get_by_id(user_id)
     
     async def create_user(self, telegram_id: int, username: Optional[str] = None) -> User:
-        """ایجاد کاربر جدید"""
+        """Create a new user"""
         try:
             user = await self.create(
                 telegram_id=telegram_id,
@@ -40,11 +40,11 @@ class UserRepository(BaseRepository[User]):
         except IntegrityError:
             await self.session.rollback()
             # اگر کاربر از قبل وجود داشت، آن را برگردان
-            return await self.get_by_telegram_id(telegram_id)
+            return await self.get_user_by_telegram_id(telegram_id)
             
     async def get_or_create_user(self, telegram_id: int, username: Optional[str] = None) -> User:
         """دریافت کاربر در صورت وجود یا ایجاد کاربر جدید"""
-        user = await self.get_by_telegram_id(telegram_id)
+        user = await self.get_user_by_telegram_id(telegram_id)
         if user:
             # اگر یوزرنیم تغییر کرده بود، آپدیت شود
             if username and user.username != username:
@@ -54,7 +54,7 @@ class UserRepository(BaseRepository[User]):
         return await self.create_user(telegram_id, username)
     
     async def get_all_users(self) -> List[User]:
-        """دریافت همه کاربران"""
+        """Get all users"""
         query = select(User)
         result = await self.session.execute(query)
         return list(result.scalars().all())
@@ -67,9 +67,34 @@ class UserRepository(BaseRepository[User]):
     
     async def update_user_status(self, telegram_id: int, status: bool) -> Optional[User]:
         """بروزرسانی وضعیت کاربر (فعال/غیرفعال)"""
-        user = await self.get_by_telegram_id(telegram_id)
+        user = await self.get_user_by_telegram_id(telegram_id)
         if user:
             user.status = status
             await self.session.commit()
             await self.session.refresh(user)
         return user
+    
+    async def update_user(self, user_id: int, user_data: dict) -> Optional[User]:
+        """Update user data"""
+        user = await self.get_user_by_id(user_id)
+        if user:
+            for key, value in user_data.items():
+                setattr(user, key, value)
+            await self.session.commit()
+            await self.session.refresh(user)
+        return user
+    
+    async def delete_user(self, user_id: int) -> bool:
+        """Delete a user"""
+        user = await self.get_user_by_id(user_id)
+        if user:
+            await self.session.delete(user)
+            await self.session.commit()
+            return True
+        return False
+    
+    async def get_users_by_role(self, role: str) -> List[User]:
+        """Get users by role"""
+        query = select(User).where(User.role == role)
+        result = await self.session.execute(query)
+        return list(result.scalars().all())

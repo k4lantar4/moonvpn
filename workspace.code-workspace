@@ -82,9 +82,24 @@
 		"terminal.integrated.detectLocale": "auto",
 		"terminal.integrated.showExitAlert": false,
 		"terminal.integrated.tabs.enabled": true,
-		"terminal.integrated.tabs.location": "bottom",
+		"terminal.integrated.tabs.location": "tab",
 		"terminal.integrated.tabs.showActiveTerminal": "always",
 		"terminal.integrated.tabs.hideCondition": "never",
-		"nxConsole.nxWorkspacePath": ""
+		"nxConsole.nxWorkspacePath": "",
+		"cursor.general.globalCursorIgnoreList": [
+			"**/credentials.json",
+			"**/credentials.*.json",
+			"**/secret.json",
+			"**/secrets.json",
+			"**/*.key",
+			"**/*.pem",
+			"**/*.pfx",
+			"**/*.p12",
+			"**/*.crt",
+			"**/*.cer",
+			"**/id_rsa",
+			"**/id_dsa",
+			"**/.ssh/id_*"
+		]
 	}
 }

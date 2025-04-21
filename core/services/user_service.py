@@ -40,10 +40,8 @@ class UserService:
     
     async def update_username(self, telegram_id: int, new_username: str) -> Optional[User]:
         """بروزرسانی نام کاربری"""
-        user = await self.get_user_by_telegram_id(telegram_id)
-        if user:
-            user.username = new_username
-            await self.user_repo.session.commit()
-            await self.user_repo.session.refresh(user)
-            return user
-        return None
+        # Rely on repository to handle commit and refresh
+        return await self.user_repo.update_user(
+            telegram_id=telegram_id,
+            update_data={'username': new_username}
+        )

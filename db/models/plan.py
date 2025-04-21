@@ -4,10 +4,16 @@
 
 from sqlalchemy import Boolean, Column, Integer, String, DECIMAL, JSON, Enum as SQLEnum, BigInteger, ForeignKey, Text
 from sqlalchemy.orm import relationship, Mapped
-from typing import List, Optional
+from typing import List, Optional, TYPE_CHECKING
 from enum import Enum
 
 from db.models import Base
+
+if TYPE_CHECKING:
+    from .user import User
+    from .order import Order
+    from .test_account_log import TestAccountLog
+    from .client_account import ClientAccount
 
 class PlanStatus(str, Enum):
     ACTIVE = "active"
@@ -32,10 +38,10 @@ class Plan(Base):
     # is_active = Column(Boolean, default=True, nullable=False, comment="آیا پلن فعال است؟") # Replaced by status
     
     # تعریف روابط با سایر مدل‌ها
-    created_by: Mapped[Optional["User"]] = relationship()
+    created_by: Mapped[Optional["User"]] = relationship(foreign_keys=[created_by_id], back_populates="created_plans")
     orders: Mapped[List["Order"]] = relationship(back_populates="plan")
-    test_account_logs: Mapped[List["TestAccountLog"]] = relationship(back_populates="plan")
-    client_accounts: Mapped[List["ClientAccount"]] = relationship() # Needs back_populates="plan" in ClientAccount
+    # test_account_logs: Mapped[List["TestAccountLog"]] = relationship(back_populates="plan") # Temporarily commented out if TestAccountLog is not ready
+    client_accounts: Mapped[List["ClientAccount"]] = relationship(back_populates="plan")
     
     def __repr__(self) -> str:
         """نمایش متنی مدل"""

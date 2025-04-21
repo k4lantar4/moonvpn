@@ -32,6 +32,7 @@ class PanelService:
         self.session = session
         self.panel_repo = PanelRepository(session)
         self.notification_service = NotificationService(session)
+        self._xui_clients: Dict[int, XuiClient] = {}  # Cache for XuiClient instances
 
     async def add_panel(self, name: str, location: str, flag_emoji: str,
                      url: str, username: str, password: str) -> Panel:
@@ -48,7 +49,15 @@ class PanelService:
             Panel: پنل ایجاد شده
         """
         # تست اتصال به پنل
-        client = await self._get_xui_client(url, username, password)
+        client = await self._get_xui_client(Panel(
+            name=name,
+            location=location,
+            flag_emoji=flag_emoji,
+            url=url,
+            username=username,
+            password=password,
+            status=PanelStatus.ACTIVE
+        ))
         if not await client.test_connection():
             raise ValueError("خطا در اتصال به پنل")
 
@@ -92,19 +101,26 @@ class PanelService:
         """
         return await self.panel_repo.get_active_panels()
 
-    async def _get_xui_client(self, url: str, username: str, password: str) -> XuiClient:
+    async def _get_xui_client(self, panel: Panel) -> XuiClient:
         """
-        ایجاد و لاگین کلاینت XUI
+        دریافت یا ایجاد یک نمونه XuiClient برای پنل
+        
         Args:
-            url: آدرس پنل
-            username: نام کاربری
-            password: رمز عبور
+            panel: مدل پنل
+            
         Returns:
-            XuiClient: کلاینت لاگین شده
+            نمونه XuiClient
         """
-        client = XuiClient(url)
-        await client.login(username, password)
-        return client
+        if panel.id not in self._xui_clients:
+            client = XuiClient(
+                host=panel.url,
+                username=panel.username,
+                password=panel.password
+            )
+            await client.login()  # Login to the panel
+            self._xui_clients[panel.id] = client
+            
+        return self._xui_clients[panel.id]
 
     async def sync_panel_inbounds(self, panel_id: int) -> None:
         """
@@ -123,7 +139,7 @@ class PanelService:
 
         try:
             # دریافت inbound‌ها از پنل
-            client = await self._get_xui_client(panel.url, panel.username, panel.password)
+            client = await self._get_xui_client(panel)
             panel_inbounds = await client.get_inbounds()
 
             # به‌روزرسانی یا ایجاد inbound‌ها
@@ -200,3 +216,27 @@ class PanelService:
                 results[panel.id] = []
         
         return results
+
+    async def get_panel_by_location(self, location: str) -> Optional[Panel]:
+        """
+        دریافت پنل با لوکیشن مشخص
+        
+        Args:
+            location: نام لوکیشن
+            
+        Returns:
+            پنل یافت شده یا None
+        """
+        return await self.panel_repo.get_by_location(location)
+
+    async def get_panel_by_address(self, address: str) -> Optional[Panel]:
+        """
+        دریافت پنل با آدرس مشخص
+        
+        Args:
+            address: آدرس پنل
+            
+        Returns:
+            پنل یافت شده یا None
+        """
+        return await self.panel_repo.get_by_address(address)

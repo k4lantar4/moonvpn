@@ -5,8 +5,12 @@
 from typing import Optional, List
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from db.models.plan import Plan
-from db.repositories.plan_repository import PlanRepository
+from db.models.plan import Plan, PlanStatus # Removed PlanCategory import
+from db.models.panel import Panel
+from db.models.user import User
+from db.repositories.plan_repo import PlanRepository
+from db.repositories.panel_repo import PanelRepository
+from db.repositories.user_repo import UserRepository
 
 class PlanService:
     """کلاس سرویس برای مدیریت پلن‌ها"""

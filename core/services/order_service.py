@@ -3,17 +3,18 @@
 """
 
 import logging
-from typing import Optional, List, Tuple
+from typing import Optional, List, Tuple, Dict, Any
 from decimal import Decimal
 from datetime import datetime
-
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from db.models.order import Order, OrderStatus
-from db.models.user import User
-from db.models.transaction import Transaction, TransactionType, TransactionStatus
+from db.models.order import Order
+from db.models.enums import OrderStatus
+from db.repositories.order_repo import OrderRepository
+from db.schemas.order import OrderCreate, OrderUpdate
 from core.services.notification_service import NotificationService
+from core.services.payment_service import PaymentService
+from db.repositories.user_repo import UserRepository
 
 logger = logging.getLogger(__name__)
 
@@ -23,136 +24,101 @@ class OrderService:
     def __init__(self, session: AsyncSession):
         """مقداردهی اولیه سرویس"""
         self.session = session
+        self.order_repo = OrderRepository(session)
         self.notification_service = NotificationService(session)
+        self.payment_service = PaymentService(session)
+        self.user_repo = UserRepository(session)
+    
+    async def create_order(
+        self,
+        user_id: int,
+        plan_id: int,
+        amount: Decimal,
+        inbound_id: int,
+        status: OrderStatus = OrderStatus.PENDING
+    ) -> Optional[Order]:
+        """
+        Creates a new order.
+        """
+        order_data = {
+            "user_id": user_id,
+            "plan_id": plan_id,
+            "inbound_id": inbound_id,
+            "amount": float(amount),
+            "status": status,
+            "created_at": datetime.utcnow()
+        }
+        order = await self.order_repo.create(order_data)
+        logger.info(f"Created new order {order.id} for user {user_id}, plan {plan_id}")
+        return order
     
     async def get_order_by_id(self, order_id: int) -> Optional[Order]:
-        """
-        دریافت اطلاعات یک سفارش با شناسه آن
-        
-        Args:
-            order_id: شناسه سفارش
-        
-        Returns:
-            اطلاعات سفارش یا None در صورت عدم وجود
-        """
-        query = select(Order).where(Order.id == order_id)
-        result = await self.session.execute(query)
-        return result.scalar_one_or_none()
+        """Get order details by ID using the repository."""
+        return await self.order_repo.get_by_id(order_id)
     
-    async def get_user_orders(self, user_id: int) -> List[Order]:
-        """
-        دریافت تمام سفارشات یک کاربر
-        
-        Args:
-            user_id: شناسه کاربر
-        
-        Returns:
-            لیست سفارشات کاربر
-        """
-        query = select(Order).where(Order.user_id == user_id).order_by(Order.created_at.desc())
-        result = await self.session.execute(query)
-        return list(result.scalars().all())
+    async def get_user_orders(self, user_id: int, limit: int = 10, offset: int = 0) -> List[Order]:
+        """Get a list of orders for a user using the repository."""
+        return await self.order_repo.get_by_user_id(user_id)
     
     async def update_order_status(self, order_id: int, new_status: OrderStatus) -> Optional[Order]:
         """
-        به‌روزرسانی وضعیت سفارش
-        
-        Args:
-            order_id: شناسه سفارش
-            new_status: وضعیت جدید
-            
-        Returns:
-            سفارش به‌روزرسانی شده یا None در صورت عدم وجود
+        Update the status of an order using the repository.
         """
-        order = await self.get_order_by_id(order_id)
-        if not order:
-            return None
-        
-        order.status = new_status
-        
-        # اگر وضعیت پردازش یا انجام شده باشد، تاریخ پردازش را ثبت کنیم
-        if new_status in [OrderStatus.PROCESSING, OrderStatus.DONE]:
-            order.processed_at = datetime.now()
-        
-        await self.session.commit()
-        await self.session.refresh(order)
-        return order
+        updated_order = await self.order_repo.update_status(order_id, new_status)
+
+        if updated_order and new_status == OrderStatus.PAID:
+             logger.info(f"Order {order_id} status updated to PAID. Further processing might be needed.")
+
+        return updated_order
     
-    async def pay_with_balance(self, order_id: int) -> Tuple[bool, str]:
+    async def attempt_payment_from_wallet(self, order_id: int) -> Tuple[bool, str]:
         """
-        پرداخت سفارش با استفاده از موجودی کیف پول کاربر
-        
-        Args:
-            order_id: شناسه سفارش
-            
-        Returns:
-            tuple[bool, str]: وضعیت موفقیت و پیام متناسب
+        Attempts to pay for an order using the user's wallet balance via PaymentService.
+        Updates order status based on payment result.
         """
         order = await self.get_order_by_id(order_id)
         if not order:
-            logger.error(f"Order with ID {order_id} not found")
-            return False, "سفارش مورد نظر یافت نشد"
-        
+            return False, "سفارش یافت نشد."
+
         if order.status != OrderStatus.PENDING:
-            logger.error(f"Order {order_id} is not in PENDING status")
-            return False, "این سفارش قبلاً پرداخت شده است"
-        
-        # دریافت اطلاعات کاربر
-        user_result = await self.session.execute(select(User).where(User.id == order.user_id))
-        user = user_result.scalar_one_or_none()
-        if not user:
-            logger.error(f"User with ID {order.user_id} for order {order_id} not found")
-            return False, "کاربر مرتبط با سفارش یافت نشد"
-        
-        # بررسی موجودی کافی
-        if user.balance < order.amount:
-            logger.info(f"Insufficient balance for user {user.id} to pay order {order_id}: {user.balance} < {order.amount}")
-            return False, "موجودی کیف پول کافی نیست"
-        
-        try:
-            # ایجاد تراکنش خرید
-            transaction = Transaction(
-                user_id=user.id,
-                order_id=order.id,
-                amount=order.amount,
-                type=TransactionType.PURCHASE,
-                status=TransactionStatus.SUCCESS,
-                created_at=datetime.now()
-            )
-            self.session.add(transaction)
-            
-            # کاهش موجودی کاربر
-            user.balance -= order.amount
-            
-            # تغییر وضعیت سفارش به پرداخت شده
-            order.status = OrderStatus.PAID
-            
-            # ثبت تغییرات در دیتابیس
-            await self.session.commit()
-            
-            # ارسال نوتیفیکیشن به کاربر
-            success_message = (
-                f"✅ پرداخت سفارش با موفقیت انجام شد\n\n"
-                f"🔢 شناسه سفارش: #{order.id}\n"
-                f"💰 مبلغ پرداختی: {order.amount} تومان\n"
-                f"💼 موجودی فعلی: {user.balance} تومان\n\n"
-                f"🕒 اکانت شما در حال آماده‌سازی است و بزودی برای شما ارسال خواهد شد."
-            )
-            await self.notification_service.notify_user(user.telegram_id, success_message)
-            
-            # ارسال نوتیفیکیشن به ادمین
-            admin_message = (
-                f"💲 پرداخت جدید از کیف پول:\n\n"
-                f"👤 کاربر: {user.telegram_id}\n"
-                f"🔢 شناسه سفارش: #{order.id}\n"
-                f"💰 مبلغ: {order.amount} تومان"
-            )
-            await self.notification_service.notify_admin(admin_message)
-            
-            logger.info(f"Order {order_id} paid successfully with user balance")
-            return True, "پرداخت با موفقیت انجام شد"
-            
-        except Exception as e:
-            await self.session.rollback()
-            logger.error(f"Error processing payment for order {order_id}: {str(e)}", exc_info=True)
-            return False, f"خطا در پردازش پرداخت: {str(e)}" 
+            return False, "وضعیت سفارش معتبر نیست (باید در انتظار پرداخت باشد)."
+
+        logger.info(f"Attempting wallet payment for order {order_id}, amount {order.amount}")
+
+        payment_transaction = await self.payment_service.pay_from_wallet(
+            user_id=order.user_id,
+            amount=order.amount,
+            description=f"Payment for Order #{order_id}",
+            order_id=order.id
+        )
+
+        if payment_transaction:
+            logger.info(f"Wallet payment successful for order {order_id}. Transaction ID: {payment_transaction.id}")
+            updated_order = await self.update_order_status(order_id, OrderStatus.PAID)
+
+            if updated_order:
+                user = await self.user_repo.get_by_id(order.user_id)
+                current_balance = await self.payment_service.wallet_service.get_balance(order.user_id)
+                if user and current_balance is not None:
+                    success_message = (
+                        f"✅ پرداخت سفارش با موفقیت انجام شد\n\n"
+                        f"🔢 شناسه سفارش: #{order.id}\n"
+                        f"💰 مبلغ پرداختی: {order.amount} تومان\n"
+                        f"💼 موجودی فعلی: {Decimal(current_balance):.2f} تومان\n\n"
+                        f"🕒 اکانت شما در حال آماده‌سازی است..."
+                    )
+                    await self.notification_service.notify_user(user.telegram_id, success_message)
+                    admin_message = (
+                        f"💲 پرداخت جدید از کیف پول:\n\n"
+                        f"👤 کاربر: {user.telegram_id} (ID: {user.user_id})\n"
+                        f"🔢 شناسه سفارش: #{order.id}\n"
+                        f"💰 مبلغ: {order.amount} تومان"
+                    )
+                    await self.notification_service.notify_admin(admin_message)
+                return True, "پرداخت با موفقیت انجام و سفارش به‌روز شد."
+            else:
+                logger.error(f"Wallet payment successful for order {order_id}, but failed to update order status.")
+                return False, "پرداخت انجام شد اما در به‌روزرسانی وضعیت سفارش خطایی رخ داد."
+        else:
+            logger.warning(f"Wallet payment failed for order {order_id}. Insufficient funds or other error.")
+            return False, "پرداخت با کیف پول ناموفق بود (موجودی کافی نیست یا خطای دیگر)." 

@@ -1,51 +1,43 @@
 """
-فایل اصلی برای راه‌اندازی بات تلگرام MoonVPN
+MoonVPN Telegram Bot - Main Entry Point
 """
 
 import os
 import asyncio
 import logging
-import traceback
-from dotenv import load_dotenv
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
-from aiogram import Bot, Dispatcher, types, Router
-from aiogram.fsm.storage.redis import RedisStorage
-from aiogram.filters.command import Command
-from aiogram.enums import ParseMode
-from aiogram.client.default import DefaultBotProperties
+from typing import Any, Dict
 
-# Import database models and session
-from db.models import Base  # Importing all models
-from bot.commands.start import register_start_command
-from bot.commands.admin import register_admin_commands
-from bot.commands.plans import register_plans_command
-from bot.commands.wallet import register_wallet_command
-from bot.commands.buy import register_buy_command
-from bot.callbacks import setup_callback_handlers
+from aiogram import Bot, Dispatcher, Router
+from aiogram.enums import ParseMode
+from aiogram.fsm.storage.memory import MemoryStorage
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+
+from core.settings import DATABASE_URL, BOT_TOKEN
 from core.services.notification_service import NotificationService
 from core.services.panel_service import PanelService
-from core.settings import DATABASE_URL, BOT_TOKEN as ENV_BOT_TOKEN
+from bot.commands import (
+    start_router,
+    register_buy_command,
+    register_admin_commands,
+    register_wallet_command,
+    register_plans_command,
+    register_profile_command,
+)
+from bot.callbacks import (
+    register_buy_callbacks,
+    register_wallet_callbacks,
+    register_admin_callbacks
+)
+from bot.middlewares import AuthMiddleware, ErrorMiddleware
 
-# تنظیمات لاگینگ
+# Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
 
-# بارگذاری متغیرهای محیطی
-load_dotenv()
-
-# دریافت توکن بات از محیط
-BOT_TOKEN = ENV_BOT_TOKEN or os.getenv("BOT_TOKEN")
-if not BOT_TOKEN:
-    logger.critical("BOT_TOKEN یافت نشد! لطفاً فایل .env را بررسی کنید.")
-    exit(1)
-
-# دریافت آدرس Redis از محیط
-REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379/0")
-
-# ایجاد اتصال به دیتابیس
+# Database setup
 engine = create_async_engine(DATABASE_URL)
 SessionLocal = async_sessionmaker(
     engine,
@@ -55,107 +47,107 @@ SessionLocal = async_sessionmaker(
     autoflush=False
 )
 
-# متغیر سراسری برای نگهداری نمونه notification_service
-notification_service = None
+# Global services
+notification_service: NotificationService | None = None
 
+async def setup_bot() -> Bot:
+    """Initialize and configure the bot"""
+    if not BOT_TOKEN:
+        raise ValueError("BOT_TOKEN not found in environment variables!")
+    
+    return Bot(
+        token=BOT_TOKEN,
+        parse_mode=ParseMode.HTML
+    )
+
+async def setup_dispatcher() -> Dispatcher:
+    """Initialize and configure the dispatcher"""
+    # Initialize storage and dispatcher
+    storage = MemoryStorage()
+    dp = Dispatcher(storage=storage)
+    
+    # Create main router
+    router = Router(name="main_router")
+    
+    # Register middlewares
+    dp.message.middleware(AuthMiddleware(SessionLocal))
+    dp.callback_query.middleware(AuthMiddleware(SessionLocal))
+    dp.message.middleware(ErrorMiddleware())
+    dp.callback_query.middleware(ErrorMiddleware())
+    
+    # Register command handlers
+    register_buy_command(router, SessionLocal)
+    register_admin_commands(router, SessionLocal)
+    register_wallet_command(router, SessionLocal)
+    register_plans_command(router, SessionLocal)
+    register_profile_command(router, SessionLocal)
+    
+    # Register callback handlers
+    register_buy_callbacks(router, SessionLocal)
+    register_wallet_callbacks(router, SessionLocal)
+    register_admin_callbacks(router, SessionLocal)
+    
+    # Include router in dispatcher
+    dp.include_router(start_router)
+    dp.include_router(router)
+    
+    return dp
+
+async def init_services():
+    """Initialize core services"""
+    global notification_service
+    
+    async with SessionLocal() as session:
+        # Initialize notification service
+        notification_service = NotificationService(session)
+        
+        # Sync panel inbounds
+        panel_service = PanelService(session)
+        try:
+            sync_results = await panel_service.sync_all_panels_inbounds()
+            logger.info(f"Successfully synced inbounds for {len(sync_results)} panels")
+            await notification_service.notify_admins(
+                f"🔄 Panel inbounds synced successfully\n"
+                f"Total panels synced: {len(sync_results)}"
+            )
+        except Exception as e:
+            logger.error(f"Error syncing inbounds: {e}", exc_info=True)
+            await notification_service.notify_admins(
+                f"⚠️ Error syncing inbounds:\n{str(e)}"
+            )
 
 async def main():
-    """
-    تابع اصلی راه‌اندازی بات
-    """
-    logger.info("شروع راه‌اندازی بات MoonVPN...")
-
-    # تنظیم ذخیره‌سازی وضعیت با Redis
-    storage = RedisStorage.from_url(REDIS_URL)
-    
-    # ایجاد نمونه‌های Bot و Dispatcher
-    bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
-    dp = Dispatcher(storage=storage)
-    router = Router()
-
+    """Main entry point for the bot"""
     try:
-        # راه‌اندازی سرویس نوتیفیکیشن
-        logger.info("Initializing notification service...")
-        global notification_service
-        async with SessionLocal() as session:
-            notification_service = NotificationService(session)
+        logger.info("Starting MoonVPN bot...")
+        
+        # Initialize services
+        await init_services()
+        
+        # Setup bot and dispatcher
+        bot = await setup_bot()
+        dp = await setup_dispatcher()
+        
+        # Set bot instance for notification service
+        if notification_service:
             notification_service.set_bot(bot)
-            
-            # همگام‌سازی inbound‌های تمام پنل‌ها در شروع بات
-            logger.info("Syncing all panel inbounds...")
-            panel_service = PanelService(session)
-            try:
-                sync_results = await panel_service.sync_all_panels_inbounds()
-                logger.info(f"Successfully synced inbounds for {len(sync_results)} panels")
-                # ارسال نوتیفیکیشن به ادمین‌ها
-                await notification_service.notify_admins(
-                    f"🔄 همگام‌سازی inbound‌ها انجام شد\n"
-                    f"تعداد پنل‌های همگام‌سازی شده: {len(sync_results)}"
-                )
-            except Exception as e:
-                logger.error(f"Error syncing inbounds: {e}", exc_info=True)
-                await notification_service.notify_admins(
-                    f"⚠️ خطا در همگام‌سازی inbound‌ها:\n{str(e)}"
-                )
         
-        # ثبت روترهای بات
-        logger.info("Registering start command...")
-        register_start_command(router, SessionLocal)
+        # Start polling
+        logger.info("MoonVPN bot is ready!")
+        await bot.delete_webhook(drop_pending_updates=True)
+        await dp.start_polling(bot)
         
-        logger.info("Registering admin commands...")
-        register_admin_commands(router, SessionLocal)
-        
-        logger.info("Registering plans command...")
-        register_plans_command(router, SessionLocal)
-        
-        logger.info("Registering wallet command...")
-        register_wallet_command(router, SessionLocal)
-        
-        logger.info("Registering buy command...")
-        register_buy_command(router, SessionLocal)
-        
-        # ثبت callback handlers
-        logger.info("Registering callback handlers...")
-        setup_callback_handlers(router, SessionLocal)
-        
-        # ثبت هندلر مستقیم برای دستور /plans
-        @router.message(Command("plans_debug"))
-        async def cmd_plans_debug(message: types.Message):
-            logger.info(f"Direct plans_debug command received from {message.from_user.id}")
-            await message.answer("دستور plans_debug دریافت شد!")
-            
-        # تست ارسال نوتیفیکیشن
-        @router.message(Command("test_notify"))
-        async def cmd_test_notify(message: types.Message):
-            logger.info(f"Testing notification system for user {message.from_user.id}")
-            notification_service.notify_user(
-                message.from_user.id, 
-                "🔔 سیستم نوتیفیکیشن با موفقیت تست شد!\n\nاین پیام برای آزمایش عملکرد سیستم نوتیفیکیشن است."
-            )
-            await message.answer("تست نوتیفیکیشن ارسال شد. لطفاً پیام دریافتی را بررسی کنید.")
-            
-        # افزودن روتر به دیسپچر
-        dp.include_router(router)
-        
-        logger.info("All handlers registered successfully!")
     except Exception as e:
-        logger.error(f"Error registering handlers: {str(e)}")
-        logger.error(traceback.format_exc())
-    
-    # پاکسازی وب‌هوک‌های قبلی
-    await bot.delete_webhook(drop_pending_updates=True)
-    
-    # شروع پردازش پیام‌ها با long polling
-    logger.info("بات MoonVPN با موفقیت راه‌اندازی شد!")
-    await dp.start_polling(bot)
-
+        logger.critical(f"Failed to start bot: {e}", exc_info=True)
+        raise
+    finally:
+        if notification_service:
+            await notification_service.cleanup()
 
 if __name__ == "__main__":
     try:
         asyncio.run(main())
     except (KeyboardInterrupt, SystemExit):
-        logger.info("بات متوقف شد!")
-    finally:
-        # بستن session در هنگام خروج
-        if notification_service and hasattr(notification_service, 'db_session'):
-            notification_service.db_session.close()
+        logger.info("Bot stopped!")
+    except Exception as e:
+        logger.critical(f"Fatal error: {e}", exc_info=True)

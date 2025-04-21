@@ -4,12 +4,22 @@
 
 from datetime import datetime
 from enum import Enum
-from typing import List, Optional
+from typing import List, Optional, TYPE_CHECKING
 
 from sqlalchemy import BigInteger, DateTime, Integer, String, Column, ForeignKey, DECIMAL, Enum as SQLEnum, Boolean
 from sqlalchemy.orm import relationship, Mapped
 
 from . import Base
+from .receipt_log import ReceiptLog
+from .transaction import Transaction
+
+if TYPE_CHECKING:
+    from .user import User
+    from .plan import Plan
+    from .discount_code import DiscountCode
+    from .receipt_log import ReceiptLog
+    from .transaction import Transaction
+    from .client_account import ClientAccount
 
 
 class OrderStatus(str, Enum):
@@ -37,7 +47,6 @@ class Order(Base):
     discount_code_id = Column(Integer, ForeignKey("discount_codes.id"), nullable=True)
     status = Column(SQLEnum(OrderStatus), default=OrderStatus.PENDING, nullable=False)
     receipt_required = Column(Boolean, default=True, nullable=False)
-    receipt_id = Column(BigInteger, ForeignKey("receipt_logs.id"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
     fulfilled_at = Column(DateTime, nullable=True)
@@ -46,9 +55,14 @@ class Order(Base):
     user: Mapped["User"] = relationship(back_populates="orders")
     plan: Mapped["Plan"] = relationship(back_populates="orders")
     discount_code: Mapped[Optional["DiscountCode"]] = relationship(back_populates="orders")
-    receipt: Mapped[Optional["ReceiptLog"]] = relationship(back_populates="order", foreign_keys=[receipt_id])
+    receipt: Mapped[Optional["ReceiptLog"]] = relationship(back_populates="order")
     transactions: Mapped[List["Transaction"]] = relationship(back_populates="order")
-    client_account: Mapped[Optional["ClientAccount"]] = relationship()
+    client_account: Mapped[Optional["ClientAccount"]] = relationship(
+        "ClientAccount",
+        back_populates="orders",
+        foreign_keys=[client_account_id],
+        remote_side="ClientAccount.id"
+    )
     
     def __repr__(self) -> str:
         return f"<Order(id={self.id}, user_id={self.user_id}, amount={self.amount}, status={self.status})>"

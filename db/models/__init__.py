@@ -35,34 +35,52 @@ Base = declarative_base(metadata=metadata, cls=CustomBase)
 
 
 # ایمپورت مدل‌های مورد نیاز
-from .user import User, UserRole
+from .user import User
 from .panel import Panel
 from .inbound import Inbound
-from .client_account import ClientAccount, AccountStatus
 from .account_transfer import AccountTransfer
+from .bank_card import BankCard
+from .client_account import ClientAccount
+from .discount_code import DiscountCode
+# from .account import Account  # Temporarily commented out
 from .plan import Plan
-from .order import Order, OrderStatus
-from .transaction import Transaction, TransactionType, TransactionStatus
-from .discount_code import DiscountCode, DiscountType
+from .setting import Setting
+from .transaction import Transaction
+from .order import Order
 from .test_account_log import TestAccountLog
+from .receipt_log import ReceiptLog
+from .enums import (
+    UserRole,
+    PanelStatus,
+    InboundStatus,
+    OrderStatus,
+    TransactionStatus,
+    PaymentMethod,
+    AccountStatus
+)
 
 # لیست مدل‌ها برای استفاده توسط Alembic
 __all__ = [
     "Base",
     "User",
-    "UserRole",
     "Panel",
     "Inbound",
-    "ClientAccount",
-    "AccountStatus",
     "AccountTransfer",
-    "Plan",
-    "Order",
-    "OrderStatus",
-    "Transaction",
-    "TransactionType",
-    "TransactionStatus",
+    "BankCard",
+    "ClientAccount",
     "DiscountCode",
-    "DiscountType",
+    # "Account",  # Temporarily commented out
+    "Plan",
+    "Setting",
+    "Transaction",
+    "Order",
     "TestAccountLog",
+    "ReceiptLog",
+    "UserRole",
+    "PanelStatus",
+    "InboundStatus",
+    "OrderStatus",
+    "TransactionStatus",
+    "PaymentMethod",
+    "AccountStatus",
 ] 

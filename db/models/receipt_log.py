@@ -4,12 +4,18 @@
 
 from datetime import datetime
 from enum import Enum
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
 from sqlalchemy import BigInteger, Boolean, DateTime, String, Column, Enum as SQLEnum, ForeignKey, Text, DECIMAL
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, Mapped
 
 from . import Base
+
+if TYPE_CHECKING:
+    from .user import User
+    from .order import Order
+    from .transaction import Transaction
+    from .bank_card import BankCard
 
 
 class ReceiptStatus(str, Enum):
@@ -42,19 +48,19 @@ class ReceiptLog(Base):
     
     # ارتباط با سایر مدل‌ها
     user_id = Column(BigInteger, ForeignKey("users.id"), nullable=False)
-    user = relationship("User", backref="receipt_logs")
+    user = relationship("User", back_populates="receipt_logs", foreign_keys=[user_id])
     
     order_id = Column(BigInteger, ForeignKey("orders.id"), nullable=True)
-    order = relationship("Order", back_populates="receipt")
+    order: Mapped[Optional["Order"]] = relationship("Order", back_populates="receipt", foreign_keys=[order_id])
     
     transaction_id = Column(BigInteger, ForeignKey("transactions.id"), nullable=True)
-    transaction = relationship("Transaction", back_populates="receipt_logs")
+    transaction: Mapped[Optional["Transaction"]] = relationship("Transaction", back_populates="receipt_logs")
     
     card_id = Column(BigInteger, ForeignKey("bank_cards.id"), nullable=False)
-    bank_card = relationship("BankCard", back_populates="receipt_logs")
+    bank_card: Mapped["BankCard"] = relationship("BankCard", back_populates="receipt_logs")
     
     admin_id = Column(BigInteger, ForeignKey("users.id"), nullable=True)
-    admin = relationship("User", foreign_keys=[admin_id], backref="reviewed_receipts")
+    admin: Mapped[Optional["User"]] = relationship("User", foreign_keys=[admin_id], back_populates="reviewed_receipts")
     
     def __repr__(self) -> str:
         return f"<ReceiptLog(id={self.id}, amount={self.amount}, status={self.status})>" 

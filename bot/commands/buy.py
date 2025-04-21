@@ -3,24 +3,27 @@
 """
 
 import logging
-from aiogram import Router
+from aiogram import Router, F
 from aiogram.types import Message
 from aiogram.filters.command import Command
+from aiogram.fsm.context import FSMContext
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from core.services.plan_service import PlanService
 from core.services.panel_service import PanelService
 from core.services.user_service import UserService
 from bot.buttons.plan_buttons import get_plans_keyboard
+from bot.states.buy_states import BuyState
 
 # تنظیم لاگر
 logger = logging.getLogger(__name__)
 
-def register_buy_command(router: Router, session_pool):
+def register_buy_command(router: Router, session_pool: async_sessionmaker):
     """ثبت فرمان /buy برای شروع فرایند خرید"""
     
     @router.message(Command("buy"))
-    async def cmd_buy(message: Message):
+    @router.message(F.text == "🛒 خرید اشتراک")
+    async def cmd_buy(message: Message, state: FSMContext):
         """شروع فرایند خرید پلن و دریافت کانفیگ"""
         user_id = message.from_user.id
         logger.info(f"Buy command received from user {user_id}")
@@ -55,6 +58,9 @@ def register_buy_command(router: Router, session_pool):
                     text=balance_message + "🔍 لطفاً پلن مورد نظر خود را انتخاب کنید:",
                     reply_markup=get_plans_keyboard(plans)
                 )
+                
+                # تنظیم وضعیت به انتخاب پلن
+                await state.set_state(BuyState.select_plan)
                 
                 logger.info(f"Sent plans list to user {user_id} for purchasing")
                 

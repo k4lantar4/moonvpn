@@ -1,93 +1,83 @@
-from typing import Optional, List
+"""
+Transaction Service for logging all financial operations.
+"""
+
+from typing import List, Optional, Dict, Any
+from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from db.models.transaction import Transaction, TransactionStatus, TransactionType
-from db.repositories.transaction_repository import TransactionRepository
-from core.services.user_service import UserService
-
+from db.repositories.transaction_repo import TransactionRepository
+from db.models.transaction import Transaction  # Keep for type hinting if needed
+from db.models.enums import TransactionStatus, PaymentMethod # Import enums
+from db.schemas.transaction import TransactionCreate, TransactionUpdate, TransactionSchema
 
 class TransactionService:
-    """Service for handling transaction-related business logic."""
-    
+    """Service for creating and managing financial transactions."""
+
     def __init__(self, session: AsyncSession):
         self.session = session
-        self.transaction_repository = TransactionRepository(session)
-        self.user_service = UserService(session)
-    
+        self.transaction_repo = TransactionRepository(session)
+
     async def create_transaction(
         self,
         user_id: int,
         amount: float,
-        type: TransactionType,
-        order_id: Optional[int] = None
-    ) -> Transaction:
-        """Create a new transaction and handle related business logic."""
-        transaction = await self.transaction_repository.create_transaction(
+        type: str, # e.g., 'deposit', 'withdrawal', 'purchase', 'refund'
+        status: str, # e.g., 'pending', 'completed', 'failed'
+        description: Optional[str] = None,
+        related_entity_id: Optional[int] = None, # e.g., order_id
+        related_entity_type: Optional[str] = None # e.g., 'order'
+    ) -> Optional[TransactionSchema]:
+        """
+        Creates a new transaction record.
+        Does not modify user balance - that's WalletService's job.
+        """
+        transaction_data = TransactionCreate(
             user_id=user_id,
             amount=amount,
             type=type,
-            order_id=order_id
-        )
-        
-        # If it's a deposit, we'll update the user's balance immediately
-        if type == TransactionType.DEPOSIT and transaction.status == TransactionStatus.SUCCESS:
-            await self.user_service.update_balance(user_id, amount)
-            
-        return transaction
-    
-    async def get_user_transactions(
-        self,
-        user_id: int,
-        status: Optional[TransactionStatus] = None,
-        type: Optional[TransactionType] = None
-    ) -> List[Transaction]:
-        """Get all transactions for a user with optional filters."""
-        return await self.transaction_repository.get_user_transactions(
-            user_id=user_id,
             status=status,
-            type=type
+            description=description or f"{type.capitalize()} transaction",
+            created_at=datetime.utcnow(),
+            related_entity_id=related_entity_id,
+            related_entity_type=related_entity_type
         )
-    
-    async def process_transaction(
-        self,
-        transaction_id: int,
-        new_status: TransactionStatus
-    ) -> Optional[Transaction]:
-        """Process a transaction by updating its status and handling related logic."""
-        transaction = await self.transaction_repository.get_by_id(transaction_id)
-        if not transaction:
-            return None
-            
-        # Update transaction status
-        updated_transaction = await self.transaction_repository.update_transaction_status(
-            transaction_id=transaction_id,
-            status=new_status
-        )
-        
-        if new_status == TransactionStatus.SUCCESS:
-            # Handle successful transaction
-            if transaction.type == TransactionType.DEPOSIT:
-                await self.user_service.update_balance(
-                    transaction.user_id,
-                    transaction.amount
-                )
-            elif transaction.type == TransactionType.WITHDRAWAL:
-                await self.user_service.update_balance(
-                    transaction.user_id,
-                    -transaction.amount
-                )
-                
-        return updated_transaction
-    
-    async def get_pending_transactions(self) -> List[Transaction]:
-        """Get all pending transactions."""
-        return await self.transaction_repository.get_pending_transactions()
-    
-    async def get_order_transactions(self, order_id: int) -> List[Transaction]:
-        """Get all successful transactions for a specific order."""
-        return await self.transaction_repository.get_successful_transactions_by_order(order_id)
-    
-    async def calculate_total_paid_for_order(self, order_id: int) -> float:
-        """Calculate total amount paid for an order through successful transactions."""
-        transactions = await self.get_order_transactions(order_id)
-        return sum(t.amount for t in transactions) 
+        # The repository handles the creation and session.add()
+        transaction = await self.transaction_repo.create(transaction_data)
+        if transaction:
+            return TransactionSchema.from_orm(transaction)
+        return None
+        # No commit here
+
+    async def get_transaction_by_id(self, transaction_id: int) -> Optional[TransactionSchema]:
+        """Get transaction by ID."""
+        transaction = await self.transaction_repo.get_by_id(transaction_id)
+        if transaction:
+            return TransactionSchema.from_orm(transaction)
+        return None
+
+    async def get_user_transactions(self, user_id: int, limit: int = 10, offset: int = 0) -> List[TransactionSchema]:
+        """Get transactions for a specific user."""
+        transactions = await self.transaction_repo.get_by_user_id(user_id, limit=limit, offset=offset)
+        return [TransactionSchema.from_orm(t) for t in transactions]
+
+    async def update_transaction_status(
+        self, 
+        transaction_id: int, 
+        status: TransactionStatus, 
+        description: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> Optional[TransactionSchema]:
+        """Update the status of a transaction."""
+        update_data = TransactionUpdate(status=status, description=description, metadata=metadata)
+        # The repository handles the update logic
+        updated_transaction = await self.transaction_repo.update(transaction_id, update_data)
+        if updated_transaction:
+             return TransactionSchema.from_orm(updated_transaction)
+        return None
+        # No commit here
+
+    async def find_by_related_entity(self, entity_id: int, entity_type: str) -> List[TransactionSchema]:
+        """Find transactions related to a specific entity (e.g., an order)."""
+        transactions = await self.transaction_repo.find_by_related_entity(entity_id, entity_type)
+        return [TransactionSchema.from_orm(t) for t in transactions] 
