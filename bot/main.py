@@ -6,11 +6,11 @@ import os
 import asyncio
 import logging
 import traceback
+from dotenv import load_dotenv
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from aiogram import Bot, Dispatcher, types, Router
 from aiogram.fsm.storage.redis import RedisStorage
-from aiogram.filters import Command
-from dotenv import load_dotenv
+from aiogram.filters.command import Command
 from aiogram.enums import ParseMode
 from aiogram.client.default import DefaultBotProperties
 
@@ -23,6 +23,7 @@ from bot.commands.wallet import register_wallet_command
 from bot.commands.buy import register_buy_command
 from bot.callbacks import setup_callback_handlers
 from core.services.notification_service import NotificationService
+from core.services.panel_service import PanelService
 
 # تنظیمات لاگینگ
 logging.basicConfig(
@@ -81,6 +82,23 @@ async def main():
         async with SessionLocal() as session:
             notification_service = NotificationService(session)
             notification_service.set_bot(bot)
+            
+            # همگام‌سازی inbound‌های تمام پنل‌ها در شروع بات
+            logger.info("Syncing all panel inbounds...")
+            panel_service = PanelService(session)
+            try:
+                sync_results = await panel_service.sync_all_panels_inbounds()
+                logger.info(f"Successfully synced inbounds for {len(sync_results)} panels")
+                # ارسال نوتیفیکیشن به ادمین‌ها
+                await notification_service.notify_admins(
+                    f"🔄 همگام‌سازی inbound‌ها انجام شد\n"
+                    f"تعداد پنل‌های همگام‌سازی شده: {len(sync_results)}"
+                )
+            except Exception as e:
+                logger.error(f"Error syncing inbounds: {e}", exc_info=True)
+                await notification_service.notify_admins(
+                    f"⚠️ خطا در همگام‌سازی inbound‌ها:\n{str(e)}"
+                )
         
         # ثبت روترهای بات
         logger.info("Registering start command...")

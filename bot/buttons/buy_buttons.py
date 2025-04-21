@@ -1,55 +1,113 @@
 """
-دکمه‌های inline مربوط به خرید و انتخاب سرویس‌ها
+دکمه‌های مربوط به فرآیند خرید اشتراک
 """
 
-from typing import List
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.utils.keyboard import InlineKeyboardBuilder
+from db.models import Plan, Panel, Inbound
 
-from db.models.panel import Panel
-from db.models.inbound import Inbound
+
+def get_plans_keyboard() -> InlineKeyboardMarkup:
+    """ساخت کیبورد انتخاب پلن"""
+    builder = InlineKeyboardBuilder()
+    builder.button(text="🔄 بروزرسانی لیست", callback_data="refresh_plans")
+    return builder.as_markup()
 
 
-def get_locations_keyboard(panels: List[Panel]) -> InlineKeyboardMarkup:
-    """
-    ایجاد دکمه‌های انتخاب لوکیشن سرور به صورت InlineKeyboardMarkup
-    """
-    keyboard = []
+def get_locations_keyboard(panels: list[Panel]) -> InlineKeyboardMarkup:
+    """ساخت کیبورد انتخاب لوکیشن"""
+    builder = InlineKeyboardBuilder()
     
+    # گروه‌بندی پنل‌ها بر اساس لوکیشن
+    locations = {}
     for panel in panels:
-        text = f"{panel.flag_emoji} {panel.location}"
-        callback_data = f"select_location:{panel.id}"
-        keyboard.append([InlineKeyboardButton(text=text, callback_data=callback_data)])
+        if panel.location not in locations:
+            locations[panel.location] = panel.flag_emoji
+            
+    # اضافه کردن دکمه برای هر لوکیشن
+    for location, emoji in locations.items():
+        builder.button(
+            text=f"{emoji} {location}",
+            callback_data=f"select_location:{location}"
+        )
     
-    # دکمه بازگشت در پایین
-    keyboard.append([InlineKeyboardButton(text="🔙 بازگشت به منو قبلی", callback_data="back_to_plans")])
+    # چینش دکمه‌ها در دو ستون
+    builder.adjust(2)
     
-    return InlineKeyboardMarkup(inline_keyboard=keyboard)
+    # دکمه بازگشت
+    builder.row(InlineKeyboardButton(
+        text="🔙 بازگشت به لیست پلن‌ها",
+        callback_data="back_to_plans"
+    ))
+    
+    return builder.as_markup()
 
 
-def get_inbounds_keyboard(inbounds: List[Inbound], plan_id: int) -> InlineKeyboardMarkup:
-    """
-    ایجاد دکمه‌های انتخاب inbound به صورت InlineKeyboardMarkup
-    """
-    keyboard = []
+def get_inbounds_keyboard(inbounds: list[Inbound], panel_id: int) -> InlineKeyboardMarkup:
+    """ساخت کیبورد انتخاب اینباند"""
+    builder = InlineKeyboardBuilder()
     
+    # اضافه کردن دکمه برای هر اینباند
     for inbound in inbounds:
-        text = f"{inbound.protocol.upper()} - {inbound.tag}"
-        callback_data = f"select_inbound:{plan_id}:{inbound.id}"
-        keyboard.append([InlineKeyboardButton(text=text, callback_data=callback_data)])
+        builder.button(
+            text=f"📡 {inbound.remark}",
+            callback_data=f"select_inbound:{panel_id}:{inbound.id}"
+        )
     
-    # دکمه بازگشت در پایین
-    keyboard.append([InlineKeyboardButton(text="🔙 بازگشت به لوکیشن‌ها", callback_data="back_to_locations")])
+    # چینش دکمه‌ها در یک ستون
+    builder.adjust(1)
     
-    return InlineKeyboardMarkup(inline_keyboard=keyboard)
+    # دکمه بازگشت
+    builder.row(InlineKeyboardButton(
+        text="🔙 بازگشت به انتخاب لوکیشن",
+        callback_data="back_to_locations"
+    ))
+    
+    return builder.as_markup()
 
 
-def get_confirm_purchase_keyboard(plan_id: int, inbound_id: int) -> InlineKeyboardMarkup:
-    """
-    دکمه‌های تأیید نهایی خرید
-    """
-    keyboard = [
-        [InlineKeyboardButton(text="✅ تأیید و دریافت کانفیگ", callback_data=f"confirm_purchase:{plan_id}:{inbound_id}")],
-        [InlineKeyboardButton(text="🔙 بازگشت به انتخاب پروتکل", callback_data=f"back_to_inbounds:{plan_id}")]
-    ]
+def get_confirm_purchase_keyboard(plan_id: int, panel_id: int, inbound_id: int) -> InlineKeyboardMarkup:
+    """ساخت کیبورد تایید نهایی خرید"""
+    builder = InlineKeyboardBuilder()
     
-    return InlineKeyboardMarkup(inline_keyboard=keyboard) 
+    # دکمه تایید
+    builder.button(
+        text="✅ تایید و پرداخت",
+        callback_data=f"confirm_purchase:{plan_id}:{panel_id}:{inbound_id}"
+    )
+    
+    # دکمه بازگشت
+    builder.row(InlineKeyboardButton(
+        text="🔙 بازگشت به انتخاب پروتکل",
+        callback_data="back_to_inbounds"
+    ))
+    
+    return builder.as_markup()
+
+
+def get_payment_keyboard(payment_id: str) -> InlineKeyboardMarkup:
+    """ساخت کیبورد پرداخت"""
+    builder = InlineKeyboardBuilder()
+    
+    # دکمه پرداخت
+    builder.button(
+        text="💳 پرداخت آنلاین",
+        callback_data=f"pay:{payment_id}"
+    )
+    
+    # دکمه کارت به کارت
+    builder.button(
+        text="💸 کارت به کارت",
+        callback_data=f"card_payment:{payment_id}"
+    )
+    
+    # چینش دکمه‌ها در یک ستون
+    builder.adjust(1)
+    
+    # دکمه بازگشت
+    builder.row(InlineKeyboardButton(
+        text="🔙 انصراف",
+        callback_data="cancel_payment"
+    ))
+    
+    return builder.as_markup() 

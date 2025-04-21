@@ -4,7 +4,8 @@
 
 from decimal import Decimal
 from aiogram import types, Router, F
-from aiogram.filters import Command
+from aiogram.types import Message
+from aiogram.filters.command import Command
 from aiogram.fsm.context import FSMContext
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 

@@ -5,7 +5,7 @@
 import logging
 from aiogram import Router
 from aiogram.types import Message
-from aiogram.filters import Command
+from aiogram.filters.command import Command
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from core.services.user_service import UserService

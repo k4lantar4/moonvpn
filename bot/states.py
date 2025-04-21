@@ -13,5 +13,14 @@ class AddPanel(StatesGroup):
     url = State()               # آدرس پنل
     username = State()          # نام کاربری پنل
     password = State()          # رمز عبور پنل
-    default_label = State()     # پیشوند نام اکانت پیش‌فرض
-    confirmation = State()      # تایید نهایی 
+    default_label = State()     # پیشوند برچسب پیش‌فرض
+
+
+class BuyState(StatesGroup):
+    """مراحل خرید اشتراک"""
+    select_plan = State()       # انتخاب پلن
+    select_location = State()   # انتخاب لوکیشن
+    select_inbound = State()    # انتخاب اینباند
+    confirm_purchase = State()  # تایید نهایی خرید
+    payment = State()           # پرداخت (در صورت کمبود موجودی)
+    receipt = State()           # رسید پرداخت 
