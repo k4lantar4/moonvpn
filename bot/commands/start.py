@@ -1,77 +1,55 @@
 """
-خوشامدگویی و ثبت‌نام اولیه کاربران
+فرمان /start - شروع کار با ربات و ثبت‌نام کاربر
 """
 
-from aiogram import types, Dispatcher, F
+import logging
+from aiogram import Router
+from aiogram.types import Message
 from aiogram.filters import Command
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from bot.keyboards import get_main_keyboard
 from core.services.user_service import UserService
+from bot.buttons.start_buttons import get_start_keyboard
 
-# متغیر سراسری برای دسترسی به session_maker
-_session_maker = None
+# تنظیم لاگر
+logger = logging.getLogger(__name__)
 
-async def start_handler(message: types.Message):
-    """
-    هندلر دستور /start
-    ثبت کاربر در دیتابیس و نمایش کیبورد اصلی
-    """
-    print(f"start_handler called with message from user {message.from_user.id}")
-    user_id = message.from_user.id
-    username = message.from_user.username
-    first_name = message.from_user.first_name
+def register_start_command(router: Router, session_pool: async_sessionmaker[AsyncSession]):
+    """ثبت فرمان /start برای شروع کار با ربات"""
     
-    # ایجاد سشن دیتابیس
-    print("Creating database session")
-    session = _session_maker()
-    
-    try:
-        # ثبت کاربر در دیتابیس (یا بازیابی اطلاعات اگر از قبل ثبت شده)
-        print("Initializing UserService")
-        user_service = UserService(session)
-        print(f"Registering user with ID: {user_id}, username: {username}")
-        user = user_service.register_user(user_id, username)
-        print(f"User registered: {user}")
+    @router.message(Command("start"))
+    async def cmd_start(message: Message):
+        """پردازش فرمان /start و ثبت‌نام کاربر"""
+        user_id = message.from_user.id
+        username = message.from_user.username
+        logger.info(f"Start command received from user {user_id}")
         
-        # پیام خوشامدگویی
-        welcome_message = (
-            f"سلام {first_name} عزیز! 👋\n\n"
-            f"به بات MoonVPN خوش آمدید! 🌙✨\n\n"
-            f"این بات به شما کمک می‌کند تا:\n"
-            f"- سرویس VPN با کیفیت خریداری کنید 🚀\n"
-            f"- سرویس‌های خود را به راحتی مدیریت کنید 🔑\n"
-            f"- شارژ حساب و پرداخت امن انجام دهید 💰\n\n"
-            f"لطفاً از منوی زیر یک گزینه را انتخاب کنید:"
-        )
-        
-        # ارسال پیام با کیبورد اصلی
-        print("Sending welcome message with keyboard")
-        await message.answer(welcome_message, reply_markup=get_main_keyboard())
-        print("Message sent successfully")
-        
-    except Exception as e:
-        # لاگ خطا و ارسال پیام خطا
-        print(f"Error in start command: {e}")
-        print(f"Error type: {type(e)}")
-        import traceback
-        print(f"Traceback: {traceback.format_exc()}")
-        await message.answer("متأسفانه خطایی در سیستم رخ داده است. لطفاً بعداً تلاش کنید یا با پشتیبانی تماس بگیرید.")
-    
-    finally:
-        # بستن سشن دیتابیس در نهایت
-        print("Closing database session")
-        session.close()
-
-
-def register_start_command(dp: Dispatcher, session_maker: sessionmaker):
-    """
-    ثبت هندلر دستور /start در دیسپچر ربات
-    """
-    global _session_maker
-    _session_maker = session_maker
-    
-    dp.message.register(
-        start_handler,
-        Command("start")
-    )
+        try:
+            # ایجاد جلسه دیتابیس
+            async with session_pool() as session:
+                # ثبت یا به‌روزرسانی اطلاعات کاربر
+                user_service = UserService(session)
+                user = await user_service.register_user(
+                    telegram_id=user_id,
+                    username=username
+                )
+                
+                # ارسال پیام خوش‌آمدگویی
+                welcome_text = (
+                    f"👋 سلام {message.from_user.first_name} عزیز!\n\n"
+                    "به ربات MoonVPN خوش آمدید. من اینجا هستم تا به شما در خرید و مدیریت "
+                    "اکانت VPN کمک کنم.\n\n"
+                    "چه کاری می‌توانم برای شما انجام دهم؟"
+                )
+                
+                await message.answer(
+                    text=welcome_text,
+                    reply_markup=get_start_keyboard(user.role)
+                )
+                logger.info(f"Sent welcome message to user {user_id}")
+                
+        except Exception as e:
+            logger.error(f"Error in start command: {e}", exc_info=True)
+            await message.answer(
+                "متأسفانه در حال حاضر امکان ثبت‌نام وجود ندارد. لطفاً کمی بعد دوباره تلاش کنید."
+            )

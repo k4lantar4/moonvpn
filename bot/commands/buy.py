@@ -26,12 +26,10 @@ def register_buy_command(router: Router, session_pool):
         
         try:
             # ایجاد جلسه دیتابیس
-            session = session_pool()
-            
-            try:
+            async with session_pool() as session:
                 # بررسی وجود کاربر در سیستم
                 user_service = UserService(session)
-                user = user_service.get_user_by_telegram_id(user_id)
+                user = await user_service.get_user_by_telegram_id(user_id)
                 
                 if not user:
                     await message.answer(
@@ -42,7 +40,7 @@ def register_buy_command(router: Router, session_pool):
                 
                 # دریافت پلن‌های فعال
                 plan_service = PlanService(session)
-                plans = plan_service.get_all_active_plans()
+                plans = await plan_service.get_all_active_plans()
                 
                 if not plans:
                     await message.answer("در حال حاضر هیچ پلنی برای خرید موجود نیست.")
@@ -58,10 +56,6 @@ def register_buy_command(router: Router, session_pool):
                 )
                 
                 logger.info(f"Sent plans list to user {user_id} for purchasing")
-                
-            finally:
-                # اطمینان از بسته شدن جلسه دیتابیس
-                session.close()
                 
         except Exception as e:
             logger.error(f"Error in buy command: {e}", exc_info=True)

@@ -3,18 +3,17 @@
 """
 
 import os
-from typing import Generator
-from sqlalchemy.orm import Session, sessionmaker
-from sqlalchemy import create_engine
+from typing import AsyncGenerator
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.pool import NullPool
 
 from db.models import Base
 
 # خواندن رشته اتصال از متغیرهای محیطی
-DATABASE_URL = os.getenv("DATABASE_URL", "mysql+pymysql://user:password@db:3306/moonvpn")
+DATABASE_URL = os.getenv("DATABASE_URL", "mysql+aiomysql://user:password@db:3306/moonvpn")
 
-# ایجاد موتور SQL سنکرون برای اسکریپت‌ها
-engine = create_engine(
+# ایجاد موتور SQL آسنکرون
+engine = create_async_engine(
     DATABASE_URL,
     echo=False,  # در محیط توسعه True باشد
     future=True,
@@ -22,18 +21,21 @@ engine = create_engine(
 )
 
 # ایجاد کننده جلسه برای دسترسی به دیتابیس
-session_maker = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+async_session_maker = async_sessionmaker(
+    engine,
+    class_=AsyncSession,
+    expire_on_commit=False,
+    autocommit=False,
+    autoflush=False
+)
 
 
-def get_db() -> Generator[Session, None, None]:
+async def get_async_db() -> AsyncGenerator[AsyncSession, None]:
     """
-    ایجاد یک جلسه دیتابیس سنکرون و مدیریت آن در یک context manager
-    این برای استفاده در اسکریپت‌های CLI است.
-    
-    برای استفاده در ربات، از async_db استفاده کنید.
+    ایجاد یک جلسه دیتابیس آسنکرون و مدیریت آن در یک context manager
     """
-    session = session_maker()
-    try:
-        yield session
-    finally:
-        session.close() 
+    async with async_session_maker() as session:
+        try:
+            yield session
+        finally:
+            await session.close() 

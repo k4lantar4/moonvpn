@@ -1,32 +1,48 @@
 """
-مدل Inbound برای مدیریت inbound‌های پنل‌های VPN
+مدل Inbound برای ذخیره اطلاعات inbound‌های پنل‌ها
 """
 
-from typing import List, Optional
+from datetime import datetime
+from enum import Enum
+from typing import List
+from sqlalchemy import Column, Integer, String, ForeignKey, JSON, DateTime, Boolean, Enum as SQLEnum
+from sqlalchemy.orm import relationship, backref, Mapped
 
-from sqlalchemy import Boolean, Integer, String, Text, Column, ForeignKey
-from sqlalchemy.orm import relationship, Mapped
+from db.models import Base
 
-from . import Base
+
+class InboundStatus(str, Enum):
+    """وضعیت‌های ممکن برای inbound"""
+    ACTIVE = "active"
+    DISABLED = "disabled"
+    DELETED = "deleted"
 
 
 class Inbound(Base):
-    """مدل inbound‌های پنل‌های VPN در سیستم MoonVPN"""
+    """مدل Inbound برای ذخیره اطلاعات inbound‌های پنل‌ها"""
     
-    __tablename__ = "inbounds"
+    __tablename__ = "inbound"
     
-    # فیلدهای اصلی
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    panel_id = Column(Integer, ForeignKey("panels.id"), nullable=False)
-    inbound_id = Column(Integer, nullable=False)
-    protocol = Column(String(50), nullable=False)
-    tag = Column(String(100), nullable=False)
-    client_limit = Column(Integer, nullable=False)
-    traffic_limit = Column(Integer, nullable=True)  # حجم به GB
+    id = Column(Integer, primary_key=True)
+    panel_id = Column(Integer, ForeignKey("panels.id", ondelete="CASCADE"), nullable=False, index=True)
+    remote_id = Column(Integer, nullable=False)  # شناسه inbound در پنل
+    protocol = Column(String(50), nullable=False)  # نوع پروتکل
+    tag = Column(String(100), nullable=False)  # برچسب inbound
+    port = Column(Integer, nullable=False)  # پورت
+    settings_json = Column(JSON, nullable=True)  # تنظیمات به صورت JSON
+    sniffing = Column(JSON, nullable=True)  # تنظیمات sniffing
+    status = Column(SQLEnum(InboundStatus), default=InboundStatus.ACTIVE, nullable=False)  # وضعیت
+    max_clients = Column(Integer, default=0)  # حداکثر تعداد کلاینت‌ها
+    last_synced = Column(DateTime, default=datetime.utcnow)  # آخرین همگام‌سازی
     
-    # ارتباط با سایر مدل‌ها
-    panel: Mapped["Panel"] = relationship(back_populates="inbounds")
-    client_accounts: Mapped[List["ClientAccount"]] = relationship(back_populates="inbound")
+    # روابط
+    panel = relationship("Panel", back_populates="inbounds")
+    client_accounts: Mapped[List["ClientAccount"]] = relationship(
+        "ClientAccount",
+        back_populates="inbound",
+        cascade="all, delete-orphan"
+    )
     
-    def __repr__(self) -> str:
-        return f"<Inbound(id={self.id}, panel_id={self.panel_id}, protocol={self.protocol})>"
+    def __repr__(self):
+        """نمایش رشته‌ای مدل"""
+        return f"<Inbound {self.protocol}:{self.port} ({self.tag})>"

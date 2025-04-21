@@ -5,9 +5,10 @@
 import logging
 import uuid
 from datetime import datetime, timedelta
-from typing import Dict, Any, Optional, Tuple
+from typing import Dict, Any, Optional, Tuple, List
 
-from sqlalchemy.orm import Session
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.integrations.xui_client import XuiClient
 from core.services.panel_service import PanelService
@@ -25,15 +26,15 @@ class AccountService:
     سرویس مدیریت اکانت‌های VPN کاربران
     """
     
-    def __init__(self, db_session: Session):
+    def __init__(self, session: AsyncSession):
         """
         مقداردهی اولیه سرویس با دسترسی به دیتابیس
         
         Args:
-            db_session: نشست دیتابیس
+            session: نشست دیتابیس
         """
-        self.db_session = db_session
-        self.panel_service = PanelService(db_session)
+        self.session = session
+        self.panel_service = PanelService(session)
     
     def _generate_transfer_id(self, user_id: int) -> str:
         """
@@ -73,22 +74,26 @@ class AccountService:
             اطلاعات اکانت ایجاد شده
         """
         # دریافت اطلاعات کاربر، پلن و inbound از دیتابیس
-        user = self.db_session.query(User).filter(User.id == user_id).first()
+        user_result = await self.session.execute(select(User).where(User.id == user_id))
+        user = user_result.scalar_one_or_none()
         if not user:
             logger.error(f"User with ID {user_id} not found")
             raise ValueError(f"User with ID {user_id} not found")
             
-        plan = self.db_session.query(Plan).filter(Plan.id == plan_id).first()
+        plan_result = await self.session.execute(select(Plan).where(Plan.id == plan_id))
+        plan = plan_result.scalar_one_or_none()
         if not plan:
             logger.error(f"Plan with ID {plan_id} not found")
             raise ValueError(f"Plan with ID {plan_id} not found")
             
-        inbound = self.db_session.query(Inbound).filter(Inbound.id == inbound_id).first()
+        inbound_result = await self.session.execute(select(Inbound).where(Inbound.id == inbound_id))
+        inbound = inbound_result.scalar_one_or_none()
         if not inbound:
             logger.error(f"Inbound with ID {inbound_id} not found")
             raise ValueError(f"Inbound with ID {inbound_id} not found")
             
-        panel = self.db_session.query(Panel).filter(Panel.id == inbound.panel_id).first()
+        panel_result = await self.session.execute(select(Panel).where(Panel.id == inbound.panel_id))
+        panel = panel_result.scalar_one_or_none()
         if not panel:
             logger.error(f"Panel for inbound {inbound_id} not found")
             raise ValueError(f"Panel for inbound {inbound_id} not found")
@@ -102,7 +107,6 @@ class AccountService:
         logger.info(f"Plan details: traffic={traffic}GB, duration={plan.duration_days} days, expires_at={expires_at}")
         
         # ایجاد نام اکانت با فرمت استاندارد
-        # بر اساس الگوی: `FR-Moonvpn-012[-01]`
         transfer_id = self._generate_transfer_id(user_id)
         label = self._create_label(panel, user_id)
         
@@ -119,7 +123,7 @@ class AccountService:
             logger.info(f"Calling XuiClient.create_client with inbound_id={inbound.inbound_id}, email={label}, traffic={traffic}GB")
             
             # تبدیل تاریخ انقضا به میلی‌ثانیه
-            expire_timestamp = int(datetime.timestamp(expires_at)) * 1000  # تبدیل به میلی‌ثانیه
+            expire_timestamp = int(datetime.timestamp(expires_at)) * 1000
             
             # ایجاد دیکشنری اطلاعات کلاینت
             client_data = {
@@ -132,7 +136,7 @@ class AccountService:
             }
             
             result = await xui_client.create_client(
-                inbound_id=inbound.inbound_id,  # استفاده از inbound_id واقعی در پنل
+                inbound_id=inbound.inbound_id,
                 client_data=client_data
             )
             
@@ -158,8 +162,9 @@ class AccountService:
             )
             
             # ذخیره در دیتابیس
-            self.db_session.add(client_account)
-            self.db_session.commit()
+            self.session.add(client_account)
+            await self.session.commit()
+            await self.session.refresh(client_account)
             
             logger.info(f"Created new VPN account for user {user_id} with plan {plan_id}, expires at {expires_at}")
             logger.info(f"Config URL: {config_url}")
@@ -167,7 +172,7 @@ class AccountService:
             return client_account
             
         except Exception as e:
-            self.db_session.rollback()
+            await self.session.rollback()
             logger.error(f"Failed to provision account for user {user_id}, plan {plan_id}: {e}")
             raise
     
@@ -182,12 +187,18 @@ class AccountService:
             موفقیت عملیات
         """
         # دریافت اطلاعات اکانت از دیتابیس
-        account = self.db_session.query(ClientAccount).filter(ClientAccount.id == account_id).first()
+        account_result = await self.session.execute(
+            select(ClientAccount).where(ClientAccount.id == account_id)
+        )
+        account = account_result.scalar_one_or_none()
         if not account:
             raise ValueError(f"Account with ID {account_id} not found")
             
         # دریافت اطلاعات پنل
-        panel = self.db_session.query(Panel).filter(Panel.id == account.panel_id).first()
+        panel_result = await self.session.execute(
+            select(Panel).where(Panel.id == account.panel_id)
+        )
+        panel = panel_result.scalar_one_or_none()
         if not panel:
             raise ValueError(f"Panel for account {account_id} not found")
         
@@ -197,16 +208,16 @@ class AccountService:
         success = await xui_client.delete_client(account.uuid)
         
         if success:
-            # حذف از دیتابیس یا تغییر وضعیت
-            account.status = AccountStatus.DISABLED
-            self.db_session.commit()
-            logger.info(f"Deleted VPN account {account_id} for user {account.user_id}")
-            
-        return success
+            # حذف از دیتابیس
+            await self.session.delete(account)
+            await self.session.commit()
+            logger.info(f"Successfully deleted account {account_id}")
+            return True
+        return False
     
-    def get_active_accounts_by_user(self, user_id: int) -> list:
+    async def get_active_accounts_by_user(self, user_id: int) -> List[ClientAccount]:
         """
-        دریافت لیست اکانت‌های فعال یک کاربر
+        دریافت لیست اکانت‌های فعال کاربر
         
         Args:
             user_id: شناسه کاربر
@@ -214,10 +225,12 @@ class AccountService:
         Returns:
             لیست اکانت‌های فعال
         """
-        return self.db_session.query(ClientAccount).filter(
-            ClientAccount.user_id == user_id,
-            ClientAccount.status == AccountStatus.ACTIVE
-        ).all()
+        result = await self.session.execute(
+            select(ClientAccount)
+            .where(ClientAccount.user_id == user_id)
+            .where(ClientAccount.status == AccountStatus.ACTIVE)
+        )
+        return list(result.scalars().all())
     
     async def reset_account_traffic(self, account_id: int) -> bool:
         """
@@ -230,12 +243,12 @@ class AccountService:
             موفقیت عملیات
         """
         # دریافت اطلاعات اکانت از دیتابیس
-        account = self.db_session.query(ClientAccount).filter(ClientAccount.id == account_id).first()
+        account = await self.session.get(ClientAccount, account_id)
         if not account:
             raise ValueError(f"Account with ID {account_id} not found")
             
         # دریافت اطلاعات پنل
-        panel = self.db_session.query(Panel).filter(Panel.id == account.panel_id).first()
+        panel = await self.session.get(Panel, account.panel_id)
         if not panel:
             raise ValueError(f"Panel for account {account_id} not found")
         
@@ -247,7 +260,7 @@ class AccountService:
         if success:
             # به‌روزرسانی در دیتابیس
             account.traffic_used = 0
-            self.db_session.commit()
+            await self.session.commit()
             logger.info(f"Reset traffic for account {account_id} of user {account.user_id}")
             
         return success
@@ -264,15 +277,15 @@ class AccountService:
             موفقیت عملیات
         """
         # دریافت اطلاعات اکانت و پلن از دیتابیس
-        account = self.db_session.query(ClientAccount).filter(ClientAccount.id == account_id).first()
+        account = await self.session.get(ClientAccount, account_id)
         if not account:
             raise ValueError(f"Account with ID {account_id} not found")
             
-        plan = self.db_session.query(Plan).filter(Plan.id == plan_id).first()
+        plan = await self.session.get(Plan, plan_id)
         if not plan:
             raise ValueError(f"Plan with ID {plan_id} not found")
             
-        panel = self.db_session.query(Panel).filter(Panel.id == account.panel_id).first()
+        panel = await self.session.get(Panel, account.panel_id)
         if not panel:
             raise ValueError(f"Panel for account {account_id} not found")
         
@@ -314,13 +327,13 @@ class AccountService:
             account.traffic_total = plan.traffic
             account.status = AccountStatus.ACTIVE
             
-            self.db_session.commit()
+            await self.session.commit()
             logger.info(f"Renewed account {account_id} with plan {plan_id}, new expiry: {new_expires_at}")
             
             return True
             
         except Exception as e:
-            self.db_session.rollback()
+            await self.session.rollback()
             logger.error(f"Failed to renew account {account_id} with plan {plan_id}: {e}")
             raise
     
@@ -335,11 +348,11 @@ class AccountService:
             اطلاعات به‌روزشده ترافیک
         """
         # دریافت اطلاعات اکانت از دیتابیس
-        account = self.db_session.query(ClientAccount).filter(ClientAccount.id == account_id).first()
+        account = await self.session.get(ClientAccount, account_id)
         if not account:
             raise ValueError(f"Account with ID {account_id} not found")
             
-        panel = self.db_session.query(Panel).filter(Panel.id == account.panel_id).first()
+        panel = await self.session.get(Panel, account.panel_id)
         if not panel:
             raise ValueError(f"Panel for account {account_id} not found")
         
@@ -353,7 +366,7 @@ class AccountService:
             if traffic_info:
                 # به‌روزرسانی اطلاعات در دیتابیس
                 account.traffic_used = traffic_info.get("up", 0) + traffic_info.get("down", 0)
-                self.db_session.commit()
+                await self.session.commit()
                 
                 logger.info(f"Updated traffic for account {account_id}: {account.traffic_used / (1024*1024*1024):.2f} GB used")
                 

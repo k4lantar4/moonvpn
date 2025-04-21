@@ -3,11 +3,19 @@
 """
 
 from typing import List, Optional
+from enum import Enum
 
-from sqlalchemy import Boolean, Integer, String, Text, Column
+from sqlalchemy import Integer, String, Text, Column, Enum as SQLEnum
 from sqlalchemy.orm import relationship, Mapped
 
 from . import Base
+
+
+class PanelStatus(str, Enum):
+    """وضعیت‌های ممکن برای پنل"""
+    ACTIVE = "active"
+    DISABLED = "disabled"
+    DELETED = "deleted"
 
 
 class Panel(Base):
@@ -23,7 +31,7 @@ class Panel(Base):
     url = Column(Text, nullable=False)
     username = Column(String(100), nullable=False)
     password = Column(String(255), nullable=False)
-    status = Column(Boolean, default=True, nullable=False)
+    status = Column(SQLEnum(PanelStatus), default=PanelStatus.ACTIVE, nullable=False)
     default_label = Column(String(50), nullable=False)
     
     # ارتباط با سایر مدل‌ها

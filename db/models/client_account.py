@@ -29,7 +29,7 @@ class ClientAccount(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(BigInteger, ForeignKey("users.id"), nullable=False)
     panel_id = Column(Integer, ForeignKey("panels.id"), nullable=False)
-    inbound_id = Column(Integer, ForeignKey("inbounds.id"), nullable=False)
+    inbound_id = Column(Integer, ForeignKey("inbound.id", ondelete="CASCADE"), nullable=False)
     uuid = Column(String(36), default=lambda: str(uuid.uuid4()), nullable=False)
     label = Column(String(255), nullable=False)
     transfer_id = Column(String(100), unique=True, nullable=False)
@@ -43,7 +43,7 @@ class ClientAccount(Base):
     # ارتباط با سایر مدل‌ها
     user: Mapped["User"] = relationship(back_populates="client_accounts")
     panel: Mapped["Panel"] = relationship(back_populates="client_accounts")
-    inbound: Mapped["Inbound"] = relationship(back_populates="client_accounts")
+    inbound: Mapped["Inbound"] = relationship("Inbound", back_populates="client_accounts")
     from_transfers: Mapped[List["AccountTransfer"]] = relationship(
         foreign_keys="AccountTransfer.old_account_id",
         back_populates="old_account"

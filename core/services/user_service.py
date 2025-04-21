@@ -5,7 +5,7 @@
 """
 
 from typing import Optional
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.repositories.user_repo import UserRepository
 from db.models.user import User
@@ -14,33 +14,36 @@ from db.models.user import User
 class UserService:
     """سرویس مدیریت کاربران با منطق کسب و کار مرتبط"""
     
-    def __init__(self, db_session: Session):
+    def __init__(self, session: AsyncSession):
         """مقداردهی اولیه سرویس"""
-        self.user_repo = UserRepository(db_session)
+        self.user_repo = UserRepository(session)
     
-    def register_user(self, telegram_id: int, username: Optional[str] = None) -> User:
+    async def register_user(self, telegram_id: int, username: Optional[str] = None) -> User:
         """ثبت کاربر جدید یا دریافت اطلاعات کاربر موجود"""
-        return self.user_repo.get_or_create_user(telegram_id, username)
+        return await self.user_repo.get_or_create_user(telegram_id, username)
     
-    def get_user_by_telegram_id(self, telegram_id: int) -> Optional[User]:
+    async def get_user_by_telegram_id(self, telegram_id: int) -> Optional[User]:
         """دریافت اطلاعات کاربر با آیدی تلگرام"""
-        return self.user_repo.get_by_telegram_id(telegram_id)
+        return await self.user_repo.get_by_telegram_id(telegram_id)
     
-    def is_user_registered(self, telegram_id: int) -> bool:
+    async def is_user_registered(self, telegram_id: int) -> bool:
         """بررسی اینکه آیا کاربر در سیستم ثبت شده است"""
-        return self.get_user_by_telegram_id(telegram_id) is not None
+        user = await self.get_user_by_telegram_id(telegram_id)
+        return user is not None
     
-    def is_admin(self, telegram_id: int) -> bool:
+    async def is_admin(self, telegram_id: int) -> bool:
         """بررسی اینکه آیا کاربر ادمین است"""
-        user = self.get_user_by_telegram_id(telegram_id)
+        user = await self.get_user_by_telegram_id(telegram_id)
         if not user:
             return False
         return user.role.value == "admin"
     
-    def update_username(self, telegram_id: int, new_username: str) -> Optional[User]:
+    async def update_username(self, telegram_id: int, new_username: str) -> Optional[User]:
         """بروزرسانی نام کاربری"""
-        user = self.get_user_by_telegram_id(telegram_id)
+        user = await self.get_user_by_telegram_id(telegram_id)
         if user:
             user.username = new_username
+            await self.user_repo.session.commit()
+            await self.user_repo.session.refresh(user)
             return user
         return None

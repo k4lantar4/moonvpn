@@ -6,7 +6,7 @@ import os
 import asyncio
 import logging
 import traceback
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from aiogram import Bot, Dispatcher, types, Router
 from aiogram.fsm.storage.redis import RedisStorage
 from aiogram.filters import Command
@@ -15,7 +15,6 @@ from aiogram.enums import ParseMode
 from aiogram.client.default import DefaultBotProperties
 
 # Import database models and session
-from sqlalchemy import create_engine
 from db.models import Base  # Importing all models
 from bot.commands.start import register_start_command
 from bot.commands.admin import register_admin_commands
@@ -45,11 +44,17 @@ if not BOT_TOKEN:
 REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379/0")
 
 # تنظیمات دیتابیس
-DATABASE_URL = os.getenv("DATABASE_URL", "mysql+pymysql://root:password@db:3306/moonvpn")
+DATABASE_URL = os.getenv("DATABASE_URL", "mysql+aiomysql://root:password@db:3306/moonvpn")
 
 # ایجاد اتصال به دیتابیس
-engine = create_engine(DATABASE_URL)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+engine = create_async_engine(DATABASE_URL)
+SessionLocal = async_sessionmaker(
+    engine,
+    class_=AsyncSession,
+    expire_on_commit=False,
+    autocommit=False,
+    autoflush=False
+)
 
 # متغیر سراسری برای نگهداری نمونه notification_service
 notification_service = None
@@ -73,9 +78,9 @@ async def main():
         # راه‌اندازی سرویس نوتیفیکیشن
         logger.info("Initializing notification service...")
         global notification_service
-        session = SessionLocal()
-        notification_service = NotificationService(session)
-        notification_service.set_bot(bot)
+        async with SessionLocal() as session:
+            notification_service = NotificationService(session)
+            notification_service.set_bot(bot)
         
         # ثبت روترهای بات
         logger.info("Registering start command...")

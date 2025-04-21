@@ -3,12 +3,12 @@
 """
 
 import logging
-from typing import Optional, List
+from typing import Optional, List, Tuple
 from decimal import Decimal
 from datetime import datetime
 
-from sqlalchemy.orm import Session
-from sqlalchemy import select, update
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.models.order import Order, OrderStatus
 from db.models.user import User
@@ -20,12 +20,12 @@ logger = logging.getLogger(__name__)
 class OrderService:
     """سرویس مدیریت سفارشات با منطق کسب و کار مرتبط"""
     
-    def __init__(self, db_session: Session):
+    def __init__(self, session: AsyncSession):
         """مقداردهی اولیه سرویس"""
-        self.db_session = db_session
-        self.notification_service = NotificationService(db_session)
+        self.session = session
+        self.notification_service = NotificationService(session)
     
-    def get_order_by_id(self, order_id: int) -> Optional[Order]:
+    async def get_order_by_id(self, order_id: int) -> Optional[Order]:
         """
         دریافت اطلاعات یک سفارش با شناسه آن
         
@@ -36,10 +36,10 @@ class OrderService:
             اطلاعات سفارش یا None در صورت عدم وجود
         """
         query = select(Order).where(Order.id == order_id)
-        result = self.db_session.execute(query)
+        result = await self.session.execute(query)
         return result.scalar_one_or_none()
     
-    def get_user_orders(self, user_id: int) -> List[Order]:
+    async def get_user_orders(self, user_id: int) -> List[Order]:
         """
         دریافت تمام سفارشات یک کاربر
         
@@ -50,10 +50,10 @@ class OrderService:
             لیست سفارشات کاربر
         """
         query = select(Order).where(Order.user_id == user_id).order_by(Order.created_at.desc())
-        result = self.db_session.execute(query)
+        result = await self.session.execute(query)
         return list(result.scalars().all())
     
-    def update_order_status(self, order_id: int, new_status: OrderStatus) -> Optional[Order]:
+    async def update_order_status(self, order_id: int, new_status: OrderStatus) -> Optional[Order]:
         """
         به‌روزرسانی وضعیت سفارش
         
@@ -64,7 +64,7 @@ class OrderService:
         Returns:
             سفارش به‌روزرسانی شده یا None در صورت عدم وجود
         """
-        order = self.get_order_by_id(order_id)
+        order = await self.get_order_by_id(order_id)
         if not order:
             return None
         
@@ -74,10 +74,11 @@ class OrderService:
         if new_status in [OrderStatus.PROCESSING, OrderStatus.DONE]:
             order.processed_at = datetime.now()
         
-        self.db_session.commit()
+        await self.session.commit()
+        await self.session.refresh(order)
         return order
     
-    def pay_with_balance(self, order_id: int) -> tuple[bool, str]:
+    async def pay_with_balance(self, order_id: int) -> Tuple[bool, str]:
         """
         پرداخت سفارش با استفاده از موجودی کیف پول کاربر
         
@@ -87,7 +88,7 @@ class OrderService:
         Returns:
             tuple[bool, str]: وضعیت موفقیت و پیام متناسب
         """
-        order = self.get_order_by_id(order_id)
+        order = await self.get_order_by_id(order_id)
         if not order:
             logger.error(f"Order with ID {order_id} not found")
             return False, "سفارش مورد نظر یافت نشد"
@@ -97,7 +98,8 @@ class OrderService:
             return False, "این سفارش قبلاً پرداخت شده است"
         
         # دریافت اطلاعات کاربر
-        user = self.db_session.query(User).filter(User.id == order.user_id).first()
+        user_result = await self.session.execute(select(User).where(User.id == order.user_id))
+        user = user_result.scalar_one_or_none()
         if not user:
             logger.error(f"User with ID {order.user_id} for order {order_id} not found")
             return False, "کاربر مرتبط با سفارش یافت نشد"
@@ -117,7 +119,7 @@ class OrderService:
                 status=TransactionStatus.SUCCESS,
                 created_at=datetime.now()
             )
-            self.db_session.add(transaction)
+            self.session.add(transaction)
             
             # کاهش موجودی کاربر
             user.balance -= order.amount
@@ -126,7 +128,7 @@ class OrderService:
             order.status = OrderStatus.PAID
             
             # ثبت تغییرات در دیتابیس
-            self.db_session.commit()
+            await self.session.commit()
             
             # ارسال نوتیفیکیشن به کاربر
             success_message = (
@@ -136,7 +138,7 @@ class OrderService:
                 f"💼 موجودی فعلی: {user.balance} تومان\n\n"
                 f"🕒 اکانت شما در حال آماده‌سازی است و بزودی برای شما ارسال خواهد شد."
             )
-            self.notification_service.notify_user(user.telegram_id, success_message)
+            await self.notification_service.notify_user(user.telegram_id, success_message)
             
             # ارسال نوتیفیکیشن به ادمین
             admin_message = (
@@ -145,12 +147,12 @@ class OrderService:
                 f"🔢 شناسه سفارش: #{order.id}\n"
                 f"💰 مبلغ: {order.amount} تومان"
             )
-            self.notification_service.notify_admin(admin_message)
+            await self.notification_service.notify_admin(admin_message)
             
             logger.info(f"Order {order_id} paid successfully with user balance")
             return True, "پرداخت با موفقیت انجام شد"
             
         except Exception as e:
-            self.db_session.rollback()
+            await self.session.rollback()
             logger.error(f"Error processing payment for order {order_id}: {str(e)}", exc_info=True)
             return False, f"خطا در پردازش پرداخت: {str(e)}" 

@@ -1,28 +1,30 @@
 """
-دکمه‌های inline مربوط به پلن‌ها
+دکمه‌های مربوط به انتخاب پلن
 """
 
-from typing import List
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from db.models.plan import Plan
 
-
-def get_plans_keyboard(plans: List[Plan]) -> InlineKeyboardMarkup:
-    """
-    ایجاد دکمه‌های انتخاب پلن به صورت InlineKeyboardMarkup
-    """
-    keyboard = []
+def get_plans_keyboard(plans: list[Plan]) -> InlineKeyboardMarkup:
+    """ساخت کیبورد انتخاب پلن"""
+    
+    builder = InlineKeyboardBuilder()
     
     for plan in plans:
-        text = f"{plan.name} - {plan.traffic} گیگابایت - {plan.duration_days} روز - {plan.price:,} تومان"
-        callback_data = f"select_plan:{plan.id}"
-        keyboard.append([InlineKeyboardButton(text=text, callback_data=callback_data)])
+        # نمایش قیمت به تومان
+        price_toman = f"{plan.price:,}"
+        
+        builder.button(
+            text=f"📦 {plan.name} - {price_toman} تومان",
+            callback_data=f"select_plan:{plan.id}"
+        )
     
-    # دکمه بازگشت در پایین
-    keyboard.append([InlineKeyboardButton(text="🔙 بازگشت به منو اصلی", callback_data="back_to_main")])
+    # چینش دکمه‌ها به صورت عمودی
+    builder.adjust(1)
     
-    return InlineKeyboardMarkup(inline_keyboard=keyboard)
+    return builder.as_markup()
 
 
 def get_plan_details_keyboard(plan_id: int) -> InlineKeyboardMarkup:

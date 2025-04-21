@@ -30,7 +30,7 @@ COPY pyproject.toml poetry.lock* ./
 # Install dependencies
 RUN poetry config virtualenvs.create false \
   && poetry install --no-interaction --no-ansi \
-  && pip install watchdog
+  && pip install aiomysql pymysql watchdog
 
 # Copy the project code
 COPY . .

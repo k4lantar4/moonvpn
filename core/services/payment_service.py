@@ -5,7 +5,7 @@
 from typing import Optional, List
 from decimal import Decimal
 from datetime import datetime
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from db.models.user import User
@@ -16,20 +16,20 @@ from core.services.notification_service import NotificationService
 class PaymentService:
     """سرویس مدیریت پرداخت و تراکنش‌ها با منطق کسب و کار مرتبط"""
     
-    def __init__(self, db_session: Session):
+    def __init__(self, session: AsyncSession):
         """مقداردهی اولیه سرویس"""
-        self.db_session = db_session
-        self.user_repo = UserRepository(db_session)
-        self.notification_service = NotificationService(db_session)
+        self.session = session
+        self.user_repo = UserRepository(session)
+        self.notification_service = NotificationService(session)
     
-    def get_user_balance(self, telegram_id: int) -> Decimal:
+    async def get_user_balance(self, telegram_id: int) -> Decimal:
         """دریافت موجودی کیف پول کاربر"""
-        user = self.user_repo.get_by_telegram_id(telegram_id)
+        user = await self.user_repo.get_by_telegram_id(telegram_id)
         if not user:
             return Decimal('0.0')
         return user.balance
     
-    def create_transaction(
+    async def create_transaction(
         self, 
         user_id: int, 
         amount: Decimal,
@@ -46,25 +46,26 @@ class PaymentService:
             status=status,
             created_at=datetime.now()  # تنظیم صریح زمان ایجاد
         )
-        self.db_session.add(transaction)
-        self.db_session.commit()
+        self.session.add(transaction)
+        await self.session.commit()
+        await self.session.refresh(transaction)
         return transaction
     
-    def get_user_transactions(self, user_id: int) -> List[Transaction]:
+    async def get_user_transactions(self, user_id: int) -> List[Transaction]:
         """دریافت تمام تراکنش‌های یک کاربر"""
         query = select(Transaction).where(Transaction.user_id == user_id).order_by(Transaction.created_at.desc())
-        result = self.db_session.execute(query)
+        result = await self.session.execute(query)
         return list(result.scalars().all())
     
-    def get_transaction_by_id(self, transaction_id: int) -> Optional[Transaction]:
+    async def get_transaction_by_id(self, transaction_id: int) -> Optional[Transaction]:
         """دریافت یک تراکنش با شناسه"""
         query = select(Transaction).where(Transaction.id == transaction_id)
-        result = self.db_session.execute(query)
+        result = await self.session.execute(query)
         return result.scalar_one_or_none()
     
-    def update_transaction_status(self, transaction_id: int, new_status: TransactionStatus) -> Optional[Transaction]:
+    async def update_transaction_status(self, transaction_id: int, new_status: TransactionStatus) -> Optional[Transaction]:
         """به‌روزرسانی وضعیت تراکنش"""
-        transaction = self.get_transaction_by_id(transaction_id)
+        transaction = await self.get_transaction_by_id(transaction_id)
         if not transaction:
             return None
             
@@ -72,14 +73,15 @@ class PaymentService:
         
         # اگر تراکنش تکمیل شد و از نوع شارژ بود، موجودی کاربر را افزایش دهیم
         if new_status == TransactionStatus.SUCCESS and (transaction.type == TransactionType.PAYMENT or transaction.type == TransactionType.DEPOSIT):
-            user = self.user_repo.get_by_id(transaction.user_id)
+            user = await self.user_repo.get_by_id(transaction.user_id)
             if user:
                 user.balance += transaction.amount
         
-        self.db_session.commit()
+        await self.session.commit()
+        await self.session.refresh(transaction)
         return transaction
     
-    def confirm_payment(self, transaction_id: int) -> Optional[Transaction]:
+    async def confirm_payment(self, transaction_id: int) -> Optional[Transaction]:
         """
         تأیید پرداخت، افزایش موجودی کاربر و ارسال نوتیفیکیشن
         
@@ -89,7 +91,7 @@ class PaymentService:
         Returns:
             Optional[Transaction]: تراکنش تأیید شده یا None در صورت عدم وجود
         """
-        transaction = self.get_transaction_by_id(transaction_id)
+        transaction = await self.get_transaction_by_id(transaction_id)
         if not transaction:
             return None
             
@@ -98,7 +100,7 @@ class PaymentService:
         
         # افزایش موجودی کاربر اگر تراکنش از نوع پرداخت یا شارژ است
         if transaction.type == TransactionType.PAYMENT or transaction.type == TransactionType.DEPOSIT:
-            user = self.user_repo.get_by_id(transaction.user_id)
+            user = await self.user_repo.get_by_id(transaction.user_id)
             if user:
                 user.balance += transaction.amount
                 
@@ -109,7 +111,7 @@ class PaymentService:
                     f"💼 موجودی فعلی: {user.balance} تومان\n\n"
                     f"🔢 شناسه تراکنش: #{transaction.id}"
                 )
-                self.notification_service.notify_user(user.telegram_id, message)
+                await self.notification_service.notify_user(user.telegram_id, message)
                 
                 # ارسال نوتیفیکیشن به ادمین
                 admin_message = (
@@ -118,12 +120,13 @@ class PaymentService:
                     f"💰 مبلغ: {transaction.amount} تومان\n"
                     f"🔢 شناسه تراکنش: #{transaction.id}"
                 )
-                self.notification_service.notify_admin(admin_message)
+                await self.notification_service.notify_admin(admin_message)
         
-        self.db_session.commit()
+        await self.session.commit()
+        await self.session.refresh(transaction)
         return transaction
     
-    def get_payment_instructions(self) -> str:
+    async def get_payment_instructions(self) -> str:
         """دریافت راهنمای پرداخت"""
         instructions = (
             "📱 راهنمای شارژ کیف پول:\n\n"

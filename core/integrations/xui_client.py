@@ -198,12 +198,47 @@ class XuiClient:
             uuid: UUID کلاینت
             
         Returns:
-            لینک کانفیگ کلاینت
+            لینک کانفیگ کلاینت (vmess/vless)
         """
         try:
-            result = await self.api.client.get_config(uuid)
-            logger.info(f"Successfully retrieved config for client with UUID {uuid}")
-            return result
+            # دریافت اطلاعات کلاینت
+            client = await self.get_client_by_uuid(uuid)
+            if not client:
+                raise ValueError(f"Client with UUID {uuid} not found")
+                
+            # دریافت اطلاعات inbound
+            inbound = await self.get_inbound(client["inbound_id"])
+            if not inbound:
+                raise ValueError(f"Inbound {client['inbound_id']} not found")
+            
+            # ساخت لینک کانفیگ بر اساس پروتکل
+            protocol = inbound["protocol"].lower()
+            if protocol == "vmess":
+                config = {
+                    "v": "2",
+                    "ps": client["email"],
+                    "add": self.host.replace("http://", "").replace("https://", ""),
+                    "port": inbound["port"],
+                    "id": uuid,
+                    "aid": 0,
+                    "net": "tcp",
+                    "type": "none",
+                    "host": "",
+                    "path": "",
+                    "tls": ""
+                }
+                import base64, json
+                config_str = base64.b64encode(json.dumps(config).encode()).decode()
+                config_url = f"vmess://{config_str}"
+            elif protocol == "vless":
+                host = self.host.replace("http://", "").replace("https://", "")
+                config_url = f"vless://{uuid}@{host}:{inbound['port']}?type=tcp&security=none#{client['email']}"
+            else:
+                raise ValueError(f"Unsupported protocol: {protocol}")
+            
+            logger.info(f"Generated {protocol} config URL for client with UUID {uuid}")
+            return config_url
+            
         except Exception as e:
             logger.error(f"Failed to get config for client with UUID {uuid}: {e}")
             raise

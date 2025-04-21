@@ -7,7 +7,6 @@ from sqlalchemy.orm import relationship
 
 from db.models import Base
 
-
 class Plan(Base):
     """مدل پلن‌های سرویس VPN"""
     
@@ -21,6 +20,7 @@ class Plan(Base):
     price = Column(DECIMAL(10, 2), nullable=False, comment="قیمت")
     available_locations = Column(JSON, nullable=True, comment="لیست لوکیشن‌های مجاز")
     is_trial = Column(Boolean, default=False, nullable=False, comment="آیا پلن تستی است؟")
+    is_active = Column(Boolean, default=True, nullable=False, comment="آیا پلن فعال است؟")
     
     # تعریف روابط با سایر مدل‌ها
     orders = relationship("Order", back_populates="plan")

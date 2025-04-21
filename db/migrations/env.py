@@ -2,13 +2,11 @@
 فایل محیط Alembic برای مدیریت مهاجرت‌های پایگاه داده
 """
 
-import asyncio
 import os
 from logging.config import fileConfig
 
 from alembic import context
 from sqlalchemy import engine_from_config, pool
-from sqlalchemy.ext.asyncio import AsyncEngine
 
 # ایمپورت مدل‌های پایگاه داده
 from db.models import Base
@@ -23,8 +21,10 @@ if config.config_file_name is not None:
 # مشخص کردن target برای autogenerate
 target_metadata = Base.metadata
 
-# خواندن DATABASE_URL از متغیرهای محیطی
+# خواندن DATABASE_URL از متغیرهای محیطی و تبدیل به نسخه سنکرون
 DATABASE_URL = os.getenv("DATABASE_URL", "mysql+pymysql://moonvpn_user:strong_password_here@localhost:3306/moonvpn")
+if "aiomysql" in DATABASE_URL:
+    DATABASE_URL = DATABASE_URL.replace("aiomysql", "pymysql")
 print(f"Using database URL: {DATABASE_URL}")
 
 # اگر DB در داکر اجرا می‌شود، باید URL را تغییر دهیم

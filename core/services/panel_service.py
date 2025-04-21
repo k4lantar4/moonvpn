@@ -1,246 +1,178 @@
 """
-سرویس مدیریت پنل‌ها، دریافت inbound‌ها و تنظیمات پیش‌فرض
+سرویس مدیریت پنل‌ها و تنظیمات inbound
 """
 
 import logging
 from typing import List, Optional, Dict, Any
+from datetime import datetime
 
-from sqlalchemy.orm import Session
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 from sqlalchemy.exc import SQLAlchemyError
 
-from db.models.panel import Panel
-from db.models.inbound import Inbound
+from db.models.panel import Panel, PanelStatus
+from db.models.inbound import Inbound, InboundStatus
 from core.integrations.xui_client import XuiClient
+from core.services.notification_service import NotificationService
+from db.repositories.panel_repo import PanelRepository
 
 logger = logging.getLogger(__name__)
 
 
 class PanelService:
-    """سرویس مدیریت پنل‌ها با منطق کسب و کار مرتبط"""
-    
-    def __init__(self, db_session: Session):
-        """مقداردهی اولیه سرویس"""
-        self.db_session = db_session
-    
-    async def add_panel(self, name: str, location: str, flag_emoji: str,
-                 url: str, username: str, password: str, default_label: str) -> Panel:
+    """سرویس مدیریت پنل‌ها و تنظیمات inbound"""
+
+    def __init__(self, session: AsyncSession):
         """
-        اضافه کردن پنل جدید به سیستم
-        
+        ایجاد نمونه سرویس
+        Args:
+            session: نشست پایگاه داده
+        """
+        self.session = session
+        self.panel_repo = PanelRepository(session)
+        self.notification_service = NotificationService(session)
+
+    async def add_panel(self, name: str, location: str, flag_emoji: str,
+                     url: str, username: str, password: str) -> Panel:
+        """
+        افزودن پنل جدید
         Args:
             name: نام پنل
-            location: موقعیت (کشور)
+            location: موقعیت پنل
             flag_emoji: ایموجی پرچم
             url: آدرس پنل
             username: نام کاربری
             password: رمز عبور
-            default_label: پیشوند نام اکانت پیش‌فرض
-        
         Returns:
-            مدل Panel ایجاد شده
+            Panel: پنل ایجاد شده
         """
-        # ایجاد آبجکت پنل جدید
-        new_panel = Panel(
+        # تست اتصال به پنل
+        client = await self._get_xui_client(url, username, password)
+        if not await client.test_connection():
+            raise ValueError("خطا در اتصال به پنل")
+
+        # ایجاد پنل
+        panel = Panel(
             name=name,
             location=location,
             flag_emoji=flag_emoji,
             url=url,
             username=username,
             password=password,
-            default_label=default_label,
-            status=True
+            status=PanelStatus.ACTIVE
         )
         
+        await self.panel_repo.add(panel)
+        await self.session.flush()
+        
+        # همگام‌سازی inbound‌ها
         try:
-            # تست اتصال به پنل
-            await self._test_panel_connection(url, username, password)
-            
-            # افزودن به دیتابیس
-            self.db_session.add(new_panel)
-            self.db_session.commit()
-            self.db_session.refresh(new_panel)
-            
-            logger.info(f"Panel {name} added successfully with ID {new_panel.id}")
-            return new_panel
-        
+            await self.sync_panel_inbounds(panel.id)
         except Exception as e:
-            self.db_session.rollback()
-            logger.error(f"Failed to add panel {name}: {str(e)}")
-            raise
-    
-    async def _test_panel_connection(self, url: str, username: str, password: str) -> bool:
+            logger.error(f"خطا در همگام‌سازی inbound‌های پنل {panel.id}: {str(e)}", exc_info=True)
+            
+        return panel
+
+    async def get_panel_by_id(self, panel_id: int) -> Optional[Panel]:
         """
-        تست اتصال به پنل قبل از ذخیره‌سازی
-        
+        دریافت پنل با شناسه
+        Args:
+            panel_id: شناسه پنل
+        Returns:
+            Panel: پنل یافت شده یا None
+        """
+        return await self.panel_repo.get_by_id(panel_id)
+
+    async def get_active_panels(self) -> List[Panel]:
+        """
+        دریافت لیست پنل‌های فعال
+        Returns:
+            List[Panel]: لیست پنل‌های فعال
+        """
+        return await self.panel_repo.get_active_panels()
+
+    async def _get_xui_client(self, url: str, username: str, password: str) -> XuiClient:
+        """
+        ایجاد و لاگین کلاینت XUI
         Args:
             url: آدرس پنل
             username: نام کاربری
             password: رمز عبور
-        
         Returns:
-            True اگر اتصال موفقیت‌آمیز باشد
+            XuiClient: کلاینت لاگین شده
         """
-        try:
-            # تلاش برای ایجاد کلاینت و اتصال به پنل
-            client = XuiClient(url, username, password)
-            await client.login()
-            # تست دریافت inbounds
-            await client.get_inbounds()
-            return True
-        except Exception as e:
-            logger.error(f"Panel connection test failed: {str(e)}")
-            raise ValueError(f"پنل با آدرس {url} قابل دسترسی نیست: {str(e)}")
-    
-    def get_panel_by_id(self, panel_id: int) -> Optional[Panel]:
+        client = XuiClient(url)
+        await client.login(username, password)
+        return client
+
+    async def sync_panel_inbounds(self, panel_id: int) -> None:
         """
-        دریافت پنل با شناسه
-        
+        همگام‌سازی inbound‌های پنل با پایگاه داده
         Args:
             panel_id: شناسه پنل
-        
-        Returns:
-            مدل Panel یا None اگر یافت نشود
         """
-        return self.db_session.query(Panel).filter(Panel.id == panel_id).first()
-    
-    def get_all_panels(self, active_only: bool = True) -> List[Panel]:
-        """
-        دریافت تمام پنل‌ها
-        
-        Args:
-            active_only: فقط پنل‌های فعال برگردانده شوند
-        
-        Returns:
-            لیست پنل‌ها
-        """
-        query = self.db_session.query(Panel)
-        if active_only:
-            query = query.filter(Panel.status == True)
-        return query.all()
-    
-    def update_panel_status(self, panel_id: int, status: bool) -> Optional[Panel]:
-        """
-        بروزرسانی وضعیت پنل
-        
-        Args:
-            panel_id: شناسه پنل
-            status: وضعیت جدید
-        
-        Returns:
-            مدل Panel بروزرسانی شده یا None اگر یافت نشود
-        """
-        panel = self.get_panel_by_id(panel_id)
+        # دریافت پنل
+        panel = await self.panel_repo.get_by_id(panel_id, [selectinload(Panel.inbounds)])
         if not panel:
-            return None
-        
+            raise ValueError(f"پنل با شناسه {panel_id} یافت نشد")
+
+        # دریافت inbound‌های فعلی
+        current_inbounds = {inb.remote_id: inb for inb in panel.inbounds 
+                          if inb.status != InboundStatus.DELETED}
+
         try:
-            panel.status = status
-            self.db_session.commit()
-            self.db_session.refresh(panel)
-            logger.info(f"Panel {panel.name} status updated to {status}")
-            return panel
-        except SQLAlchemyError as e:
-            self.db_session.rollback()
-            logger.error(f"Failed to update panel status: {e}")
-            raise
-    
-    def _get_xui_client(self, panel: Panel) -> XuiClient:
-        """
-        ایجاد کلاینت XUI برای پنل
-        
-        Args:
-            panel: مدل Panel
-        
-        Returns:
-            کلاینت XUI
-        """
-        return XuiClient(panel.url, panel.username, panel.password)
-    
-    async def sync_panel_inbounds(self, panel_id: int) -> List[Inbound]:
-        """
-        همگام‌سازی inbound‌های پنل با دیتابیس
-        
-        Args:
-            panel_id: شناسه پنل
-        
-        Returns:
-            لیست inbound‌های همگام‌سازی شده
-        """
-        panel = self.get_panel_by_id(panel_id)
-        if not panel:
-            raise ValueError(f"Panel with ID {panel_id} not found")
-        
-        # دریافت تمام inbound‌های فعلی پنل از دیتابیس
-        existing_inbounds = self.db_session.query(Inbound).filter(Inbound.panel_id == panel_id).all()
-        existing_inbound_ids = {inbound.inbound_id: inbound for inbound in existing_inbounds}
-        
-        # ایجاد کلاینت و دریافت inbound‌ها از پنل
-        client = self._get_xui_client(panel)
-        await client.login()
-        inbounds_from_panel = await client.get_inbounds()
-        
-        # لیست inbound‌های به‌روزشده یا جدید
-        updated_inbounds = []
-        
-        try:
-            for inbound_data in inbounds_from_panel:
-                inbound_id = inbound_data["id"]
-                protocol = inbound_data["protocol"]
-                tag = inbound_data["remark"] or f"Inbound-{inbound_id}"
+            # دریافت inbound‌ها از پنل
+            client = await self._get_xui_client(panel.url, panel.username, panel.password)
+            panel_inbounds = await client.get_inbounds()
+
+            # به‌روزرسانی یا ایجاد inbound‌ها
+            for inb_data in panel_inbounds:
+                remote_id = inb_data["id"]
                 
-                # استخراج اطلاعات مهم از تنظیمات inbound
-                settings = inbound_data.get("settings", {})
-                clients = settings.get("clients", [])
-                client_limit = len(clients) if clients else 0
-                
-                # ترافیک محدودیت (اگر وجود دارد)
-                traffic_limit = None
-                if inbound_data.get("totalGB", 0) > 0:
-                    traffic_limit = inbound_data["totalGB"]
-                
-                # اگر inbound در دیتابیس وجود دارد، به‌روزرسانی می‌شود
-                if inbound_id in existing_inbound_ids:
-                    inbound = existing_inbound_ids[inbound_id]
-                    inbound.protocol = protocol
-                    inbound.tag = tag
-                    inbound.client_limit = client_limit
-                    inbound.traffic_limit = traffic_limit
-                    logger.info(f"Updated inbound {inbound_id} ({tag}) for panel {panel.name}")
+                if remote_id in current_inbounds:
+                    # به‌روزرسانی inbound موجود
+                    inbound = current_inbounds[remote_id]
+                    inbound.protocol = inb_data["protocol"]
+                    inbound.tag = inb_data.get("remark", "")
+                    inbound.port = inb_data["port"]
+                    inbound.settings_json = inb_data.get("settings", {})
+                    inbound.sniffing = inb_data.get("sniffing", {})
+                    inbound.status = (InboundStatus.ACTIVE 
+                                    if inb_data.get("enable", True) 
+                                    else InboundStatus.DISABLED)
+                    inbound.last_synced = datetime.utcnow()
                 else:
                     # ایجاد inbound جدید
-                    inbound = Inbound(
-                        panel_id=panel_id,
-                        inbound_id=inbound_id,
-                        protocol=protocol,
-                        tag=tag,
-                        client_limit=client_limit,
-                        traffic_limit=traffic_limit
+                    new_inbound = Inbound(
+                        panel_id=panel.id,
+                        remote_id=remote_id,
+                        protocol=inb_data["protocol"],
+                        tag=inb_data.get("remark", ""),
+                        port=inb_data["port"],
+                        settings_json=inb_data.get("settings", {}),
+                        sniffing=inb_data.get("sniffing", {}),
+                        status=(InboundStatus.ACTIVE 
+                               if inb_data.get("enable", True) 
+                               else InboundStatus.DISABLED),
+                        max_clients=inb_data.get("max_clients", 0),
+                        last_synced=datetime.utcnow()
                     )
-                    self.db_session.add(inbound)
-                    logger.info(f"Added new inbound {inbound_id} ({tag}) for panel {panel.name}")
-                
-                updated_inbounds.append(inbound)
-            
-            # حذف inbound‌هایی که دیگر در پنل وجود ندارند
-            panel_inbound_ids = {inbound["id"] for inbound in inbounds_from_panel}
-            for db_inbound_id, inbound in existing_inbound_ids.items():
-                if db_inbound_id not in panel_inbound_ids:
-                    self.db_session.delete(inbound)
-                    logger.info(f"Removed inbound {db_inbound_id} as it no longer exists in panel {panel.name}")
-            
-            # ذخیره تغییرات
-            self.db_session.commit()
-            
-            # تازه‌سازی inbound‌ها
-            for inbound in updated_inbounds:
-                self.db_session.refresh(inbound)
-            
-            logger.info(f"Synchronized {len(updated_inbounds)} inbounds for panel {panel.name}")
-            return updated_inbounds
-            
+                    panel.inbounds.append(new_inbound)
+
+            # علامت‌گذاری inbound‌های حذف شده
+            panel_inbound_ids = {inb["id"] for inb in panel_inbounds}
+            for inbound in current_inbounds.values():
+                if inbound.remote_id not in panel_inbound_ids:
+                    inbound.status = InboundStatus.DELETED
+                    inbound.last_synced = datetime.utcnow()
+
+            await self.session.commit()
+            logger.info(f"همگام‌سازی موفق inbound‌های پنل {panel_id}")
+
         except Exception as e:
-            self.db_session.rollback()
-            logger.error(f"Failed to sync inbounds for panel {panel.name}: {str(e)}")
+            await self.session.rollback()
+            logger.error(f"خطا در همگام‌سازی inbound‌های پنل {panel_id}: {str(e)}", exc_info=True)
             raise
 
     async def sync_all_panels_inbounds(self) -> Dict[int, List[Inbound]]:
@@ -250,16 +182,20 @@ class PanelService:
         Returns:
             دیکشنری از شناسه پنل به لیست inbound‌های همگام‌سازی شده
         """
-        panels = self.get_all_panels(active_only=True)
+        panels = await self.get_active_panels()
         results = {}
         
         for panel in panels:
             try:
-                inbounds = await self.sync_panel_inbounds(panel.id)
-                results[panel.id] = inbounds
-                logger.info(f"Successfully synced {len(inbounds)} inbounds for panel {panel.name}")
+                await self.sync_panel_inbounds(panel.id)
+                results[panel.id] = panel.inbounds
+                logger.info(f"Successfully synced {len(panel.inbounds)} inbounds for panel {panel.name}")
             except Exception as e:
                 logger.error(f"Failed to sync inbounds for panel {panel.name} (ID: {panel.id}): {str(e)}")
+                # ارسال نوتیفیکیشن به ادمین‌ها
+                await self.notification_service.notify_admins(
+                    f"⚠️ خطا در همگام‌سازی inbound‌های پنل {panel.name}:\n{str(e)}"
+                )
                 # ادامه دادن با پنل بعدی بدون توقف پروسه
                 results[panel.id] = []
         

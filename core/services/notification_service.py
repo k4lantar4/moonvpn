@@ -3,9 +3,8 @@
 """
 
 import logging
-import asyncio
 from typing import List, Optional, Union
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from core import settings
 
@@ -14,9 +13,9 @@ logger = logging.getLogger(__name__)
 class NotificationService:
     """سرویس مدیریت نوتیفیکیشن‌ها با قابلیت ارسال به کاربران، ادمین‌ها و کانال عمومی"""
     
-    def __init__(self, db_session: Session):
+    def __init__(self, session: AsyncSession):
         """مقداردهی اولیه سرویس"""
-        self.db_session = db_session
+        self.session = session
         # در اینجا bot_instance در زمان اجرا تنظیم می‌شود
         # مقدار پیش‌فرض None است اما در init_bot این مقدار تنظیم می‌شود
         self.bot_instance = None
@@ -25,7 +24,7 @@ class NotificationService:
         """تنظیم نمونه بات برای ارسال پیام‌ها"""
         self.bot_instance = bot
         
-    def notify_user(self, user_id: int, message: str) -> bool:
+    async def notify_user(self, user_id: int, message: str) -> bool:
         """
         ارسال پیام به یک کاربر
         
@@ -41,21 +40,12 @@ class NotificationService:
             if self.bot_instance:
                 # در حالت اجرا، پیام به کاربر ارسال می‌شود
                 try:
-                    # برای بات‌های aiogram، باید کد ارسال را به صورت async اجرا کنیم
-                    event_loop = asyncio.get_event_loop()
-                    if not event_loop.is_running():
-                        # اگر event loop در حال اجرا نباشد، یک loop جدید ایجاد می‌کنیم
-                        loop = asyncio.new_event_loop()
-                        asyncio.set_event_loop(loop)
-                        loop.run_until_complete(self._send_telegram_message(user_id, message))
-                    else:
-                        # اگر event loop در حال اجرا باشد، از create_task استفاده می‌کنیم
-                        asyncio.create_task(self._send_telegram_message(user_id, message))
+                    await self._send_telegram_message(user_id, message)
+                    logger.info(f"Notification sent to user {user_id}: {message[:50]}...")
+                    return True
                 except Exception as e:
-                    logger.error(f"Error sending async telegram message: {e}")
-                
-                logger.info(f"Notification sent to user {user_id}: {message[:50]}...")
-                return True
+                    logger.error(f"Error sending telegram message: {e}")
+                    return False
             else:
                 # در حالت CLI یا تست، پیام در لاگ ثبت می‌شود
                 logger.info(f"[CLI MODE] Would send to user {user_id}: {message}")
@@ -77,8 +67,9 @@ class NotificationService:
             logger.info(f"Async message sent to user {user_id}")
         except Exception as e:
             logger.error(f"Error in async message sending: {str(e)}")
+            raise
     
-    def notify_admin(self, message: str) -> bool:
+    async def notify_admin(self, message: str) -> bool:
         """
         ارسال پیام به همه ادمین‌ها
         
@@ -101,7 +92,7 @@ class NotificationService:
             # در حالت اجرای ربات، پیام به همه ادمین‌ها ارسال می‌شود
             success = True
             for admin_id in admin_ids:
-                if not self.notify_user(admin_id, message):
+                if not await self.notify_user(admin_id, message):
                     success = False
             
             return success
@@ -109,7 +100,7 @@ class NotificationService:
             logger.error(f"Failed to send notification to admins: {str(e)}")
             return False
     
-    def notify_channel(self, message: str) -> bool:
+    async def notify_channel(self, message: str) -> bool:
         """
         ارسال پیام به کانال عمومی
         
@@ -130,21 +121,12 @@ class NotificationService:
             
             # در حالت اجرای ربات، پیام به کانال ارسال می‌شود
             try:
-                # برای بات‌های aiogram، باید کد ارسال را به صورت async اجرا کنیم
-                event_loop = asyncio.get_event_loop()
-                if not event_loop.is_running():
-                    # اگر event loop در حال اجرا نباشد، یک loop جدید ایجاد می‌کنیم
-                    loop = asyncio.new_event_loop()
-                    asyncio.set_event_loop(loop)
-                    loop.run_until_complete(self._send_telegram_message(channel_id, message))
-                else:
-                    # اگر event loop در حال اجرا باشد، از create_task استفاده می‌کنیم
-                    asyncio.create_task(self._send_telegram_message(channel_id, message))
+                await self._send_telegram_message(channel_id, message)
+                logger.info(f"Channel notification sent: {message[:50]}...")
+                return True
             except Exception as e:
-                logger.error(f"Error sending async telegram message to channel: {e}")
-                
-            logger.info(f"Channel notification sent: {message[:50]}...")
-            return True
+                logger.error(f"Error sending telegram message to channel: {e}")
+                return False
         except Exception as e:
             logger.error(f"Failed to send notification to channel: {str(e)}")
             return False

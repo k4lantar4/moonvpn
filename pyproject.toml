@@ -14,7 +14,7 @@ sqlalchemy = "^2.0.23"
 alembic = "^1.12.1"
 python-dotenv = "^1.0.0"
 redis = "^5.0.1"
-pymysql = "^1.1.0"
+aiomysql = "^0.2.0"
 py3xui = { git = "https://github.com/iwatkot/py3xui.git", rev = "main" }
 cryptography = "^41.0.5"
 orjson = "^3.9.10"
