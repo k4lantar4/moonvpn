@@ -9,14 +9,14 @@ class AddPanel(StatesGroup):
     """
     وضعیت‌های مربوط به اضافه کردن پنل جدید
     """
-    enter_name = State()           # وارد کردن نام پنل
-    enter_address = State()        # وارد کردن آدرس پنل
-    enter_port = State()           # وارد کردن پورت پنل
-    enter_username = State()       # وارد کردن نام کاربری
-    enter_password = State()       # وارد کردن رمز عبور
-    enter_location = State()       # وارد کردن لوکیشن
-    enter_flag = State()          # وارد کردن ایموجی پرچم
-    confirm = State()             # تایید نهایی
+    name = State()                # وارد کردن نام پنل
+    location = State()            # وارد کردن موقعیت پنل
+    flag_emoji = State()          # وارد کردن ایموجی پرچم کشور
+    url = State()                 # وارد کردن آدرس پنل
+    username = State()            # وارد کردن نام کاربری
+    password = State()            # وارد کردن رمز عبور
+    default_label = State()       # وارد کردن پیشوند نام اکانت پیش‌فرض
+    confirmation = State()        # تایید نهایی
 
 
 class AddInbound(StatesGroup):

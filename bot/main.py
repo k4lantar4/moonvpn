@@ -11,6 +11,7 @@ from aiogram import Bot, Dispatcher, Router
 from aiogram.enums import ParseMode
 from aiogram.fsm.storage.memory import MemoryStorage
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+from aiogram.client.default import DefaultBotProperties
 
 from core.settings import DATABASE_URL, BOT_TOKEN
 from core.services.notification_service import NotificationService
@@ -57,7 +58,7 @@ async def setup_bot() -> Bot:
     
     return Bot(
         token=BOT_TOKEN,
-        parse_mode=ParseMode.HTML
+        default=DefaultBotProperties(parse_mode=ParseMode.HTML)
     )
 
 async def setup_dispatcher() -> Dispatcher:

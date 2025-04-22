@@ -76,7 +76,7 @@ volumes:
   mysql_data:
   redis_data:
 
-# شبکه داخلی
+    # شبکه داخلی
 networks:
   moonvpn_network:
     driver: bridge

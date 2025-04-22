@@ -9,6 +9,8 @@ from sqlalchemy import Column, Integer, String, ForeignKey, JSON, DateTime, Bool
 from sqlalchemy.orm import relationship, backref, Mapped
 
 from db.models import Base
+from .panel import Panel
+from .client_account import ClientAccount
 
 
 class InboundStatus(str, Enum):
@@ -39,8 +41,7 @@ class Inbound(Base):
     panel = relationship("Panel", back_populates="inbounds")
     client_accounts: Mapped[List["ClientAccount"]] = relationship(
         "ClientAccount",
-        back_populates="inbound",
-        cascade="all, delete-orphan"
+        back_populates="inbound"
     )
     
     def __repr__(self):

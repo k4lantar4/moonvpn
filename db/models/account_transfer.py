@@ -6,31 +6,34 @@ from datetime import datetime
 from typing import List, Optional
 
 from sqlalchemy import BigInteger, DateTime, Integer, Column, ForeignKey
-from sqlalchemy.orm import relationship, Mapped
+from sqlalchemy.orm import relationship, Mapped, mapped_column
 
 from . import Base
+from .client_account import ClientAccount
 
 
 class AccountTransfer(Base):
     """مدل انتقال اکانت‌های VPN بین پنل‌ها در سیستم MoonVPN"""
     
-    __tablename__ = "account_transfer"
+    __tablename__ = "account_transfers"
     
     # فیلدهای اصلی
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    old_account_id = Column(Integer, ForeignKey("client_accounts.id"), nullable=False)
-    new_account_id = Column(Integer, ForeignKey("client_accounts.id"), nullable=False)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    old_account_id: Mapped[int] = mapped_column(ForeignKey("client_accounts.id"))
+    new_account_id: Mapped[int] = mapped_column(ForeignKey("client_accounts.id"))
     from_panel_id = Column(Integer, ForeignKey("panels.id"), nullable=False)
     to_panel_id = Column(Integer, ForeignKey("panels.id"), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     
     # ارتباط با سایر مدل‌ها
     old_account: Mapped["ClientAccount"] = relationship(
-        foreign_keys=[old_account_id], 
+        "ClientAccount",
+        foreign_keys=[old_account_id],
         back_populates="from_transfers"
     )
     new_account: Mapped["ClientAccount"] = relationship(
-        foreign_keys=[new_account_id], 
+        "ClientAccount",
+        foreign_keys=[new_account_id],
         back_populates="to_transfers"
     )
     

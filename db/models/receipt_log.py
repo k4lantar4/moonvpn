@@ -7,7 +7,7 @@ from enum import Enum
 from typing import Optional, TYPE_CHECKING
 
 from sqlalchemy import BigInteger, Boolean, DateTime, String, Column, Enum as SQLEnum, ForeignKey, Text, DECIMAL
-from sqlalchemy.orm import relationship, Mapped
+from sqlalchemy.orm import relationship, Mapped, mapped_column
 
 from . import Base
 
@@ -47,19 +47,19 @@ class ReceiptLog(Base):
     responded_at = Column(DateTime, nullable=True)
     
     # ارتباط با سایر مدل‌ها
-    user_id = Column(BigInteger, ForeignKey("users.id"), nullable=False)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     user = relationship("User", back_populates="receipt_logs", foreign_keys=[user_id])
     
-    order_id = Column(BigInteger, ForeignKey("orders.id"), nullable=True)
+    order_id: Mapped[Optional[int]] = mapped_column(ForeignKey("orders.id"), nullable=True)
     order: Mapped[Optional["Order"]] = relationship("Order", back_populates="receipt", foreign_keys=[order_id])
     
-    transaction_id = Column(BigInteger, ForeignKey("transactions.id"), nullable=True)
+    transaction_id: Mapped[Optional[int]] = mapped_column(ForeignKey("transactions.id"), nullable=True)
     transaction: Mapped[Optional["Transaction"]] = relationship("Transaction", back_populates="receipt_logs")
     
-    card_id = Column(BigInteger, ForeignKey("bank_cards.id"), nullable=False)
+    card_id: Mapped[int] = mapped_column(ForeignKey("bank_cards.id"), nullable=False)
     bank_card: Mapped["BankCard"] = relationship("BankCard", back_populates="receipt_logs")
     
-    admin_id = Column(BigInteger, ForeignKey("users.id"), nullable=True)
+    admin_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
     admin: Mapped[Optional["User"]] = relationship("User", foreign_keys=[admin_id], back_populates="reviewed_receipts")
     
     def __repr__(self) -> str:

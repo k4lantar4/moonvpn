@@ -40,7 +40,7 @@ class Plan(Base):
     # تعریف روابط با سایر مدل‌ها
     created_by: Mapped[Optional["User"]] = relationship(foreign_keys=[created_by_id], back_populates="created_plans")
     orders: Mapped[List["Order"]] = relationship(back_populates="plan")
-    # test_account_logs: Mapped[List["TestAccountLog"]] = relationship(back_populates="plan") # Temporarily commented out if TestAccountLog is not ready
+    test_account_logs: Mapped[List["TestAccountLog"]] = relationship(back_populates="plan")
     client_accounts: Mapped[List["ClientAccount"]] = relationship(back_populates="plan")
     
     def __repr__(self) -> str:

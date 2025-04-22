@@ -48,7 +48,7 @@ class Transaction(Base):
     # ارتباط با سایر مدل‌ها
     user: Mapped["User"] = relationship(back_populates="transactions")
     order: Mapped[Optional["Order"]] = relationship(back_populates="transactions", foreign_keys=[related_order_id])
-    receipt_logs: Mapped[List["ReceiptLog"]] = relationship(back_populates="transaction") # Needs back_populates in ReceiptLog
+    receipt_logs: Mapped[List["ReceiptLog"]] = relationship(back_populates="transaction")
     
     def __repr__(self) -> str:
         return f"<Transaction(id={self.id}, user_id={self.user_id}, related_order_id={self.related_order_id}, amount={self.amount}, status='{self.status.value}')>"

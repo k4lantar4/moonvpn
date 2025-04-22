@@ -7,11 +7,12 @@ from enum import Enum
 from typing import List, Optional, TYPE_CHECKING
 
 from sqlalchemy import BigInteger, DateTime, Integer, String, Column, ForeignKey, DECIMAL, Enum as SQLEnum, Boolean
-from sqlalchemy.orm import relationship, Mapped
+from sqlalchemy.orm import relationship, Mapped, mapped_column
 
 from . import Base
 from .receipt_log import ReceiptLog
 from .transaction import Transaction
+from .client_account import ClientAccount
 
 if TYPE_CHECKING:
     from .user import User
@@ -41,7 +42,7 @@ class Order(Base):
     user_id = Column(BigInteger, ForeignKey("users.id"), nullable=False)
     plan_id = Column(Integer, ForeignKey("plans.id"), nullable=False)
     location_name = Column(String(100), nullable=False)
-    client_account_id = Column(Integer, ForeignKey("client_accounts.id"), nullable=True)
+    client_account_id: Mapped[Optional[int]] = mapped_column(ForeignKey("client_accounts.id"), nullable=True)
     amount = Column(DECIMAL(10, 2), nullable=False)
     final_amount = Column(DECIMAL(10, 2), nullable=True)
     discount_code_id = Column(Integer, ForeignKey("discount_codes.id"), nullable=True)
@@ -58,10 +59,8 @@ class Order(Base):
     receipt: Mapped[Optional["ReceiptLog"]] = relationship(back_populates="order")
     transactions: Mapped[List["Transaction"]] = relationship(back_populates="order")
     client_account: Mapped[Optional["ClientAccount"]] = relationship(
-        "ClientAccount",
-        back_populates="orders",
-        foreign_keys=[client_account_id],
-        remote_side="ClientAccount.id"
+        back_populates="orders", 
+        foreign_keys=[client_account_id]
     )
     
     def __repr__(self) -> str:

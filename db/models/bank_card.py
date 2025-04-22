@@ -10,6 +10,8 @@ from sqlalchemy import BigInteger, Boolean, DateTime, String, Column, Enum as SQ
 from sqlalchemy.orm import relationship, Mapped
 
 from . import Base
+from .user import User
+from .receipt_log import ReceiptLog
 
 
 class RotationPolicy(str, Enum):
@@ -37,7 +39,7 @@ class BankCard(Base):
     
     # ارتباط با سایر مدل‌ها
     admin_user_id = Column(BigInteger, ForeignKey("users.id"), nullable=False)
-    admin_user = relationship("User", backref="bank_cards")
+    admin_user: Mapped["User"] = relationship("User", back_populates="bank_cards")
     receipt_logs: Mapped[List["ReceiptLog"]] = relationship(back_populates="bank_card")
     
     def __repr__(self) -> str:

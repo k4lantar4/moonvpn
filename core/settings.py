@@ -4,6 +4,9 @@
 
 import os
 from typing import List, Dict, Any
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # شناسه‌های ادمین‌ها برای دریافت نوتیفیکیشن‌ها و انجام عملیات مدیریتی
 ADMIN_IDS: List[int] = [
@@ -21,7 +24,7 @@ if os.getenv("ADDITIONAL_ADMIN_IDS"):
 CHANNEL_ID: str = os.getenv("CHANNEL_ID", "@moonvpn_channel")
 
 # توکن دسترسی بات تلگرام
-BOT_TOKEN: str = os.getenv("TELEGRAM_BOT_TOKEN", "")
+BOT_TOKEN: str = os.getenv("TELEGRAM_BOT_TOKEN") or os.getenv("BOT_TOKEN", "")
 
 # قوانین نام‌گذاری اکانت‌ها
 ACCOUNT_NAMING_TEMPLATE: str = "{location}-Moonvpn-{id}"

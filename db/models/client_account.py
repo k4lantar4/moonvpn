@@ -59,17 +59,19 @@ class ClientAccount(Base):
     plan: Mapped["Plan"] = relationship(back_populates="client_accounts")
     orders: Mapped[List["Order"]] = relationship(
         "Order",
-        back_populates="client_account",
+        back_populates="client_account", 
         foreign_keys="Order.client_account_id"
     )
     
     # Relationships for AccountTransfer
     from_transfers: Mapped[List["AccountTransfer"]] = relationship(
-        foreign_keys="AccountTransfer.old_account_id", 
+        "AccountTransfer",
+        foreign_keys="AccountTransfer.old_account_id",
         back_populates="old_account"
     )
     to_transfers: Mapped[List["AccountTransfer"]] = relationship(
-        foreign_keys="AccountTransfer.new_account_id", 
+        "AccountTransfer",
+        foreign_keys="AccountTransfer.new_account_id",
         back_populates="new_account"
     )
     
