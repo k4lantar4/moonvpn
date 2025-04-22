@@ -31,7 +31,7 @@ class PlanService:
         Returns:
             لیست پلن‌های فعال
         """
-        return await self.repository.get_all_active_plans()
+        return await self.repository.get_all_active()
     
     async def get_all_plans(self, active_only: bool = True) -> List[Plan]:
         """
@@ -44,7 +44,7 @@ class PlanService:
             لیست پلن‌ها
         """
         if active_only:
-            return await self.repository.get_all_active_plans()
+            return await self.repository.get_all_active()
         return await self.repository.get_all()
     
     async def get_plan_by_id(self, plan_id: int) -> Optional[Plan]:

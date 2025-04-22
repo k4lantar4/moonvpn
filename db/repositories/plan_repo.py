@@ -6,7 +6,7 @@ from typing import Optional, List
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from db.models.plan import Plan
+from db.models.plan import Plan, PlanStatus
 from .base_repository import BaseRepository
 
 class PlanRepository(BaseRepository[Plan]):
@@ -14,11 +14,11 @@ class PlanRepository(BaseRepository[Plan]):
 
     def __init__(self, session: AsyncSession):
         """مقداردهی اولیه با کلاس مدل Plan"""
-        super().__init__(Plan, session)
+        super().__init__(session, Plan)
 
-    async def get_all_active_plans(self) -> List[Plan]:
+    async def get_all_active(self) -> List[Plan]:
         """دریافت تمام پلن‌های فعال"""
-        query = select(Plan).where(Plan.is_active == True).order_by(Plan.price)
+        query = select(Plan).where(Plan.status == PlanStatus.ACTIVE).order_by(Plan.created_at.desc())
         result = await self.session.execute(query)
         return list(result.scalars().all())
 
@@ -30,10 +30,10 @@ class PlanRepository(BaseRepository[Plan]):
         """ایجاد پلن جدید"""
         return await self.create(
             name=name,
-            traffic=traffic,
+            traffic_gb=traffic,
             duration_days=duration_days,
             price=price,
-            is_active=True
+            status=PlanStatus.ACTIVE
         )
 
     async def update_plan(self, plan_id: int, **kwargs) -> Optional[Plan]:
@@ -48,7 +48,7 @@ class PlanRepository(BaseRepository[Plan]):
         """
         plan = await self.get_by_id(plan_id)
         if plan:
-            plan.is_active = False
+            plan.status = PlanStatus.INACTIVE
             await self.session.commit()
             return True
         return False 

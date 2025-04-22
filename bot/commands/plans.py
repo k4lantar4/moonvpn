@@ -32,7 +32,7 @@ def register_plans_command(router: Router, session_pool: async_sessionmaker[Asyn
                 
                 # بررسی وجود پلن
                 if not plans:
-                    await message.answer("در حال حاضر هیچ پلنی برای خرید موجود نیست.")
+                    await message.answer("هیچ پلنی فعال نیست، لطفاً بعداً دوباره تلاش کنید.")
                     return
                 
                 # نمایش لیست پلن‌ها با دکمه‌های انتخاب

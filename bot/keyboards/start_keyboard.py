@@ -20,7 +20,7 @@ def get_start_keyboard(role: str) -> InlineKeyboardMarkup:
     kb = InlineKeyboardBuilder()
     
     # Common buttons for all users
-    kb.button(text="🛒 خرید اشتراک", callback_data="buy_plans")
+    kb.button(text="🛒 خرید سرویس", callback_data="buy_plans")
     kb.button(text="💳 کیف پول", callback_data="wallet_menu")
     kb.button(text="📊 اشتراک‌های من", callback_data="my_accounts")
     kb.button(text="❓ راهنما", callback_data="help_menu")

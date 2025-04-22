@@ -27,7 +27,9 @@ from bot.commands import (
 from bot.callbacks import (
     register_buy_callbacks,
     register_wallet_callbacks,
-    register_admin_callbacks
+    register_admin_callbacks,
+    register_callbacks,
+    register_plan_callbacks,
 )
 from bot.middlewares import AuthMiddleware, ErrorMiddleware
 
@@ -87,6 +89,8 @@ async def setup_dispatcher() -> Dispatcher:
     register_buy_callbacks(router, SessionLocal)
     register_wallet_callbacks(router, SessionLocal)
     register_admin_callbacks(router, SessionLocal)
+    register_callbacks(router, SessionLocal)
+    register_plan_callbacks(router, SessionLocal)
     
     # Include router in dispatcher
     dp.include_router(start_router)

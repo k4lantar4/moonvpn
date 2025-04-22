@@ -85,7 +85,6 @@
 		"terminal.integrated.tabs.location": "tab",
 		"terminal.integrated.tabs.showActiveTerminal": "always",
 		"terminal.integrated.tabs.hideCondition": "never",
-		"nxConsole.nxWorkspacePath": "",
 		"cursor.general.globalCursorIgnoreList": [
 			"**/credentials.json",
 			"**/credentials.*.json",

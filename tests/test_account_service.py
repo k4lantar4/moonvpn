@@ -66,7 +66,7 @@ async def test_manually_create_client_account():
             
         # محاسبه تاریخ انقضا و حجم ترافیک
         expires_at = datetime.now() + timedelta(days=plan.duration_days)
-        traffic = plan.traffic  # حجم ترافیک به GB
+        traffic = plan.traffic_gb  # حجم ترافیک به GB
         
         logger.info(f"Plan details: traffic={traffic}GB, duration={plan.duration_days} days, expires_at={expires_at}")
         

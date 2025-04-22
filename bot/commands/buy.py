@@ -22,7 +22,7 @@ def register_buy_command(router: Router, session_pool: async_sessionmaker):
     """ثبت فرمان /buy برای شروع فرایند خرید"""
     
     @router.message(Command("buy"))
-    @router.message(F.text == "🛒 خرید اشتراک")
+    @router.message(F.text == "🛒 خرید سرویس")
     async def cmd_buy(message: Message, state: FSMContext):
         """شروع فرایند خرید پلن و دریافت کانفیگ"""
         user_id = message.from_user.id
@@ -47,7 +47,7 @@ def register_buy_command(router: Router, session_pool: async_sessionmaker):
                 plans = await plan_service.get_all_active_plans()
                 
                 if not plans:
-                    await message.answer("در حال حاضر هیچ پلنی برای خرید موجود نیست.")
+                    await message.answer("هیچ پلنی فعال نیست، لطفاً بعداً دوباره تلاش کنید.")
                     return
                 
                 # نمایش موجودی کیف پول

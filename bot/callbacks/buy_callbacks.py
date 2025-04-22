@@ -9,11 +9,12 @@ from aiogram.fsm.context import FSMContext
 
 from core.services.plan_service import PlanService
 from core.services.panel_service import PanelService
-from core.services.inbound_service import InboundService
 from core.services.location_service import LocationService
+from core.services.inbound_service import InboundService
 
 from bot.states.buy_states import BuyState
-from bot.buttons.inbound_buttons import get_panel_locations_keyboard, get_inbounds_keyboard
+from bot.keyboards.buy_keyboards import get_locations_keyboard, get_plans_keyboard
+from bot.buttons.inbound_buttons import get_inbounds_keyboard
 
 # تنظیم لاگر
 logger = logging.getLogger(__name__)
@@ -23,35 +24,27 @@ def register_buy_callbacks(router: Router, session_pool):
     
     @router.callback_query(F.data.startswith("select_plan:"))
     async def plan_selected(callback: CallbackQuery, state: FSMContext):
-        """
-        انتخاب پلن توسط کاربر
-        """
+        """انتخاب پلن توسط کاربر"""
         try:
             plan_id = int(callback.data.split(":")[1])
-            
             # ذخیره پلن انتخاب شده
             await state.update_data(plan_id=plan_id)
-            
             async with session_pool() as session:
-                # دریافت لیست پنل‌های فعال
-                panel_service = PanelService(session)
-                panels = await panel_service.get_active_panels()
-                
-                if not panels:
+                # دریافت لیست لوکیشن‌های فعال از سرویس لوکیشن
+                location_service = LocationService(session)
+                locations = await location_service.get_available_locations()
+                if not locations:
                     await callback.message.edit_text(
                         "⚠️ در حال حاضر هیچ لوکیشن فعالی موجود نیست.\n"
                         "لطفا بعدا مجددا تلاش کنید."
                     )
                     return
-                
                 # نمایش لیست لوکیشن‌ها
                 await callback.message.edit_text(
                     "🌍 لطفا لوکیشن مورد نظر خود را انتخاب کنید:",
-                    reply_markup=get_panel_locations_keyboard(panels)
+                    reply_markup=get_locations_keyboard(locations)
                 )
-                
                 await state.set_state(BuyState.select_location)
-                
         except Exception as e:
             logger.error(f"Error in plan selection: {e}")
             await callback.answer("خطا در پردازش درخواست", show_alert=True)
@@ -193,6 +186,10 @@ def register_buy_callbacks(router: Router, session_pool):
                 plan_service = PlanService(session)
                 plans = await plan_service.get_all_active_plans()
                 
+                if not plans:
+                    await callback.message.edit_text("هیچ پلنی فعال نیست، لطفاً بعداً دوباره تلاش کنید.")
+                    return
+                
                 await callback.message.edit_text(
                     "🔍 لطفاً پلن مورد نظر خود را انتخاب کنید:",
                     reply_markup=get_plans_keyboard(plans)
@@ -209,19 +206,24 @@ def register_buy_callbacks(router: Router, session_pool):
         """بازگشت به لیست لوکیشن‌ها"""
         try:
             plan_id = int(callback.data.split(":")[1])
+            # ذخیره پلن انتخاب شده
             await state.update_data(plan_id=plan_id)
-            
             async with session_pool() as session:
-                panel_service = PanelService(session)
-                panels = await panel_service.get_active_panels()
-                
+                # دریافت لیست لوکیشن‌های فعال از سرویس لوکیشن
+                location_service = LocationService(session)
+                locations = await location_service.get_available_locations()
+                if not locations:
+                    await callback.message.edit_text(
+                        "⚠️ در حال حاضر هیچ لوکیشن فعالی موجود نیست.\n"
+                        "لطفا بعدا مجددا تلاش کنید."
+                    )
+                    return
+                # نمایش لیست لوکیشن‌ها
                 await callback.message.edit_text(
                     "🌍 لطفا لوکیشن مورد نظر خود را انتخاب کنید:",
-                    reply_markup=get_panel_locations_keyboard(panels)
+                    reply_markup=get_locations_keyboard(locations)
                 )
-                
                 await state.set_state(BuyState.select_location)
-                
         except Exception as e:
             logger.error(f"Error in back to locations: {e}")
             await callback.answer("خطا در پردازش درخواست", show_alert=True)

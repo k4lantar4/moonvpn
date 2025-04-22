@@ -47,7 +47,7 @@ def get_main_keyboard(role: str = "user") -> ReplyKeyboardMarkup:
     kb = ReplyKeyboardBuilder()
     
     # Common buttons for all users
-    kb.button(text="🛒 خرید اشتراک")
+    kb.button(text="🛒 خرید سرویس")
     kb.button(text="💳 کیف پول")
     kb.button(text="📊 اشتراک‌های من")
     kb.button(text="❓ راهنما")

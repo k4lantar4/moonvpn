@@ -6,7 +6,7 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from db.models.plan import Plan
-from db.models.location import Location
+from db.models.panel import Panel
 from db.models.inbound import Inbound
 
 
@@ -35,28 +35,24 @@ def get_plans_keyboard(plans: list[Plan]) -> InlineKeyboardMarkup:
     return builder.as_markup()
 
 
-def get_locations_keyboard(locations: list[Location]) -> InlineKeyboardMarkup:
+def get_locations_keyboard(locations: list[Panel]) -> InlineKeyboardMarkup:
     """
     ساخت کیبورد انتخاب لوکیشن
     """
     builder = InlineKeyboardBuilder()
-    
-    # دکمه‌های لوکیشن‌ها
-    for location in locations:
+    # دکمه‌های لوکیشن‌ها بر اساس پنل‌های فعال
+    for panel in locations:
         builder.button(
-            text=f"{location.name} - پینگ: {location.ping}ms",
-            callback_data=f"location:{location.id}"
+            text=f"{panel.flag_emoji} {panel.location_name}",
+            callback_data=f"select_location:{panel.id}"
         )
-    
-    # دکمه بازگشت
+    # دکمه بازگشت به پلن‌ها
     builder.button(
         text="🔙 بازگشت به پلن‌ها",
         callback_data="back_to_plans"
     )
-    
     # چینش دکمه‌ها
     builder.adjust(1)
-    
     return builder.as_markup()
 
 

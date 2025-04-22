@@ -8,18 +8,46 @@ import logging
 from aiogram import Router, F
 from aiogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from datetime import datetime
+from aiogram.fsm.context import FSMContext
 
 from core.services.plan_service import PlanService
 from core.services.user_service import UserService
 from core.services.order_service import OrderService
 from bot.buttons.plan_buttons import get_plans_keyboard, get_plan_details_keyboard
 from db.models.order import Order, OrderStatus
+from bot.states.buy_states import BuyState
 
 # تنظیم لاگر
 logger = logging.getLogger(__name__)
 
 def register_callbacks(router: Router, session_pool):
     """ثبت تمام callback handlers در روتر"""
+    
+    @router.callback_query(F.data == "buy_plans")
+    async def buy_plans_callback(callback: CallbackQuery, state: FSMContext):
+        """شروع فرایند خرید پلن از طریق کیبورد اینلاین"""
+        try:
+            async with session_pool() as session:
+                # دریافت پلن‌های فعال
+                plan_service = PlanService(session)
+                plans = await plan_service.get_all_active_plans()
+                
+                if not plans:
+                    await callback.message.edit_text("هیچ پلنی فعال نیست، لطفاً بعداً دوباره تلاش کنید.")
+                    return
+                
+                # نمایش لیست پلن‌ها با دکمه‌های انتخاب
+                await callback.message.edit_text(
+                    text="🔍 لطفاً پلن مورد نظر خود را انتخاب کنید:",
+                    reply_markup=get_plans_keyboard(plans)
+                )
+                
+                # تنظیم وضعیت به انتخاب پلن
+                await state.set_state(BuyState.select_plan)
+                
+        except Exception as e:
+            logger.error(f"Error in buy_plans callback: {e}")
+            await callback.answer("خطا در پردازش درخواست", show_alert=True)
     
     @router.callback_query(F.data.startswith("select_plan:"))
     async def select_plan_callback(callback: CallbackQuery):
@@ -39,7 +67,7 @@ def register_callbacks(router: Router, session_pool):
                 # نمایش اطلاعات کامل پلن
                 details = (
                     f"🔹 نام پلن: {plan.name}\n"
-                    f"🔹 حجم: {plan.traffic} گیگابایت\n"
+                    f"🔹 حجم: {plan.traffic_gb} گیگابایت\n"
                     f"🔹 مدت اعتبار: {plan.duration_days} روز\n"
                     f"🔹 قیمت: {int(plan.price):,} تومان\n\n"
                     f"برای ادامه خرید، دکمه تأیید را انتخاب کنید."
@@ -126,6 +154,10 @@ def register_callbacks(router: Router, session_pool):
             async with session_pool() as session:
                 plan_service = PlanService(session)
                 plans = await plan_service.get_all_active_plans()
+                
+                if not plans:
+                    await callback.message.edit_text("هیچ پلنی فعال نیست، لطفاً بعداً دوباره تلاش کنید.")
+                    return
                 
                 await callback.message.edit_text(
                     text="🔍 لطفاً پلن مورد نظر خود را انتخاب کنید:",

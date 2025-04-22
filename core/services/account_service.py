@@ -104,7 +104,7 @@ class AccountService:
         
         # محاسبه تاریخ انقضا و حجم ترافیک بر اساس پلن
         expires_at = datetime.now() + timedelta(days=plan.duration_days)
-        traffic = plan.traffic  # حجم ترافیک به GB
+        traffic = plan.traffic_gb  # حجم ترافیک به GB
         
         logger.info(f"Plan details: traffic={traffic}GB, duration={plan.duration_days} days, expires_at={expires_at}")
         
@@ -279,7 +279,7 @@ class AccountService:
         try:
             await xui_client.login()
             new_expire_timestamp_ms = int(new_expires_at.timestamp() * 1000)
-            new_total_bytes = (account.traffic_total_gb or 0) + new_plan.traffic * (1024**3)
+            new_total_bytes = (account.traffic_total_gb or 0) + new_plan.traffic_gb * (1024**3)
 
             update_data = {
                 "enable": True,
@@ -307,7 +307,7 @@ class AccountService:
         try:
             update_db_data = ClientAccountUpdate(
                 expires_at=new_expires_at,
-                traffic_total_gb=(account.traffic_total_gb or 0) + new_plan.traffic,
+                traffic_total_gb=(account.traffic_total_gb or 0) + new_plan.traffic_gb,
                 status=AccountStatus.ACTIVE,
                 plan_id=new_plan.id
             )

@@ -20,9 +20,13 @@ Callback handler exports
 from .buy_callbacks import register_buy_callbacks
 from .wallet_callbacks import register_wallet_callbacks
 from .admin import register_admin_callbacks
+from .common import register_callbacks
+from .plan_callbacks import register_plan_callbacks
 
 __all__ = [
     "register_buy_callbacks",
     "register_wallet_callbacks",
-    "register_admin_callbacks"
+    "register_admin_callbacks",
+    "register_callbacks",
+    "register_plan_callbacks"
 ]

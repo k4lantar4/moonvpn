@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.models.panel import Panel
 from db.repositories.panel_repo import PanelRepository
+from core.services.panel_service import PanelService
 
 logger = logging.getLogger(__name__)
 
@@ -96,4 +97,21 @@ class LocationService:
             return panels
         except Exception as e:
             logger.error(f"Failed to get {status} locations: {e}")
+            return []
+
+    async def get_available_locations(self) -> List[Panel]:
+        """
+        دریافت لیست لوکیشن‌های قابل دسترس براساس پنل‌های فعال
+
+        Returns:
+            List[Panel]: لیست پنل‌های فعال به عنوان لوکیشن
+        """
+        try:
+            # استفاده از سرویس پنل‌ها برای دریافت پنل‌های فعال
+            panel_service = PanelService(self.session)
+            panels = await panel_service.get_active_panels()
+            logger.info(f"Retrieved {len(panels)} available locations from PanelService")
+            return panels
+        except Exception as e:
+            logger.error(f"Failed to get available locations: {e}")
             return []
