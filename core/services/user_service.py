@@ -47,6 +47,23 @@ class UserService:
             update_data={'username': new_username}
         )
     
+    async def update_user(
+        self,
+        user_id: int,
+        username: Optional[str] = None,
+        first_name: Optional[str] = None,
+        last_name: Optional[str] = None
+    ) -> Optional[User]:
+        """بروزرسانی اطلاعات کاربر"""
+        # Combine first and last name into full_name
+        full_name = " ".join(filter(None, [first_name, last_name]))
+        update_data = {}
+        if username is not None:
+            update_data['username'] = username
+        if full_name:
+            update_data['full_name'] = full_name
+        return await self.user_repo.update_user(user_id, update_data)
+    
     async def create_user(
         self,
         telegram_id: int,

@@ -7,8 +7,8 @@ from decimal import Decimal
 from enum import Enum
 from typing import List, Optional, TYPE_CHECKING
 
-from sqlalchemy import BigInteger, DateTime, String, Column, Enum as SQLEnum, ForeignKey, Text, JSON
-from sqlalchemy.orm import relationship, Mapped
+from sqlalchemy import BigInteger, DateTime, String, Column, Enum as SQLEnum, ForeignKey, Text, JSON, DECIMAL
+from sqlalchemy.orm import relationship, Mapped, mapped_column
 
 from . import Base
 from .plan import Plan
@@ -51,6 +51,7 @@ class User(Base):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     status = Column(SQLEnum(UserStatus), default=UserStatus.ACTIVE, nullable=False)
     settings = Column(JSON, nullable=True)
+    balance = Column(DECIMAL(precision=10, scale=2), default=0, nullable=False)
     
     # ارتباط با سایر مدل‌ها
     client_accounts: Mapped[List["ClientAccount"]] = relationship(back_populates="user")

@@ -3,6 +3,7 @@ User repository for database operations
 """
 
 from typing import List, Optional
+from decimal import Decimal
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
@@ -84,6 +85,29 @@ class UserRepository(BaseRepository[User]):
             await self.session.refresh(user)
         return user
     
+    async def update_balance(self, user_id: int, new_balance: Decimal) -> bool:
+        """بروزرسانی موجودی کیف پول کاربر
+        
+        Args:
+            user_id: شناسه کاربر
+            new_balance: مقدار جدید موجودی
+            
+        Returns:
+            True در صورت موفقیت، False در غیر این صورت
+        """
+        user = await self.get_user_by_id(user_id)
+        if not user:
+            return False
+        
+        user.balance = new_balance
+        try:
+            await self.session.commit()
+            await self.session.refresh(user)
+            return True
+        except Exception:
+            await self.session.rollback()
+            return False
+            
     async def delete_user(self, user_id: int) -> bool:
         """Delete a user"""
         user = await self.get_user_by_id(user_id)

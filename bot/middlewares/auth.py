@@ -86,10 +86,10 @@ class AuthMiddleware(BaseMiddleware):
             user = await user_service.get_user_by_telegram_id(tg_user.id)
             if user:
                 # Update user info if needed
+                full_name = " ".join(filter(None, [tg_user.first_name, tg_user.last_name]))
                 if (
                     user.username != tg_user.username or
-                    user.first_name != tg_user.first_name or
-                    user.last_name != tg_user.last_name
+                    user.full_name != full_name
                 ):
                     user = await user_service.update_user(
                         user.id,

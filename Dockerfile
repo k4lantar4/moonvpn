@@ -36,8 +36,8 @@ COPY . .
 
 # Create scripts directory and copy the CLI script
 RUN mkdir -p /usr/local/bin
-COPY scripts/moonvpn.sh /usr/local/bin/
-RUN chmod +x /usr/local/bin/moonvpn.sh
+COPY scripts/moonvpn.sh /usr/local/bin/moonvpn
+RUN chmod +x /usr/local/bin/moonvpn
 
 # Command to run
 CMD ["python", "-m", "bot.main"]

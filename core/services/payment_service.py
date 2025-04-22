@@ -31,6 +31,21 @@ class PaymentService:
         self.notification_service = NotificationService(session)
         self.user_repo = UserRepository(session)
     
+    async def get_user_balance(self, user_id: int) -> Decimal:
+        """
+        دریافت موجودی کیف پول کاربر
+        این متد از سرویس wallet استفاده می‌کند
+        
+        Args:
+            user_id: شناسه کاربر
+            
+        Returns:
+            موجودی کیف پول با نوع Decimal
+        """
+        balance = await self.wallet_service.get_balance(user_id)
+        # اگر موجودی None بود، صفر برمی‌گرداند
+        return Decimal(balance) if balance is not None else Decimal('0')
+        
     async def process_incoming_payment(
         self,
         user_id: int,
