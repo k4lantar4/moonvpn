@@ -36,8 +36,6 @@ class Plan(Base):
     created_by_id = Column(BigInteger, ForeignKey("users.id"), nullable=True) # Nullable if admin can create, or specific creator
     status = Column(SQLEnum(PlanStatus), default=PlanStatus.ACTIVE, nullable=False, comment="آیا پلن فعال است؟")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False, comment="زمان ایجاد")
-    # is_trial = Column(Boolean, default=False, nullable=False, comment="آیا پلن تستی است؟") # Moved to test_account_log
-    # is_active = Column(Boolean, default=True, nullable=False, comment="آیا پلن فعال است؟") # Replaced by status
     
     # تعریف روابط با سایر مدل‌ها
     created_by: Mapped[Optional["User"]] = relationship(foreign_keys=[created_by_id], back_populates="created_plans")
