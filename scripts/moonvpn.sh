@@ -91,7 +91,6 @@ show_help() {
     echo "  status          Check status of all services"
     echo "  build           Build the app container"
     echo "  ps              List all running containers"
-    echo "  exec-bot        Run bot directly and see output"
     echo "  install         Install moonvpn command system-wide"
     echo "  help            Show this help message"
     echo ""
@@ -449,19 +448,24 @@ case "$1" in
     shell)
         check_docker
         if [ -z "$2" ]; then
-            # List available containers if no service specified
             list_containers
         else
-            # Check if service exists
-            if docker compose ps --services | grep -q "^$2$"; then
-                echo -e "${BLUE}Opening shell in $2 container...${NC}"
-                docker compose exec "$2" bash || {
+            service="$2"
+            shift 2
+            if ! docker compose ps --services | grep -q "^${service}$"; then
+                echo -e "${RED}Error: Service '${service}' not found${NC}"
+                list_containers
+                exit 1
+            fi
+            if [ $# -eq 0 ]; then
+                echo -e "${BLUE}Opening shell in ${service} container...${NC}"
+                docker compose exec "${service}" bash || {
                     echo -e "${YELLOW}Bash not available in this container, trying sh...${NC}"
-                    docker compose exec "$2" sh
+                    docker compose exec "${service}" sh
                 }
             else
-                echo -e "${RED}Error: Service '$2' not found${NC}"
-                list_containers
+                echo -e "${BLUE}Executing command in ${service} container...${NC}"
+                docker compose exec "${service}" "$@"
             fi
         fi
         ;;
@@ -484,10 +488,16 @@ case "$1" in
         docker compose ps
         ;;
 
-    exec-bot)
+    exec-app)
         check_docker
-        echo -e "${BLUE}Running bot directly (Ctrl+C to stop)...${NC}"
-        docker compose exec app python -m bot.main
+        echo -e "${BLUE}Executing command in app container...${NC}"
+        if [ $# -lt 2 ]; then
+            echo -e "${RED}Error: No command specified for exec-app${NC}"
+            echo "Usage: moonvpn exec-app <command>"
+            exit 1
+        fi
+        shift
+        docker compose exec app "$@"
         ;;
     
     install)

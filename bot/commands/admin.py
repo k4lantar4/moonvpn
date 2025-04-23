@@ -220,7 +220,7 @@ async def confirm_add_panel(callback_query: types.CallbackQuery, state: FSMConte
     session = _session_maker()
     try:
         panel_service = PanelService(session)
-        panel = panel_service.add_panel(
+        panel = await panel_service.add_panel(
             name=data['name'],
             location=data['location'],
             flag_emoji=data['flag_emoji'],
@@ -244,36 +244,87 @@ async def confirm_add_panel(callback_query: types.CallbackQuery, state: FSMConte
                 "این فرایند ممکن است کمی طول بکشد."
             )
             
-            # اجرای همگام‌سازی inbound‌ها به صورت سنکرون
-            # چون تابع سنکرون است، آن را مستقیماً فراخوانی می‌کنیم
-            inbounds = panel_service.sync_panel_inbounds(panel.id)
+            # اجرای همگام‌سازی inbound‌ها
+            await panel_service.sync_panel_inbounds(panel.id)
             
-            if inbounds:
-                inbounds_info = "\n".join([f"- {inbound.protocol}: {inbound.tag}" for inbound in inbounds])
-                await callback_query.message.answer(
-                    f"✅ تعداد {len(inbounds)} inbound با موفقیت از پنل دریافت و همگام‌سازی شد:\n\n{inbounds_info}",
-                    parse_mode="HTML"
-                )
-            else:
-                await callback_query.message.answer(
-                    "⚠️ هیچ inbound فعالی در پنل یافت نشد. لطفاً پنل را بررسی کنید."
-                )
+            await callback_query.message.answer("✅ همگام‌سازی inbound‌ها با موفقیت انجام شد.")
+
         except Exception as e:
+            logger.error(f"Error syncing inbounds for panel {panel.id}: {str(e)}", exc_info=True)
             await callback_query.message.answer(
-                f"⚠️ خطا در همگام‌سازی inbound‌ها: {str(e)}\n"
-                f"پنل در سیستم ثبت شد، اما باید inbound‌ها را بعداً همگام‌سازی کنید."
+                f"❌ خطا در همگام‌سازی inbound‌های پنل {panel.name}:\n<code>{str(e)}</code>",
+                parse_mode="HTML"
             )
-        
+
+        finally:
+            # پایان فرایند اضافه کردن پنل و بازگشت به منوی اصلی ادمین
+            await state.clear()
+            logger.info(f"Add panel process finished for user {callback_query.from_user.id}")
+            # Optionally send admin main keyboard again
+
+    except ValueError as e:
+        logger.error(f"Value error during add panel confirmation: {str(e)}", exc_info=True)
+        await callback_query.message.answer(f"❌ خطا: {str(e)}")
+        # Stay in the current state or move to a specific error state if needed
+    except SQLAlchemyError as e:
+        logger.error(f"Database error during add panel confirmation: {str(e)}", exc_info=True)
+        await callback_query.message.answer(f"❌ خطا در پایگاه داده هنگام افزودن پنل: {str(e)}")
+        # Stay in the current state or move to a specific error state if needed
     except Exception as e:
-        await callback_query.message.answer(
-            f"❌ خطا در ثبت پنل: {str(e)}",
-            reply_markup=get_main_keyboard()
-        )
+        logger.error(f"Unexpected error during add panel confirmation: {str(e)}", exc_info=True)
+        await callback_query.message.answer(f"❌ خطای غیرمنتظره: {str(e)}")
+        # Stay in the current state or move to a specific error state if needed
     finally:
         session.close()
-    
-    # پاکسازی وضعیت
-    await state.clear()
+
+
+# New handler for managing panels
+async def manage_panels_handler(callback_query: types.CallbackQuery):
+    """
+    هندلر نمایش لیست پنل‌ها به ادمین
+    """
+    await callback_query.answer()
+    user_id = callback_query.from_user.id
+    logger.info(f"User {user_id} requested to view panels list.")
+
+    session = _session_maker()
+    try:
+        user_service = UserService(session)
+        is_admin = user_service.is_admin(user_id)
+
+        if not is_admin:
+            logger.warning(f"User {user_id} denied access to manage panels.")
+            await callback_query.message.answer("شما دسترسی لازم برای این عملیات را ندارید.")
+            return
+
+        panel_service = PanelService(session)
+        panels = await panel_service.get_all_panels()
+
+        if not panels:
+            await callback_query.message.answer("❌ هیچ پنلی در سیستم ثبت نشده است.")
+            logger.info(f"No panels found for user {user_id}.")
+        else:
+            # Sort panels by ID in descending order
+            panels.sort(key=lambda p: p.id, reverse=True)
+
+            # Replace combined panel list with manage buttons per panel
+            for panel in panels:
+                status_emoji = "✅" if panel.status == "ACTIVE" else "❌"
+                panel_text = (
+                    f"📟 پنل {panel.id} – {panel.location_name} {panel.flag_emoji}\n"
+                    f"وضعیت: {status_emoji}"
+                )
+                keyboard = InlineKeyboardMarkup(inline_keyboard=[
+                    [InlineKeyboardButton(text="🔧 مدیریت پنل", callback_data=f"panel_manage:{panel.id}")]
+                ])
+                await callback_query.message.answer(panel_text, reply_markup=keyboard, parse_mode="HTML")
+            logger.info(f"Sent panels list with manage buttons to user {user_id}.")
+
+    except Exception as e:
+        logger.error(f"Error in manage_panels_handler for user {user_id}: {str(e)}", exc_info=True)
+        await callback_query.message.answer(f"❌ خطایی رخ داد: <code>{str(e)}</code>", parse_mode="HTML")
+    finally:
+        session.close()
 
 
 async def cancel_add_panel(message: types.Message, state: FSMContext):
@@ -327,5 +378,8 @@ def register_admin_commands(dp: Dispatcher, session_maker: sessionmaker):
     # کالبک‌های تایید یا انصراف
     dp.callback_query.register(confirm_add_panel, F.data == "panel_confirm")
     dp.callback_query.register(cancel_panel_callback, F.data == "panel_cancel")
+    
+    # New handler for managing panels
+    dp.callback_query.register(manage_panels_handler, F.data == "manage_panels")
     
     logger.info("Admin commands handlers registered successfully")

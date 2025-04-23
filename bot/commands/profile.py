@@ -3,7 +3,7 @@
 """
 
 import logging
-from aiogram import Router
+from aiogram import Router, F
 from aiogram.types import Message
 from aiogram.filters import Command
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -18,6 +18,7 @@ def register_profile_command(router: Router, session_pool: async_sessionmaker[As
     """Register the /profile command handler"""
     
     @router.message(Command("profile"))
+    @router.message(F.text == "👤 حساب کاربری")
     async def cmd_profile(message: Message, session: AsyncSession) -> None:
         """Show user profile and account information"""
         user_id = message.from_user.id
@@ -28,7 +29,7 @@ def register_profile_command(router: Router, session_pool: async_sessionmaker[As
             user = await user_service.get_user_by_telegram_id(user_id)
             
             if not user:
-                await message.answer("⚠️ Please use /start to register first.")
+                await message.answer("⚠️ لطفاً ابتدا با دستور /start ثبت نام کنید.")
                 return
             
             # Get user's VPN accounts
@@ -37,23 +38,23 @@ def register_profile_command(router: Router, session_pool: async_sessionmaker[As
             
             # Format profile text
             profile_text = (
-                f"👤 <b>Your Profile</b>\n\n"
-                f"🆔 User ID: <code>{user.telegram_id}</code>\n"
-                f"👥 Role: {user.role}\n"
-                f"📅 Joined: {user.created_at.strftime('%Y-%m-%d')}\n"
-                f"📊 Status: {user.status}\n\n"
-                f"📱 Active VPN Accounts: {len(active_accounts)}\n"
+                f"👤 <b>پروفایل شما</b>\n\n"
+                f"🆔 شناسه کاربری: <code>{user.telegram_id}</code>\n"
+                f"👥 نقش: {user.role}\n"
+                f"📅 تاریخ عضویت: {user.created_at.strftime('%Y-%m-%d')}\n"
+                f"📊 وضعیت: {user.status}\n\n"
+                f"📱 تعداد اشتراک‌های فعال: {len(active_accounts)}\n"
             )
             
             # Add account details if any
             if active_accounts:
-                profile_text += "\n<b>Your Active Accounts:</b>\n"
+                profile_text += "\n<b>اشتراک‌های فعال شما:</b>\n"
                 for account in active_accounts:
                     profile_text += (
-                        f"\n🔹 {account.client_name}\n"
-                        f"📍 Location: {account.panel.location_name}\n"
-                        f"⏳ Expires: {account.expires_at.strftime('%Y-%m-%d')}\n"
-                        f"📊 Traffic: {account.traffic_used}/{account.traffic_limit} GB\n"
+                        f"\n🔹 نام اشتراک: {account.client_name}\n"
+                        f"📍 موقعیت: {account.panel.location_name}\n"
+                        f"⏳ تاریخ انقضا: {account.expires_at.strftime('%Y-%m-%d')}\n"
+                        f"📊 حجم مصرفی: {account.traffic_used}/{account.traffic_limit} گیگابایت\n"
                     )
             
             await message.answer(
@@ -64,5 +65,5 @@ def register_profile_command(router: Router, session_pool: async_sessionmaker[As
         except Exception as e:
             logger.error(f"Error in profile command for user {user_id}: {e}", exc_info=True)
             await message.answer(
-                "⚠️ Sorry, couldn't load your profile. Please try again later."
+                "⚠️ متاسفانه بارگذاری پروفایل شما با مشکل مواجه شد. لطفاً بعداً دوباره امتحان کنید."
             )

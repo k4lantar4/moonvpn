@@ -34,19 +34,19 @@ from aiogram.utils.keyboard import ReplyKeyboardBuilder
 #     return keyboard
 
 def get_main_keyboard(role: str = "user") -> ReplyKeyboardMarkup:
-    """Generate main menu reply keyboard based on user role.
+    """ایجاد کیبورد اصلی منو بر اساس نقش کاربر.
     
-    Defaults to 'user' role if not provided.
+    اگر نقشی ارائه نشود، پیش‌فرض نقش 'user' است.
     
-    Args:
-        role: User role (user, admin, superadmin, seller)
+    آرگومان‌ها:
+        role: نقش کاربر (user, admin, superadmin, seller)
         
-    Returns:
-        ReplyKeyboardMarkup with appropriate buttons
+    بازگشت:
+        ReplyKeyboardMarkup با دکمه‌های مناسب
     """
     kb = ReplyKeyboardBuilder()
     
-    # Common buttons for all users
+    # دکمه‌های مشترک برای همه کاربران
     kb.button(text="🛒 خرید سرویس")
     kb.button(text="💳 کیف پول")
     kb.button(text="📊 اشتراک‌های من")
@@ -54,7 +54,7 @@ def get_main_keyboard(role: str = "user") -> ReplyKeyboardMarkup:
     kb.button(text="💬 پشتیبانی")
     kb.button(text="👤 حساب کاربری") # Added Profile button based on old version
     
-    # Admin-specific buttons
+    # دکمه‌های مختص ادمین
     if role in ["admin", "superadmin"]:
         kb.button(text="⚙️ پنل مدیریت")
         kb.button(text="📈 آمار و گزارشات")
@@ -63,7 +63,7 @@ def get_main_keyboard(role: str = "user") -> ReplyKeyboardMarkup:
         kb.button(text="💰 تراکنش‌ها")
         kb.button(text="⚡️ وضعیت سرورها")
     
-    # Seller-specific buttons (Example, adjust if needed)
+    # دکمه‌های مختص فروشنده (مثال، در صورت نیاز تنظیم شود)
     # if role == "seller":
     #     kb.button(text="💼 فروش‌های من")
     #     kb.button(text="🎯 پلن‌های من")
@@ -71,7 +71,7 @@ def get_main_keyboard(role: str = "user") -> ReplyKeyboardMarkup:
     #     kb.button(text="💰 درآمد من")
     #     kb.button(text="📊 گزارش عملکرد")
     
-    # Adjust layout - 2 buttons per row generally
+    # تنظیم چیدمان - معمولاً ۲ دکمه در هر ردیف
     kb.adjust(2) 
     
     return kb.as_markup(
@@ -80,5 +80,5 @@ def get_main_keyboard(role: str = "user") -> ReplyKeyboardMarkup:
     )
 
 def remove_keyboard() -> ReplyKeyboardRemove:
-    """Removes the reply keyboard."""
+    """حذف کیبورد پاسخ."""
     return ReplyKeyboardRemove()

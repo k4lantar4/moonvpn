@@ -1,5 +1,5 @@
 """
-MoonVPN Telegram Bot - Main Entry Point
+ربات تلگرام MoonVPN - نقطه ورود اصلی
 """
 
 import os
@@ -23,6 +23,7 @@ from bot.commands import (
     register_wallet_command,
     register_plans_command,
     register_profile_command,
+    register_myaccounts_command,
 )
 from bot.callbacks import (
     register_buy_callbacks,
@@ -30,17 +31,23 @@ from bot.callbacks import (
     register_admin_callbacks,
     register_callbacks,
     register_plan_callbacks,
+    register_panel_callbacks,
+    register_account_callbacks,
 )
+from bot.callbacks.admin_callbacks import register_admin_callbacks
+from bot.callbacks.user_callbacks import register_user_callbacks
+from bot.callbacks.panel_callbacks import register_panel_callbacks
+from bot.callbacks.client_callbacks import register_client_callbacks
 from bot.middlewares import AuthMiddleware, ErrorMiddleware
 
-# Configure logging
+# تنظیمات لاگینگ
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
 
-# Database setup
+# تنظیمات دیتابیس
 engine = create_async_engine(DATABASE_URL)
 SessionLocal = async_sessionmaker(
     engine,
@@ -50,13 +57,13 @@ SessionLocal = async_sessionmaker(
     autoflush=False
 )
 
-# Global services
+# سرویس‌های گلوبال
 notification_service: NotificationService | None = None
 
 async def setup_bot() -> Bot:
-    """Initialize and configure the bot"""
+    """راه‌اندازی و پیکربندی ربات"""
     if not BOT_TOKEN:
-        raise ValueError("BOT_TOKEN not found in environment variables!")
+        raise ValueError("توکن ربات (BOT_TOKEN) در متغیرهای محیطی یافت نشد!")
     
     return Bot(
         token=BOT_TOKEN,
@@ -64,86 +71,96 @@ async def setup_bot() -> Bot:
     )
 
 async def setup_dispatcher() -> Dispatcher:
-    """Initialize and configure the dispatcher"""
-    # Initialize storage and dispatcher
-    storage = MemoryStorage()
+    """راه‌اندازی و پیکربندی دیسپچر"""
+    # راه‌اندازی storage و dispatcher
+    storage = MemoryStorage() # نکته: برای پروداکشن، RediStorage ممکن است بهتر باشد
     dp = Dispatcher(storage=storage)
     
-    # Create main router
+    # ایجاد روتر اصلی
     router = Router(name="main_router")
     
-    # Register middlewares
+    # ثبت میدلورها
     dp.message.middleware(AuthMiddleware(SessionLocal))
     dp.callback_query.middleware(AuthMiddleware(SessionLocal))
     dp.message.middleware(ErrorMiddleware())
     dp.callback_query.middleware(ErrorMiddleware())
     
-    # Register command handlers
+    # ثبت هندلرهای دستورات
     register_buy_command(router, SessionLocal)
     register_admin_commands(router, SessionLocal)
     register_wallet_command(router, SessionLocal)
     register_plans_command(router, SessionLocal)
     register_profile_command(router, SessionLocal)
+    register_myaccounts_command(router, SessionLocal)
     
-    # Register callback handlers
+    # ثبت هندلرهای callback
     register_buy_callbacks(router, SessionLocal)
     register_wallet_callbacks(router, SessionLocal)
     register_admin_callbacks(router, SessionLocal)
     register_callbacks(router, SessionLocal)
     register_plan_callbacks(router, SessionLocal)
+    # register panel callbacks for listing inbounds
+    register_panel_callbacks(router, SessionLocal)
+    register_account_callbacks(router, SessionLocal)
     
-    # Include router in dispatcher
+    # افزودن روتر به دیسپچر
     dp.include_router(start_router)
     dp.include_router(router)
     
     return dp
 
 async def init_services():
-    """Initialize core services"""
+    """راه‌اندازی سرویس‌های هسته"""
     global notification_service
     
     async with SessionLocal() as session:
-        # Initialize notification service
+        # راه‌اندازی سرویس نوتیفیکیشن
         notification_service = NotificationService(session)
         
-        # Sync panel inbounds
+        # همگام‌سازی ورودی‌های پنل
         panel_service = PanelService(session)
         try:
             sync_results = await panel_service.sync_all_panels_inbounds()
-            logger.info(f"Successfully synced inbounds for {len(sync_results)} panels")
+            logger.info(f"ورودی‌ها برای {len(sync_results)} پنل با موفقیت همگام‌سازی شدند")
             await notification_service.notify_admins(
-                f"🔄 Panel inbounds synced successfully\n"
-                f"Total panels synced: {len(sync_results)}"
+                f"🔄 ورودی‌های پنل با موفقیت همگام‌سازی شدند\n"
+                f"تعداد پنل‌های همگام‌شده: {len(sync_results)}"
             )
         except Exception as e:
-            logger.error(f"Error syncing inbounds: {e}", exc_info=True)
+            logger.error(f"خطا در همگام‌سازی ورودی‌ها: {e}", exc_info=True)
             await notification_service.notify_admins(
-                f"⚠️ Error syncing inbounds:\n{str(e)}"
+                f"⚠️ خطا در همگام‌سازی ورودی‌ها:\n{str(e)}"
             )
 
 async def main():
-    """Main entry point for the bot"""
+    """نقطه ورود اصلی برای ربات"""
     try:
-        logger.info("Starting MoonVPN bot...")
+        logger.info("در حال اجرای ربات MoonVPN...")
         
-        # Initialize services
+        # راه‌اندازی سرویس‌ها
         await init_services()
         
-        # Setup bot and dispatcher
+        # راه‌اندازی ربات و دیسپچر
         bot = await setup_bot()
         dp = await setup_dispatcher()
         
-        # Set bot instance for notification service
+        # تنظیم نمونه ربات برای سرویس نوتیفیکیشن
         if notification_service:
             notification_service.set_bot(bot)
         
-        # Start polling
-        logger.info("MoonVPN bot is ready!")
+        # ثبت هندلرهای callback
+        register_admin_callbacks(dp)
+        register_user_callbacks(dp)
+        register_panel_callbacks(dp)
+        register_client_callbacks(dp)
+        
+        # شروع polling
+        logger.info("ربات MoonVPN آماده است!")
         await bot.delete_webhook(drop_pending_updates=True)
         await dp.start_polling(bot)
         
     except Exception as e:
-        logger.critical(f"Failed to start bot: {e}", exc_info=True)
+        logger.critical(f"اجرای ربات با خطا مواجه شد: {e}", exc_info=True)
         raise
     finally:
         if notification_service:
@@ -153,6 +170,6 @@ if __name__ == "__main__":
     try:
         asyncio.run(main())
     except (KeyboardInterrupt, SystemExit):
-        logger.info("Bot stopped!")
+        logger.info("ربات متوقف شد!")
     except Exception as e:
-        logger.critical(f"Fatal error: {e}", exc_info=True)
+        logger.critical(f"خطای مرگبار: {e}", exc_info=True)

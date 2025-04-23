@@ -20,7 +20,6 @@ if TYPE_CHECKING:
     from .order import Order
     from .transaction import Transaction
     from .bank_card import BankCard
-    from .notification_log import NotificationLog
     # from .receipt_log import ReceiptLog
     # from .test_account_log import TestAccountLog
 
@@ -61,13 +60,13 @@ class User(Base):
     
     # Relationships related to ReceiptLog
     receipt_logs: Mapped[List["ReceiptLog"]] = relationship(
-        "ReceiptLog", 
-        back_populates="user", 
+        "ReceiptLog",
+        back_populates="user",
         foreign_keys="ReceiptLog.user_id"
     )
     reviewed_receipts: Mapped[List["ReceiptLog"]] = relationship(
-        "ReceiptLog", 
-        back_populates="admin", 
+        "ReceiptLog",
+        back_populates="admin",
         foreign_keys="ReceiptLog.admin_id"
     )
 
@@ -76,7 +75,11 @@ class User(Base):
     
     # Added relationships
     bank_cards: Mapped[List["BankCard"]] = relationship(back_populates="admin_user")
-    notification_logs: Mapped[List["NotificationLog"]] = relationship(back_populates="user")
+    # Relationship related to NotificationLog
+    notification_logs: Mapped[List["NotificationLog"]] = relationship(
+        "NotificationLog",
+        back_populates="user"
+    )
     
     def __repr__(self) -> str:
         return f"<User(id={self.id}, telegram_id={self.telegram_id}, role={self.role})>"

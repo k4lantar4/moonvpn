@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from core.services.panel_service import PanelService
 from core.services.user_service import UserService
 from bot.keyboards.admin_keyboard import get_admin_panel_keyboard
+from db.models.panel import PanelStatus
 
 logger = logging.getLogger(__name__)
 
@@ -107,4 +108,42 @@ def register_admin_callbacks(router: Router, session_pool: async_sessionmaker[As
             
         except Exception as e:
             logger.error(f"Error in admin stats callback: {e}", exc_info=True)
-            await callback.answer("⚠️ Error loading stats", show_alert=True) 
+            await callback.answer("⚠️ Error loading stats", show_alert=True)
+
+    @router.callback_query(F.data.startswith("panel_manage:"))
+    async def panel_manage(callback: CallbackQuery, session: AsyncSession):
+        """Display management menu for a specific panel"""
+        await callback.answer()
+
+        try:
+            panel_id = int(callback.data.split(":")[1])
+            # Fetch panel data
+            panel_service = PanelService(session)
+            panel = await panel_service.get_panel_by_id(panel_id)
+
+            if not panel:
+                await callback.message.answer("❌ پنل مورد نظر یافت نشد.", show_alert=True)
+                return
+
+            # Build panel info text with localized status
+            status_text = "فعال" if panel.status == PanelStatus.ACTIVE else "غیرفعال" if panel.status == PanelStatus.DISABLED else "حذف شده"
+            status_emoji = "✅" if panel.status == PanelStatus.ACTIVE else "❌"
+            text = (
+                f"📟 پنل #{panel.id} – {panel.flag_emoji} {panel.location_name}\n"
+                f"وضعیت: {status_text} {status_emoji}\n"
+                f"آدرس: {panel.url}\n"
+                f"نوع: {panel.type.value}\n"
+                f"یادداشت: {panel.notes or '-'}\n\n"
+                "🔧 عملیات پنل:"  
+            )
+
+            # Get management buttons
+            from bot.buttons.panel_buttons import get_panel_management_keyboard
+            keyboard = get_panel_management_keyboard(panel.id)
+
+            # Edit message
+            await callback.message.edit_text(text, reply_markup=keyboard)
+
+        except Exception as e:
+            logger.error(f"Error in panel_manage handler: {e}", exc_info=True)
+            await callback.answer("⚠️ خطایی در نمایش منو رخ داد.", show_alert=True) 

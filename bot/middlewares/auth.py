@@ -18,14 +18,11 @@ from db.models.user import User
 logger = logging.getLogger(__name__)
 
 class AuthMiddleware(BaseMiddleware):
-    """Middleware to handle user authentication and session management."""
+    """میدلور برای بررسی احراز هویت کاربر و تزریق سشن."""
     
     def __init__(self, session_pool: async_sessionmaker[AsyncSession]):
-        """Initialize the auth middleware.
-        
-        Args:
-            session_pool: SQLAlchemy async session pool
-        """
+        """راه‌اندازی میدلور با استخر سشن."""
+        super().__init__()
         self.session_pool = session_pool
     
     async def __call__(
@@ -34,7 +31,7 @@ class AuthMiddleware(BaseMiddleware):
         event: Message | CallbackQuery,
         data: Dict[str, Any]
     ) -> Any:
-        """Process update and handle authentication."""
+        """پردازش رویداد ورودی."""
         # Create database session
         session = self.session_pool()
         data["session"] = session
@@ -43,7 +40,7 @@ class AuthMiddleware(BaseMiddleware):
             # Get Telegram user info
             tg_user = event.from_user
             if not tg_user:
-                logger.warning("No user found in update")
+                logger.warning("دریافت کاربر از رویداد نوع %s ممکن نیست", type(event))
                 return await handler(event, data)
                 
             # Get or create user
@@ -63,7 +60,7 @@ class AuthMiddleware(BaseMiddleware):
             return await handler(event, data)
             
         except Exception as e:
-            logger.exception(f"Error in auth middleware: {e}")
+            logger.exception(f"خطا در میدلور AuthMiddleware برای کاربر {tg_user.id}: {e}", exc_info=True)
             if isinstance(event, Message):
                 await event.answer(
                     "⚠️ متأسفانه مشکلی در سیستم رخ داده است. لطفاً بعداً دوباره تلاش کنید."
@@ -108,5 +105,5 @@ class AuthMiddleware(BaseMiddleware):
             )
             
         except Exception as e:
-            logger.exception(f"Error in get_or_create_user: {e}")
+            logger.exception(f"خطا در get_or_create_user: {e}")
             return None 

@@ -101,6 +101,14 @@ class PanelService:
         """
         return await self.panel_repo.get_active_panels()
 
+    async def get_all_panels(self) -> List[Panel]:
+        """
+        دریافت لیست تمامی پنل‌ها
+        Returns:
+            List[Panel]: لیست تمامی پنل‌ها
+        """
+        return await self.panel_repo.get_all_panels()
+
     async def _get_xui_client(self, panel: Panel) -> XuiClient:
         """
         دریافت یا ایجاد یک نمونه XuiClient برای پنل
@@ -240,3 +248,22 @@ class PanelService:
             پنل یافت شده یا None
         """
         return await self.panel_repo.get_by_address(address)
+
+    # اضافه کردن متد برای دریافت لیست اینباندها به صورت real-time
+    async def get_inbounds_by_panel_id(self, panel_id: int) -> List[Dict[str, Any]]:
+        """
+        دریافت لیست inboundها از پنل به صورت real-time
+        Args:
+            panel_id: شناسه پنل
+        Returns:
+            لیست اینباندها به صورت dict
+        """
+        panel = await self.get_panel_by_id(panel_id)
+        if not panel:
+            raise ValueError(f"پنل با شناسه {panel_id} یافت نشد")
+        client = await self._get_xui_client(panel)
+        try:
+            return await client.get_inbounds()
+        except Exception as e:
+            logger.error(f"خطا در دریافت inboundهای پنل {panel_id}: {str(e)}", exc_info=True)
+            raise

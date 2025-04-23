@@ -9,6 +9,7 @@ from .admin import register_admin_commands
 from .wallet import register_wallet_command
 from .buy import register_buy_command
 from .profile import register_profile_command
+from .myaccounts import register_myaccounts_command
 
 __all__ = [
     "start_router",
@@ -16,5 +17,6 @@ __all__ = [
     "register_admin_commands",
     "register_wallet_command",
     "register_plans_command",
-    "register_profile_command"
+    "register_profile_command",
+    "register_myaccounts_command"
 ]
