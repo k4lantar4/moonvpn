@@ -4,6 +4,7 @@ Admin panel callback handlers
 
 import logging
 from aiogram import Router, F
+<<<<<<< HEAD
 from aiogram.types import CallbackQuery, InlineKeyboardButton
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -18,6 +19,15 @@ from db.models.panel import PanelStatus
 from core.services.client_renewal_log_service import ClientRenewalLogService
 from db import get_async_db
 from bot.states.admin_states import RegisterPanelStates
+=======
+from aiogram.types import CallbackQuery
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
+from core.services.panel_service import PanelService
+from core.services.user_service import UserService
+from bot.keyboards.admin_keyboard import get_admin_panel_keyboard
+from db.models.panel import PanelStatus
+>>>>>>> 644afe0cd616ac99872ebfb4b1bd13f07cdc62c2
 
 logger = logging.getLogger(__name__)
 
@@ -43,21 +53,32 @@ def register_admin_callbacks(router: Router, session_pool: async_sessionmaker[As
             active_panels = await panel_service.get_active_panels()
             
             admin_text = (
+<<<<<<< HEAD
                 "🎛 <b>پنل مدیریت</b>\n\n"
                 f"📊 پنل‌های فعال: {len(active_panels)}\n"
                 "لطفاً یکی از گزینه‌های زیر را انتخاب کنید:"
+=======
+                "🎛 <b>Admin Panel</b>\n\n"
+                f"📊 Active Panels: {len(active_panels)}\n"
+                "Select an option below:"
+>>>>>>> 644afe0cd616ac99872ebfb4b1bd13f07cdc62c2
             )
             
             await callback.message.edit_text(
                 admin_text,
+<<<<<<< HEAD
                 reply_markup=get_admin_panel_keyboard(),
                 parse_mode="HTML"
+=======
+                reply_markup=get_admin_panel_keyboard()
+>>>>>>> 644afe0cd616ac99872ebfb4b1bd13f07cdc62c2
             )
             
         except Exception as e:
             logger.error(f"Error in admin panel callback: {e}", exc_info=True)
             await callback.answer("⚠️ Error loading admin panel", show_alert=True)
     
+<<<<<<< HEAD
     @router.callback_query(F.data == "admin_users")
     async def admin_users(callback: CallbackQuery, session: AsyncSession) -> None:
         """Handle admin users button click (placeholder)"""
@@ -149,6 +170,8 @@ def register_admin_callbacks(router: Router, session_pool: async_sessionmaker[As
             await callback.answer("⚠️ خطا در اجرای درخواست", show_alert=True)
 
     # Keep existing callbacks below this line
+=======
+>>>>>>> 644afe0cd616ac99872ebfb4b1bd13f07cdc62c2
     @router.callback_query(F.data == "sync_panels")
     async def sync_panels(callback: CallbackQuery, session: AsyncSession) -> None:
         """Handle panel sync button click"""
@@ -225,6 +248,7 @@ def register_admin_callbacks(router: Router, session_pool: async_sessionmaker[As
                 return
 
             # Build panel info text with localized status
+<<<<<<< HEAD
             if panel.status == PanelStatus.ACTIVE:
                 status_text = "فعال"
                 status_emoji = "✅"
@@ -238,6 +262,10 @@ def register_admin_callbacks(router: Router, session_pool: async_sessionmaker[As
                 status_text = str(panel.status)
                 status_emoji = "❓"
                 
+=======
+            status_text = "فعال" if panel.status == PanelStatus.ACTIVE else "غیرفعال" if panel.status == PanelStatus.DISABLED else "حذف شده"
+            status_emoji = "✅" if panel.status == PanelStatus.ACTIVE else "❌"
+>>>>>>> 644afe0cd616ac99872ebfb4b1bd13f07cdc62c2
             text = (
                 f"📟 پنل #{panel.id} – {panel.flag_emoji} {panel.location_name}\n"
                 f"وضعیت: {status_text} {status_emoji}\n"
@@ -256,6 +284,7 @@ def register_admin_callbacks(router: Router, session_pool: async_sessionmaker[As
 
         except Exception as e:
             logger.error(f"Error in panel_manage handler: {e}", exc_info=True)
+<<<<<<< HEAD
             await callback.answer("⚠️ خطایی در نمایش منو رخ داد.", show_alert=True)
 
     @router.callback_query(F.data == "admin:renewal_log")
@@ -422,3 +451,6 @@ def register_admin_callbacks(router: Router, session_pool: async_sessionmaker[As
             await message.answer(f"❌ خطای پیش‌بینی نشده در ثبت پنل رخ داد. لطفاً لاگ‌ها را بررسی کنید.")
 
         await state.clear()
+=======
+            await callback.answer("⚠️ خطایی در نمایش منو رخ داد.", show_alert=True) 
+>>>>>>> 644afe0cd616ac99872ebfb4b1bd13f07cdc62c2

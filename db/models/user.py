@@ -80,9 +80,12 @@ class User(Base):
         "NotificationLog",
         back_populates="user"
     )
+<<<<<<< HEAD
     
     # Add to relationships section
     renewal_logs = relationship("ClientRenewalLog", back_populates="user")
+=======
+>>>>>>> 644afe0cd616ac99872ebfb4b1bd13f07cdc62c2
     
     def __repr__(self) -> str:
         return f"<User(id={self.id}, telegram_id={self.telegram_id}, role={self.role})>"

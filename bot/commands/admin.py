@@ -325,7 +325,10 @@ async def confirm_add_panel(callback_query: types.CallbackQuery, state: FSMConte
 
 
 # New handler for managing panels
+<<<<<<< HEAD
 @router.callback_query(F.data == "manage_panels")
+=======
+>>>>>>> 644afe0cd616ac99872ebfb4b1bd13f07cdc62c2
 async def manage_panels_handler(callback_query: types.CallbackQuery):
     """
     هندلر نمایش لیست پنل‌ها به ادمین
@@ -435,5 +438,8 @@ def register_admin_commands(dp: Dispatcher, session_maker: sessionmaker):
     
     # Include the router in the dispatcher (handles all router callbacks)
     dp.include_router(router)
+    
+    # New handler for managing panels
+    dp.callback_query.register(manage_panels_handler, F.data == "manage_panels")
     
     logger.info("Admin commands handlers registered successfully")

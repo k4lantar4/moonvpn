@@ -371,6 +371,7 @@ class PanelService:
     # اضافه کردن متد برای دریافت لیست اینباندها به صورت real-time
     async def get_inbounds_by_panel_id(self, panel_id: int) -> List[Dict[str, Any]]:
         """
+<<<<<<< HEAD
         دریافت لیست inbound‌های یک پنل خاص
         Args:
             panel_id: شناسه پنل
@@ -453,12 +454,20 @@ class PanelService:
     async def get_client_config(self, panel_id: int, inbound_id: int, uuid: str) -> str:
         """
         دریافت لینک کانفیگ یک کلاینت
+=======
+        دریافت لیست inboundها از پنل به صورت real-time
+        Args:
+            panel_id: شناسه پنل
+        Returns:
+            لیست اینباندها به صورت dict
+>>>>>>> 644afe0cd616ac99872ebfb4b1bd13f07cdc62c2
         """
         panel = await self.get_panel_by_id(panel_id)
         if not panel:
             raise ValueError(f"پنل با شناسه {panel_id} یافت نشد")
         client = await self._get_xui_client(panel)
         try:
+<<<<<<< HEAD
             config_url = await client.get_config(uuid)
             logger.info(f"Generated config URL for client {uuid} on panel {panel_id}")
             return config_url
@@ -591,3 +600,9 @@ class PanelService:
         except Exception as e:
             logger.error(f"Unexpected error registering panel {url}: {str(e)}", exc_info=True)
             raise RuntimeError(f"خطای غیرمنتظره در زمان ثبت پنل: {str(e)}") # Raise a generic runtime error
+=======
+            return await client.get_inbounds()
+        except Exception as e:
+            logger.error(f"خطا در دریافت inboundهای پنل {panel_id}: {str(e)}", exc_info=True)
+            raise
+>>>>>>> 644afe0cd616ac99872ebfb4b1bd13f07cdc62c2

@@ -95,7 +95,10 @@ def get_inbound_management_keyboard(panel_id: int, inbound_id: int) -> InlineKey
     ساخت کیبورد دکمه‌های عملیاتی برای یک اینباند خاص.
     """
     builder = InlineKeyboardBuilder()
+<<<<<<< HEAD
     builder.button(text="👥 مشاهده کلاینت‌ها", callback_data=f"inbound_clients:{panel_id}:{inbound_id}")
+=======
+>>>>>>> 644afe0cd616ac99872ebfb4b1bd13f07cdc62c2
     builder.button(text="🔧 ویرایش", callback_data=f"inbound_edit:{panel_id}:{inbound_id}")
     builder.button(text="🗑 حذف", callback_data=f"inbound_delete:{panel_id}:{inbound_id}")
     builder.button(text="🔄 ریست", callback_data=f"inbound_reset:{panel_id}:{inbound_id}")
@@ -103,7 +106,11 @@ def get_inbound_management_keyboard(panel_id: int, inbound_id: int) -> InlineKey
     # دکمه بازگشت به لیست اینباندها
     builder.button(text="🔙 بازگشت به لیست", callback_data=f"panel_inbounds:{panel_id}")
     # Adjust layout: 2 buttons per row for actions, 1 for back
+<<<<<<< HEAD
     builder.adjust(2, 2, 2, 1)
+=======
+    builder.adjust(2, 2, 1)
+>>>>>>> 644afe0cd616ac99872ebfb4b1bd13f07cdc62c2
     return builder.as_markup()
 
 # Helper function to format inbound details (optional, can be in callback)
@@ -130,6 +137,7 @@ def format_inbound_details(inbound_data: Dict[str, Any]) -> str:
 
     settings = inbound_data.get('settings')
     if settings:
+<<<<<<< HEAD
         details.append(f"""🔧 <b>تنظیمات (Settings):</b>
 <code>{format_json(settings)}</code>""")
 
@@ -194,3 +202,22 @@ def get_inbound_clients_keyboard(clients: List[Dict[str, Any]], panel_id: int, i
     builder.adjust(1)
 
     return builder.as_markup() 
+=======
+        details.append(f"
+🔧 <b>تنظیمات (Settings):</b>
+<code>{format_json(settings)}</code>")
+
+    stream_settings = inbound_data.get('streamSettings')
+    if stream_settings:
+        details.append(f"
+🌊 <b>تنظیمات Stream:</b>
+<code>{format_json(stream_settings)}</code>")
+
+    sniffing = inbound_data.get('sniffing')
+    if sniffing:
+        details.append(f"
+👃 <b>تنظیمات Sniffing:</b>
+<code>{format_json(sniffing)}</code>")
+
+    return "\n".join(details) 
+>>>>>>> 644afe0cd616ac99872ebfb4b1bd13f07cdc62c2
