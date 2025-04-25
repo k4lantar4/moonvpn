@@ -6,6 +6,7 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 # شناسه‌های callback برای دکمه‌های کیف پول
+WALLET_MENU_CB = "wallet:menu"
 TOPUP_CB = "wallet:topup"
 CANCEL_CB = "wallet:cancel"
 CONFIRM_AMOUNT_PREFIX = "wallet:confirm_amount:"

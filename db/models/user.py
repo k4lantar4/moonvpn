@@ -7,7 +7,7 @@ from decimal import Decimal
 from enum import Enum
 from typing import List, Optional, TYPE_CHECKING
 
-from sqlalchemy import BigInteger, DateTime, String, Column, Enum as SQLEnum, ForeignKey, Text, JSON, DECIMAL
+from sqlalchemy import BigInteger, DateTime, String, Column, Enum as SQLEnum, ForeignKey, Text, JSON, DECIMAL, Integer
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 
 from . import Base
@@ -20,7 +20,6 @@ if TYPE_CHECKING:
     from .order import Order
     from .transaction import Transaction
     from .bank_card import BankCard
-    from .notification_log import NotificationLog
     # from .receipt_log import ReceiptLog
     # from .test_account_log import TestAccountLog
 
@@ -43,7 +42,7 @@ class User(Base):
     __tablename__ = "users"
     
     # فیلدهای اصلی
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    id = Column(BigIntegerInteger, primary_key=True, autoincrement=True)
     telegram_id = Column(BigInteger, unique=True, index=True, nullable=False)
     username = Column(String(255), nullable=True)
     full_name = Column(String(255), nullable=True)
@@ -61,13 +60,13 @@ class User(Base):
     
     # Relationships related to ReceiptLog
     receipt_logs: Mapped[List["ReceiptLog"]] = relationship(
-        "ReceiptLog", 
-        back_populates="user", 
+        "ReceiptLog",
+        back_populates="user",
         foreign_keys="ReceiptLog.user_id"
     )
     reviewed_receipts: Mapped[List["ReceiptLog"]] = relationship(
-        "ReceiptLog", 
-        back_populates="admin", 
+        "ReceiptLog",
+        back_populates="admin",
         foreign_keys="ReceiptLog.admin_id"
     )
 
@@ -76,7 +75,14 @@ class User(Base):
     
     # Added relationships
     bank_cards: Mapped[List["BankCard"]] = relationship(back_populates="admin_user")
-    notification_logs: Mapped[List["NotificationLog"]] = relationship(back_populates="user")
+    # Relationship related to NotificationLog
+    notification_logs: Mapped[List["NotificationLog"]] = relationship(
+        "NotificationLog",
+        back_populates="user"
+    )
+    
+    # Add to relationships section
+    renewal_logs = relationship("ClientRenewalLog", back_populates="user")
     
     def __repr__(self) -> str:
         return f"<User(id={self.id}, telegram_id={self.telegram_id}, role={self.role})>"

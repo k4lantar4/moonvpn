@@ -19,6 +19,7 @@ if TYPE_CHECKING:
     from .plan import Plan
     from .order import Order
     from .account_transfer import AccountTransfer
+    from .client_renewal_log import ClientRenewalLog
 
 
 class AccountStatus(str, Enum):
@@ -43,7 +44,6 @@ class ClientAccount(Base):
     client_name = Column(String(255), nullable=False)
     email_name = Column(String(255), nullable=True)
     plan_id = Column(Integer, ForeignKey("plans.id"), nullable=False)
-    order_id = Column(Integer, ForeignKey("orders.id"), nullable=False)
     expires_at = Column(DateTime, nullable=False)
     traffic_limit = Column(Integer, nullable=False)  # حجم کل به GB
     traffic_used = Column(Integer, default=0, nullable=False)  # حجم مصرف‌شده به GB
@@ -73,6 +73,12 @@ class ClientAccount(Base):
         "AccountTransfer",
         foreign_keys="AccountTransfer.new_account_id",
         back_populates="new_account"
+    )
+    
+    # Relationship for renewal logs
+    renewal_logs: Mapped[List["ClientRenewalLog"]] = relationship(
+        "ClientRenewalLog",
+        back_populates="client"
     )
     
     def __repr__(self) -> str:

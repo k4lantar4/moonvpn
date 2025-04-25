@@ -59,3 +59,5 @@ async def setup_bot_commands(bot: Bot):
     await bot.set_my_commands(commands)
 
 __all__ = ["setup_bot", "setup_dispatcher", "setup_bot_commands"]
+
+# This file makes the 'bot' directory a Python package.

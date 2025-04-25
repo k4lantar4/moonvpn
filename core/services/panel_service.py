@@ -16,6 +16,7 @@ from db.models.inbound import Inbound, InboundStatus
 from core.integrations.xui_client import XuiClient
 from core.services.notification_service import NotificationService
 from db.repositories.panel_repo import PanelRepository
+from db import get_async_db
 
 logger = logging.getLogger(__name__)
 
@@ -100,6 +101,14 @@ class PanelService:
             List[Panel]: لیست پنل‌های فعال
         """
         return await self.panel_repo.get_active_panels()
+
+    async def get_all_panels(self) -> List[Panel]:
+        """
+        دریافت لیست تمامی پنل‌ها
+        Returns:
+            List[Panel]: لیست تمامی پنل‌ها
+        """
+        return await self.panel_repo.get_all_panels()
 
     async def _get_xui_client(self, panel: Panel) -> XuiClient:
         """
@@ -240,3 +249,172 @@ class PanelService:
             پنل یافت شده یا None
         """
         return await self.panel_repo.get_by_address(address)
+
+    # اضافه کردن متد برای دریافت لیست اینباندها به صورت real-time
+    async def get_inbounds_by_panel_id(self, panel_id: int) -> List[Dict[str, Any]]:
+        """
+        دریافت لیست inbound‌های یک پنل خاص
+        Args:
+            panel_id: شناسه پنل
+        Returns:
+            لیست inbound‌ها
+        """
+        panel = await self.panel_repo.get_by_id(panel_id, [selectinload(Panel.inbounds)])
+        if not panel:
+            raise ValueError(f"پنل با شناسه {panel_id} یافت نشد")
+
+        # Filter out deleted inbounds
+        active_inbounds = [
+            {
+                "id": inb.remote_id,
+                "protocol": inb.protocol,
+                "remark": inb.tag,
+                "port": inb.port,
+                "enable": inb.status == InboundStatus.ACTIVE
+            }
+            for inb in panel.inbounds if inb.status != InboundStatus.DELETED
+        ]
+        return active_inbounds
+
+    async def get_clients_by_inbound(self, panel_id: int, inbound_id: int) -> List[Dict[str, Any]]:
+        """
+        دریافت لیست کلاینت‌های یک inbound خاص از پنل
+        Args:
+            panel_id: شناسه پنل
+            inbound_id: شناسه inbound در پنل
+        Returns:
+            لیست دیکشنری شامل اطلاعات کلاینت‌ها
+        """
+        panel = await self.panel_repo.get_by_id(panel_id)
+        if not panel:
+            raise ValueError(f"پنل با شناسه {panel_id} یافت نشد")
+
+        client = await self._get_xui_client(panel)
+        inbound_data = await client.get_inbound(inbound_id)
+
+        if not inbound_data:
+            return [] # Inbound not found or no data
+
+        # Determine if clientStats is enabled and available
+        use_client_stats = inbound_data.get("clientStats", False) and "clientStats" in inbound_data
+
+        clients_list = []
+        if use_client_stats and isinstance(inbound_data.get("clientStats"), list):
+             # Use clientStats if enabled and available
+             for client_stat in inbound_data["clientStats"]:
+                clients_list.append({
+                    "uuid": client_stat.get("id"), # Use id for UUID
+                    "email": client_stat.get("email"),
+                    "enable": client_stat.get("enable", False),
+                    "totalGB": client_stat.get("totalGB", 0),
+                    "up": client_stat.get("up", 0),
+                    "down": client_stat.get("down", 0),
+                    "expiryTime": client_stat.get("expiryTime", 0),
+                    # Add other relevant fields from clientStats if needed
+                })
+        elif isinstance(inbound_data.get("settings", {}).get("clients"), list):
+            # Otherwise, use clients from settings
+            for client_setting in inbound_data["settings"]["clients"]:
+                clients_list.append({
+                    "uuid": client_setting.get("id"), # Use id for UUID
+                    "email": client_setting.get("email"),
+                    "enable": client_setting.get("enable", False), # Assuming enable is in settings
+                    "totalGB": client_setting.get("totalGB", 0), # Assuming totalGB is in settings
+                    "up": client_setting.get("up", 0), # Assuming these are not in settings and will be 0 if clientStats is off
+                    "down": client_setting.get("down", 0),
+                    "expiryTime": client_setting.get("expiryTime", 0), # Assuming expiryTime is in settings
+                    # Add other relevant fields from settings if needed
+                })
+        else:
+            # No client data found
+            return []
+
+
+        return clients_list
+
+    async def get_client_config(self, panel_id: int, inbound_id: int, uuid: str) -> str:
+        """
+        دریافت لینک کانفیگ یک کلاینت
+        """
+        panel = await self.get_panel_by_id(panel_id)
+        if not panel:
+            raise ValueError(f"پنل با شناسه {panel_id} یافت نشد")
+        client = await self._get_xui_client(panel)
+        try:
+            config_url = await client.get_config(uuid)
+            logger.info(f"Generated config URL for client {uuid} on panel {panel_id}")
+            return config_url
+        except Exception as e:
+            logger.error(f"Error getting config for client {uuid} on panel {panel_id}: {str(e)}", exc_info=True)
+            raise
+
+    async def reset_client_traffic(self, panel_id: int, uuid: str) -> bool:
+        """
+        ریست کردن ترافیک یک کلاینت
+        """
+        panel = await self.get_panel_by_id(panel_id)
+        if not panel:
+            raise ValueError(f"پنل با شناسه {panel_id} یافت نشد")
+        client = await self._get_xui_client(panel)
+        try:
+            result = await client.reset_client_traffic(uuid)
+            logger.info(f"Successfully reset traffic for client {uuid} on panel {panel_id}")
+            return result
+        except Exception as e:
+            logger.error(f"Error resetting traffic for client {uuid} on panel {panel_id}: {str(e)}", exc_info=True)
+            raise
+
+    async def delete_client(self, panel_id: int, inbound_id: int, uuid: str) -> bool:
+        """
+        حذف یک کلاینت از inbound و دیتابیس
+        """
+        panel = await self.get_panel_by_id(panel_id)
+        if not panel:
+            raise ValueError(f"پنل با شناسه {panel_id} یافت نشد")
+        client = await self._get_xui_client(panel)
+        try:
+            result = await client.delete_client(uuid)
+            if result:
+                from db.models.client_account import ClientAccount
+                # حذف رکورد از دیتابیس
+                stmt = select(ClientAccount).where(
+                    ClientAccount.panel_id == panel_id,
+                    ClientAccount.inbound_id == inbound_id,
+                    ClientAccount.remote_uuid == uuid
+                )
+                res = await self.session.execute(stmt)
+                account = res.scalar_one_or_none()
+                if account:
+                    await self.session.delete(account)
+                    await self.session.commit()
+                logger.info(f"Deleted client {uuid} from panel {panel_id} and DB")
+            return result
+        except Exception as e:
+            await self.session.rollback()
+            logger.error(f"Error deleting client {uuid} on panel {panel_id}: {str(e)}", exc_info=True)
+            raise
+
+    async def register_panel(self, url: str, username: str, password: str, location_name: str) -> Panel:
+        """
+        ثبت یک پنل جدید
+        Args:
+            url: آدرس پنل
+            username: نام کاربری
+            password: رمز عبور
+            location_name: نام موقعیت
+        Returns:
+            Panel: پنل ثبت شده
+        """
+        # Check for duplicate panel by URL
+        existing_panel = await self.panel_repo.get_panel_by_url(url)
+        if existing_panel:
+            raise Exception("پنل با این آدرس قبلاً ثبت شده است.")
+        panel_data = {
+            "url": url,
+            "username": username,
+            "password": password,
+            "location_name": location_name,
+            "status": PanelStatus.ACTIVE
+        }
+        panel = await self.panel_repo.create_panel(panel_data)
+        return panel

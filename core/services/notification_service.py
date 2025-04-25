@@ -139,12 +139,12 @@ class NotificationService:
             return False
     
     async def notify_admins(self, message: str) -> List[bool]:
-        """Send notification to all admin users"""
-        admins = await self.user_repo.get_users_by_role("admin")
+        """Send notification to all admin users defined in settings"""
+        admin_ids = settings.ADMIN_IDS
         results = []
         
-        for admin in admins:
-            result = await self.notify_user(admin.telegram_id, message)
+        for admin_id in admin_ids:
+            result = await self.notify_user(admin_id, message)
             results.append(result)
         
         return results

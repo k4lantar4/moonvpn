@@ -41,8 +41,13 @@ class UserRepository(BaseRepository[User]):
         except IntegrityError:
             await self.session.rollback()
             # اگر کاربر از قبل وجود داشت، آن را برگردان
-            return await self.get_user_by_telegram_id(telegram_id)
-            
+            existing_user = await self.get_user_by_telegram_id(telegram_id)
+            if existing_user:
+                return existing_user
+            else:
+                # This case should ideally not happen if IntegrityError was due to telegram_id
+                raise # Re-raise the original exception
+
     async def get_or_create_user(self, telegram_id: int, username: Optional[str] = None) -> User:
         """دریافت کاربر در صورت وجود یا ایجاد کاربر جدید"""
         user = await self.get_user_by_telegram_id(telegram_id)
@@ -50,9 +55,17 @@ class UserRepository(BaseRepository[User]):
             # اگر یوزرنیم تغییر کرده بود، آپدیت شود
             if username and user.username != username:
                 user.username = username
-                await self.session.commit()
+                await self.session.flush() # Flush change within transaction
             return user
-        return await self.create_user(telegram_id, username)
+        # Create user without internal commit
+        new_user = User(
+            telegram_id=telegram_id,
+            username=username,
+            role=UserRole.USER
+        )
+        self.session.add(new_user)
+        await self.session.flush() # Make sure it's added before returning
+        return new_user
     
     async def get_all_users(self) -> List[User]:
         """Get all users"""
@@ -71,8 +84,7 @@ class UserRepository(BaseRepository[User]):
         user = await self.get_user_by_telegram_id(telegram_id)
         if user:
             user.status = status
-            await self.session.commit()
-            await self.session.refresh(user)
+            return user
         return user
     
     async def update_user(self, user_id: int, user_data: dict) -> Optional[User]:
@@ -81,39 +93,23 @@ class UserRepository(BaseRepository[User]):
         if user:
             for key, value in user_data.items():
                 setattr(user, key, value)
-            await self.session.commit()
-            await self.session.refresh(user)
+            return user
         return user
     
     async def update_balance(self, user_id: int, new_balance: Decimal) -> bool:
-        """بروزرسانی موجودی کیف پول کاربر
-        
-        Args:
-            user_id: شناسه کاربر
-            new_balance: مقدار جدید موجودی
-            
-        Returns:
-            True در صورت موفقیت، False در غیر این صورت
-        """
+        """بروزرسانی موجودی کیف پول کاربر"""
         user = await self.get_user_by_id(user_id)
         if not user:
             return False
         
         user.balance = new_balance
-        try:
-            await self.session.commit()
-            await self.session.refresh(user)
-            return True
-        except Exception:
-            await self.session.rollback()
-            return False
+        return True
             
     async def delete_user(self, user_id: int) -> bool:
         """Delete a user"""
         user = await self.get_user_by_id(user_id)
         if user:
             await self.session.delete(user)
-            await self.session.commit()
             return True
         return False
     

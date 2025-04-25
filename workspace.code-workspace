@@ -99,6 +99,7 @@
 			"**/id_rsa",
 			"**/id_dsa",
 			"**/.ssh/id_*"
-		]
+		],
+		"cursor.composer.cmdPFilePicker2": false
 	}
 }

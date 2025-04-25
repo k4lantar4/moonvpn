@@ -36,6 +36,13 @@ class Inbound(Base):
     status = Column(SQLEnum(InboundStatus), default=InboundStatus.ACTIVE, nullable=False)  # وضعیت
     max_clients = Column(Integer, default=0)  # حداکثر تعداد کلاینت‌ها
     last_synced = Column(DateTime, default=datetime.utcnow)  # آخرین همگام‌سازی
+    listen = Column(String(100), nullable=True)  # آدرس یا میزبان برای گوش دادن
+    stream_settings = Column(JSON, nullable=True)  # تنظیمات stream
+    allocate_settings = Column(JSON, nullable=True)  # تنظیمات allocate
+    receive_original_dest = Column(Boolean, default=False)  # اجازه دریافت مقصد اصلی
+    allow_transparent = Column(Boolean, default=False)  # اجازه تراسپرنت
+    security_settings = Column(JSON, nullable=True)  # تنظیمات امنیتی
+    remark = Column(String(255), nullable=True)  # توضیحات
     
     # روابط
     panel = relationship("Panel", back_populates="inbounds")

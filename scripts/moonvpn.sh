@@ -1,7 +1,8 @@
 #!/bin/bash
-#
-# MoonVPN CLI - ابزار خط فرمان برای مدیریت سرویس MoonVPN
-#
+# MoonVPN Control Script
+
+# Exit immediately if a command exits with a non-zero status.
+set -e
 
 # Colors for better readability
 GREEN='\033[0;32m'
@@ -90,7 +91,6 @@ show_help() {
     echo "  status          Check status of all services"
     echo "  build           Build the app container"
     echo "  ps              List all running containers"
-    echo "  exec-bot        Run bot directly and see output"
     echo "  install         Install moonvpn command system-wide"
     echo "  help            Show this help message"
     echo ""
@@ -156,6 +156,93 @@ is_production() {
         return $?
     fi
     return 1
+}
+
+# Function to check and potentially create .env file
+check_env() {
+  echo "Checking environment..."
+  if [ ! -f .env ]; then
+    echo "INFO: .env file not found. Copying from .env.example..."
+    cp .env.example .env
+    echo "WARNING: .env file created from .env.example. Please review and update it with your actual credentials, especially BOT_TOKEN and ADMIN_ID."
+  fi
+
+  # Load .env variables into the script's environment
+  # Temporarily disable nounset (-u) if set, as it interferes with checking unbound variables
+  local options_before
+  options_before=$(set +o | grep nounset)
+  set +u
+  # Source .env file safely
+  set -a
+  # Check if .env exists before sourcing
+  if [ -f .env ]; then
+    source .env
+  else
+    echo "ERROR: .env file does not exist even after attempting to copy. Cannot proceed."
+    exit 1
+  fi
+  set +a
+  # Restore nounset option if it was originally set
+  eval "$options_before"
+
+
+  # Validate required variables
+  local missing_vars=0
+  if [ -z "${BOT_TOKEN:-}" ]; then # Use parameter expansion for safe check
+    echo "ERROR: BOT_TOKEN is not set in the .env file."
+    missing_vars=1
+  fi
+  if [ -z "${ADMIN_ID:-}" ]; then
+    echo "ERROR: ADMIN_ID is not set in the .env file."
+    missing_vars=1
+  fi
+  if [ -z "${MYSQL_DATABASE:-}" ] || [ -z "${MYSQL_USER:-}" ] || [ -z "${MYSQL_PASSWORD:-}" ] || [ -z "${MYSQL_HOST:-}" ] || [ -z "${MYSQL_ROOT_PASSWORD:-}" ]; then
+     echo "ERROR: One or more MySQL environment variables (MYSQL_DATABASE, MYSQL_USER, MYSQL_PASSWORD, MYSQL_HOST, MYSQL_ROOT_PASSWORD) are not set in .env."
+     missing_vars=1
+  fi
+
+  if [ "$missing_vars" -eq 1 ]; then
+    echo "Please ensure all required variables are set in the .env file."
+    exit 1
+  fi
+  echo "Environment variables checked successfully."
+}
+
+# Function to check database readiness using docker-compose healthcheck status
+# Waits up to ~60 seconds by default (adjust attempts and sleep duration if needed)
+check_db_health() {
+  echo "Checking database readiness..."
+  local attempts=12 # Number of attempts
+  local sleep_duration=5 # Seconds between attempts
+
+  for (( i=1; i<=attempts; i++ )); do
+    # Get health status; suppress "no such service" error if db isn't up yet
+    local health_status
+    health_status=$(docker-compose ps db 2>/dev/null | grep ' Up (healthy)' || echo "not healthy")
+
+    if [[ "$health_status" == *"Up (healthy)"* ]]; then
+      echo "Database is healthy and ready."
+      return 0 # Success
+    fi
+
+    echo "Database not ready yet (attempt $i/$attempts). Waiting ${sleep_duration}s..."
+    sleep $sleep_duration
+  done
+
+  echo "ERROR: Database did not become healthy after $(($attempts * $sleep_duration)) seconds."
+  # Provide more context if possible
+  echo "Current 'db' service status:"
+  docker-compose ps db || echo "Could not get status for 'db' service."
+  exit 1
+}
+
+# Function to run database migrations
+run_migrations() {
+  echo "Running database migrations..."
+  # Use 'run --rm' to execute the command in a temporary container based on the 'app' service image
+  # Ensures dependencies and environment variables are correctly set for alembic
+  docker-compose run --rm app alembic upgrade head
+  echo "Migrations applied successfully."
 }
 
 # Main command handler
@@ -361,19 +448,24 @@ case "$1" in
     shell)
         check_docker
         if [ -z "$2" ]; then
-            # List available containers if no service specified
             list_containers
         else
-            # Check if service exists
-            if docker compose ps --services | grep -q "^$2$"; then
-                echo -e "${BLUE}Opening shell in $2 container...${NC}"
-                docker compose exec "$2" bash || {
+            service="$2"
+            shift 2
+            if ! docker compose ps --services | grep -q "^${service}$"; then
+                echo -e "${RED}Error: Service '${service}' not found${NC}"
+                list_containers
+                exit 1
+            fi
+            if [ $# -eq 0 ]; then
+                echo -e "${BLUE}Opening shell in ${service} container...${NC}"
+                docker compose exec "${service}" bash || {
                     echo -e "${YELLOW}Bash not available in this container, trying sh...${NC}"
-                    docker compose exec "$2" sh
+                    docker compose exec "${service}" sh
                 }
             else
-                echo -e "${RED}Error: Service '$2' not found${NC}"
-                list_containers
+                echo -e "${BLUE}Executing command in ${service} container...${NC}"
+                docker compose exec "${service}" "$@"
             fi
         fi
         ;;
@@ -396,10 +488,16 @@ case "$1" in
         docker compose ps
         ;;
 
-    exec-bot)
+    exec-app)
         check_docker
-        echo -e "${BLUE}Running bot directly (Ctrl+C to stop)...${NC}"
-        docker compose exec app python -m bot.main
+        echo -e "${BLUE}Executing command in app container...${NC}"
+        if [ $# -lt 2 ]; then
+            echo -e "${RED}Error: No command specified for exec-app${NC}"
+            echo "Usage: moonvpn exec-app <command>"
+            exit 1
+        fi
+        shift
+        docker compose exec app "$@"
         ;;
     
     install)

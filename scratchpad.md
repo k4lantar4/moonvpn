@@ -1,0 +1,1 @@
+✅ جدول client_renewal_log ساخته شد و تمام foreign keyها از جمله ارجاع به users.id (از نوع BigInteger) اکنون بدون خطا و ناسازگاری اعمال می‌شوند. 

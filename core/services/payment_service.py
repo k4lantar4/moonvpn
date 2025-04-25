@@ -11,7 +11,14 @@ from core.services.wallet_service import WalletService
 from core.services.transaction_service import TransactionService
 from core.services.notification_service import NotificationService
 from db.repositories.user_repo import UserRepository
+from db.repositories.receipt_log_repository import ReceiptLogRepository
+from db.repositories.bank_card_repository import BankCardRepository
 from db.models.transaction import Transaction
+from db.models.receipt_log import ReceiptLog
+from db.models.user import User
+from db.models.bank_card import BankCard
+from bot.keyboards.receipt_keyboards import get_receipt_admin_keyboard
+from bot.utils import format_currency
 
 # Define constants for transaction types/status if not already central
 TRANSACTION_TYPE_DEPOSIT = 'deposit'
@@ -30,6 +37,8 @@ class PaymentService:
         self.transaction_service = TransactionService(session)
         self.notification_service = NotificationService(session)
         self.user_repo = UserRepository(session)
+        self.receipt_repo = ReceiptLogRepository(session)
+        self.bank_card_repo = BankCardRepository(session)
     
     async def get_user_balance(self, user_id: int) -> Decimal:
         """
@@ -158,10 +167,95 @@ class PaymentService:
         instructions = (
             "📱 راهنمای شارژ کیف پول:\n\n"
             "۱. مبلغ مورد نظر را به شماره کارت زیر واریز کنید:\n"
-            "𝟔𝟐𝟕𝟕-𝟔𝟎𝟔𝟏-𝟏𝟐𝟑𝟒-𝟓𝟔𝟕𝟖\n"
+            "𝟔𝟐𝟕𝟕-𝟔𝟎𝟔𝟏-𝟏𝟐𝟑𝟒-𝟓𝟔𝟓𝟖\n"
             "به نام «محمد محمدی»\n\n"
             "۲. پس از واریز، شماره پیگیری یا تصویر رسید پرداخت را به پشتیبانی ارسال کنید.\n\n"
             "۳. معمولاً شارژ کیف پول در کمتر از ۱۵ دقیقه انجام می‌شود.\n\n"
             "⚠️ لطفاً دقت کنید که شماره تراکنش را حتماً یادداشت کنید."
         )
         return instructions
+
+    async def send_receipt_to_admin_channel(self, receipt_id: int) -> bool:
+        """
+        Formats and sends a receipt notification to the designated admin channel 
+        for the associated bank card and updates the receipt log.
+        """
+        receipt: Optional[ReceiptLog] = await self.receipt_repo.get_by_id(receipt_id)
+        if not receipt:
+            print(f"Error: ReceiptLog not found for ID {receipt_id}")
+            return False
+
+        user: Optional[User] = await self.user_repo.get_by_id(receipt.user_id)
+        card: Optional[BankCard] = await self.bank_card_repo.get_by_id(receipt.card_id)
+
+        if not user or not card:
+            print(f"Error: User or BankCard not found for ReceiptLog {receipt_id}")
+            return False
+
+        if not card.telegram_channel_id:
+            print(f"Error: telegram_channel_id not set for BankCard {card.id}")
+            # Maybe notify a default admin channel?
+            return False
+
+        target_channel_id = card.telegram_channel_id
+
+        # Format the cover message
+        user_link = f"<a href=\"tg://user?id={user.telegram_id}\">{user.username or user.telegram_id}</a>"
+        card_masked = f"{card.card_number[:4]}******{card.card_number[-4:]}"
+        amount_str = format_currency(receipt.amount) # Requires format_currency utility
+        time_str = receipt.submitted_at.strftime("%Y/%m/%d - %H:%M")
+        
+        caption_parts = [
+            f"📤 رسید جدید دریافت شد:",
+            f"👤 کاربر: {user_link} ({user.telegram_id})",
+            f"💳 کارت مقصد: {card_masked} ({card.bank_name} - {card.holder_name})",
+            f"💰 مبلغ: {amount_str}",
+            f"🕒 زمان: {time_str}",
+        ]
+        if receipt.tracking_code and receipt.tracking_code.startswith("TEMP-") is False:
+             caption_parts.append(f"🔖 کد پیگیری: {receipt.tracking_code}") # Only show if not placeholder
+        if receipt.order_id:
+            caption_parts.append(f"🆔 OrderID: #{receipt.order_id}")
+        if receipt.text_reference:
+            caption_parts.append(f"\n📝 متن کاربر: {receipt.text_reference}")
+
+        caption = "\n".join(caption_parts)
+
+        # Get the admin keyboard
+        keyboard = get_receipt_admin_keyboard(receipt.id)
+
+        # Send the notification
+        try:
+            if receipt.photo_file_id:
+                sent_message = await self.notification_service.send_photo_to_channel(
+                    channel_id=target_channel_id,
+                    photo_file_id=receipt.photo_file_id,
+                    caption=caption,
+                    reply_markup=keyboard
+                )
+            else:
+                sent_message = await self.notification_service.send_message_to_channel(
+                    channel_id=target_channel_id,
+                    text=caption,
+                    reply_markup=keyboard
+                )
+            
+            if sent_message:
+                # Update receipt log with message details
+                updated = await self.receipt_repo.update_receipt_telegram_info(
+                    receipt_id=receipt.id,
+                    message_id=sent_message.message_id,
+                    channel_id=target_channel_id
+                )
+                if not updated:
+                    print(f"Error: Failed to update ReceiptLog {receipt.id} with message info.")
+                    # Consider deleting the sent message or logging for manual review
+                return updated is not None
+            else:
+                print(f"Error: Failed to send message to channel {target_channel_id} for receipt {receipt.id}")
+                return False
+
+        except Exception as e:
+            print(f"Exception sending receipt {receipt.id} to channel {target_channel_id}: {e}")
+            # Log the exception properly
+            return False

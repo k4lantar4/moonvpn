@@ -41,11 +41,25 @@ class UserService:
     
     async def update_username(self, telegram_id: int, new_username: str) -> Optional[User]:
         """بروزرسانی نام کاربری"""
-        # Rely on repository to handle commit and refresh
-        return await self.user_repo.update_user(
-            telegram_id=telegram_id,
-            update_data={'username': new_username}
+        # Get user first to ensure exists, or adjust repo method
+        user = await self.user_repo.get_user_by_telegram_id(telegram_id)
+        if not user:
+            return None
+            
+        # Use the updated repo method which doesn't commit
+        updated_user = await self.user_repo.update_user(
+            user_id=user.id, # Pass user_id
+            user_data={'username': new_username}
         )
+        if updated_user:
+            try:
+                await self.user_repo.session.commit()
+                await self.user_repo.session.refresh(updated_user)
+                return updated_user
+            except Exception:
+                await self.user_repo.session.rollback()
+                raise # Re-raise the exception
+        return None # Should not happen if update_user returns the object
     
     async def update_user(
         self,
@@ -62,7 +76,22 @@ class UserService:
             update_data['username'] = username
         if full_name:
             update_data['full_name'] = full_name
-        return await self.user_repo.update_user(user_id, update_data)
+            
+        if not update_data: # No changes requested
+             return await self.user_repo.get_by_id(user_id)
+             
+        # Use the updated repo method which doesn't commit
+        updated_user = await self.user_repo.update_user(user_id, update_data)
+        
+        if updated_user:
+            try:
+                await self.user_repo.session.commit()
+                await self.user_repo.session.refresh(updated_user)
+                return updated_user
+            except Exception:
+                await self.user_repo.session.rollback()
+                raise # Re-raise the exception
+        return None # User not found by repo method
     
     async def create_user(
         self,

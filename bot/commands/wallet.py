@@ -3,8 +3,9 @@
 """
 
 from decimal import Decimal
+from typing import Union
 from aiogram import types, Router, F
-from aiogram.types import Message
+from aiogram.types import Message, CallbackQuery
 from aiogram.filters.command import Command
 from aiogram.fsm.context import FSMContext
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -19,43 +20,61 @@ from db.models.transaction import TransactionType, TransactionStatus
 _session_maker: async_sessionmaker[AsyncSession] = None
 
 
+async def _display_wallet_info(target: Union[Message, CallbackQuery], session: AsyncSession):
+    """
+    منطق اصلی نمایش اطلاعات کیف پول کاربر
+    """
+    user_id = target.from_user.id
+    message = target if isinstance(target, Message) else target.message
+
+    try:
+        # دریافت اطلاعات کاربر
+        user_service = UserService(session)
+        payment_service = PaymentService(session)
+        
+        user = await user_service.get_user_by_telegram_id(user_id)
+        if not user:
+            await message.answer("خطا در شناسایی کاربر. لطفاً ابتدا از دستور /start استفاده کنید.")
+            return
+        
+        # نمایش وضعیت کیف پول
+        balance = await payment_service.get_user_balance(user.id)
+        
+        wallet_message = (
+            f"💰 کیف پول شما\n\n"
+            f"👤 کاربر: {user.username or 'بدون نام کاربری'}\n"
+            f"💲 موجودی فعلی: {balance:,} تومان\n\n"
+            f"برای افزایش موجودی، از دکمه زیر استفاده کنید:"
+        )
+        
+        # ارسال پیام با دکمه افزایش موجودی
+        if isinstance(target, CallbackQuery):
+            await message.edit_text(wallet_message, reply_markup=get_wallet_keyboard())
+            await target.answer()
+        else:
+            await message.answer(wallet_message, reply_markup=get_wallet_keyboard())
+        
+    except Exception as e:
+        # لاگ خطا و ارسال پیام خطا
+        print(f"خطا در نمایش اطلاعات کیف پول: {e}")
+        error_message = "متأسفانه خطایی در سیستم رخ داده است. لطفاً بعداً تلاش کنید یا با پشتیبانی تماس بگیرید."
+        if isinstance(target, CallbackQuery):
+            try:
+                await message.edit_text(error_message)
+            except Exception as edit_err:
+                print(f"Could not edit message on wallet error: {edit_err}")
+                await message.answer(error_message)
+            await target.answer("خطا در نمایش کیف پول")
+        else:
+            await message.answer(error_message)
+
+
 async def wallet_command(message: types.Message):
     """
-    هندلر دستور /wallet
-    نمایش وضعیت کیف پول و دکمه افزایش موجودی
+    هندلر دستور /wallet و دکمه متنی "کیف پول"
     """
-    user_id = message.from_user.id
-    
-    # ایجاد سشن دیتابیس
-    session = _session_maker()
-    async with session as session:
-        try:
-            # دریافت اطلاعات کاربر
-            user_service = UserService(session)
-            payment_service = PaymentService(session)
-            
-            user = await user_service.get_user_by_telegram_id(user_id)
-            if not user:
-                await message.answer("خطا در شناسایی کاربر. لطفاً ابتدا از دستور /start استفاده کنید.")
-                return
-            
-            # نمایش وضعیت کیف پول
-            balance = await payment_service.get_user_balance(user_id)
-            
-            wallet_message = (
-                f"💰 کیف پول شما\n\n"
-                f"👤 کاربر: {user.username or 'بدون نام کاربری'}\n"
-                f"💲 موجودی فعلی: {balance:,} تومان\n\n"
-                f"برای افزایش موجودی، از دکمه زیر استفاده کنید:"
-            )
-            
-            # ارسال پیام با دکمه افزایش موجودی
-            await message.answer(wallet_message, reply_markup=get_wallet_keyboard())
-            
-        except Exception as e:
-            # لاگ خطا و ارسال پیام خطا
-            print(f"Error in wallet command: {e}")
-            await message.answer("متأسفانه خطایی در سیستم رخ داده است. لطفاً بعداً تلاش کنید یا با پشتیبانی تماس بگیرید.")
+    async with _session_maker() as session:
+        await _display_wallet_info(message, session)
 
 
 async def handle_amount_message(message: types.Message, state: FSMContext):

@@ -14,6 +14,7 @@ from core.services.plan_service import PlanService
 from core.services.user_service import UserService
 from core.services.order_service import OrderService
 from bot.buttons.plan_buttons import get_plans_keyboard, get_plan_details_keyboard
+from bot.buttons.common_buttons import HELP_MENU_CB, SUPPORT_CHAT_CB, BACK_TO_MAIN_CB, BACK_TO_PLANS_CB
 from db.models.order import Order, OrderStatus
 from bot.states.buy_states import BuyState
 
@@ -147,7 +148,7 @@ def register_callbacks(router: Router, session_pool):
             logger.error(f"Error in confirm_plan_callback for user {callback.from_user.id}: {e}", exc_info=True)
             await callback.answer("خطایی در ثبت سفارش رخ داد. لطفاً دوباره تلاش کنید.", show_alert=True)
     
-    @router.callback_query(F.data == "back_to_plans")
+    @router.callback_query(F.data == BACK_TO_PLANS_CB)
     async def back_to_plans_callback(callback: CallbackQuery):
         """بازگشت به لیست پلن‌ها"""
         try:
@@ -170,7 +171,7 @@ def register_callbacks(router: Router, session_pool):
             logger.error(f"Error in back_to_plans_callback: {e}", exc_info=True)
             await callback.answer("خطایی رخ داد. لطفاً دوباره تلاش کنید.", show_alert=True)
     
-    @router.callback_query(F.data == "back_to_main")
+    @router.callback_query(F.data == BACK_TO_MAIN_CB)
     async def back_to_main_callback(callback: CallbackQuery):
         """بازگشت به منوی اصلی"""
         try:
@@ -246,6 +247,15 @@ def register_callbacks(router: Router, session_pool):
                 "❌ متأسفانه در پردازش پرداخت خطایی رخ داد.\n"
                 "لطفاً دوباره تلاش کنید.",
                 reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                    [InlineKeyboardButton(text="🔙 بازگشت", callback_data="back_to_plans")]
+                    [InlineKeyboardButton(text="🔙 بازگشت", callback_data=BACK_TO_PLANS_CB)]
                 ])
             )
+
+# New placeholder handlers
+async def handle_help_menu_callback(callback: CallbackQuery):
+    """Placeholder برای دکمه راهنما"""
+    await callback.answer("❓ بخش راهنما در حال توسعه است...", show_alert=True)
+
+async def handle_support_chat_callback(callback: CallbackQuery):
+    """Placeholder برای دکمه پشتیبانی"""
+    await callback.answer("💬 بخش پشتیبانی در حال توسعه است...", show_alert=True)

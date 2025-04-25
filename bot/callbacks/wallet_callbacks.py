@@ -10,7 +10,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from bot.buttons.wallet_buttons import TOPUP_CB, CANCEL_CB, CONFIRM_AMOUNT_PREFIX, get_cancel_keyboard
+from bot.buttons.wallet_buttons import TOPUP_CB, CANCEL_CB, CONFIRM_AMOUNT_PREFIX, WALLET_MENU_CB, get_cancel_keyboard
 from core.services.payment_service import PaymentService
 from core.services.user_service import UserService
 from db.models.transaction import TransactionType, TransactionStatus
@@ -53,6 +53,15 @@ async def handle_cancel_button(callback: CallbackQuery, state: FSMContext):
     
     # ارسال پیام انصراف
     await callback.message.answer("عملیات افزایش موجودی لغو شد.")
+
+
+async def handle_wallet_menu_callback(callback: CallbackQuery, session: AsyncSession):
+    """
+    پردازش دکمه نمایش منوی اصلی کیف پول
+    """
+    # Assuming AuthMiddleware injects the session
+    from bot.commands.wallet import _display_wallet_info
+    await _display_wallet_info(callback, session)
 
 
 async def handle_confirm_amount_button(callback: CallbackQuery, state: FSMContext):
@@ -101,7 +110,7 @@ async def handle_confirm_amount_button(callback: CallbackQuery, state: FSMContex
                 )
             except Exception as e:
                 await callback.message.answer(f"خطا در ایجاد تراکنش: {str(e)}")
-                print(f"Error creating transaction: {str(e)}")
+                print(f"خطا در ایجاد تراکنش: {str(e)}") # Persian log
                 # بررسی دقیق خطا و لاگ آن
                 import traceback
                 print(traceback.format_exc())
@@ -111,7 +120,7 @@ async def handle_confirm_amount_button(callback: CallbackQuery, state: FSMContex
             
         except Exception as e:
             await callback.message.answer(f"خطایی رخ داد: {str(e)}")
-            print(f"General error in handle_confirm_amount_button: {str(e)}")
+            print(f"خطای عمومی در handle_confirm_amount_button: {str(e)}") # Persian log
 
 
 def register_wallet_callbacks(router: Router, session_maker: async_sessionmaker[AsyncSession]):
@@ -120,6 +129,13 @@ def register_wallet_callbacks(router: Router, session_maker: async_sessionmaker[
     """
     global _session_maker
     _session_maker = session_maker
+    
+    # دکمه منوی اصلی کیف پول (اضافه شد)
+    router.callback_query.register(
+        handle_wallet_menu_callback,
+        F.data == WALLET_MENU_CB
+        # Assuming AuthMiddleware injects the session, no need for flags
+    )
     
     # دکمه افزایش موجودی
     router.callback_query.register(

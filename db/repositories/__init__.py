@@ -12,6 +12,7 @@ from .plan_repo import PlanRepository
 from .setting_repo import SettingRepository
 from .transaction_repo import TransactionRepository
 from .order_repo import OrderRepository
+from .bank_card_repository import BankCardRepository
 
 __all__ = [
     "BaseRepository",
@@ -23,5 +24,6 @@ __all__ = [
     "PlanRepository",
     "SettingRepository",
     "TransactionRepository",
-    "OrderRepository"
+    "OrderRepository",
+    "BankCardRepository"
 ] 

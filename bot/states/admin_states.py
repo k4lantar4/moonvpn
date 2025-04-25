@@ -27,4 +27,12 @@ class AddInbound(StatesGroup):
     enter_protocol = State()       # انتخاب پروتکل
     enter_port = State()          # وارد کردن پورت
     enter_max_clients = State()    # وارد کردن حداکثر تعداد کاربر
-    confirm = State()             # تایید نهایی 
+    confirm = State()             # تایید نهایی
+
+
+# Added RegisterPanelStates for handling new panel registration
+class RegisterPanelStates(StatesGroup):
+    waiting_for_panel_url = State()
+    waiting_for_username = State()
+    waiting_for_password = State()
+    waiting_for_location_name = State() 

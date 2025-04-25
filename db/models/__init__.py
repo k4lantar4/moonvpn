@@ -49,6 +49,7 @@ from .transaction import Transaction
 from .order import Order
 from .test_account_log import TestAccountLog
 from .receipt_log import ReceiptLog
+from .notification_log import NotificationLog
 from .enums import (
     UserRole,
     PanelStatus,
@@ -76,6 +77,7 @@ __all__ = [
     "Order",
     "TestAccountLog",
     "ReceiptLog",
+    "NotificationLog",
     "UserRole",
     "PanelStatus",
     "InboundStatus",

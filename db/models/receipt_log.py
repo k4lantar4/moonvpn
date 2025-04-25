@@ -45,6 +45,8 @@ class ReceiptLog(Base):
     auto_validated = Column(Boolean, default=False, nullable=False)
     submitted_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     responded_at = Column(DateTime, nullable=True)
+    telegram_message_id = Column(BigInteger, nullable=True)
+    telegram_channel_id = Column(BigInteger, nullable=True)
     
     # ارتباط با سایر مدل‌ها
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)

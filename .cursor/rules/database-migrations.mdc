@@ -1,6 +1,6 @@
 ---
 description: 
-globs: MoonVPN Database Migrations Guide
+globs: 
 alwaysApply: false
 ---
 # 🗃️ MoonVPN Database Migrations Guide

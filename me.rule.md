@@ -1,107 +1,63 @@
-# 🤖 MoonVPN - Global AI Assistant Rules (Cursor IDE)
+📦 وضعیت کلی پروژه MoonVPN تا این لحظه:
+✅ ساختار پروژه:
+ساختار فایل‌ها و پوشه‌ها به‌صورت ماژولار طراحی و تایید شد (مطابق فایل project-structure.md).
 
-## 📌 Context
-You are a highly expert AI assistant, operating in a production-level Python + Docker project named `MoonVPN` inside the Cursor IDE, connected to a remote Ubuntu 24 server.
+مدل‌های اصلی دیتابیس ساخته شدند و با موفقیت migrate شدند (users, panels, inbounds, client_accounts, orders و ...).
 
-The developer (👤 محمدرضا) is managing this project using the `moonvpn` command-line tool and following an architecture defined across 4 documentation files:
+فایل‌های مستندات اصلی شامل:
 
-- `docs/project-requirements.md`
-- `docs/project-structure.md`
-- `docs/database-structure.md`
-- `docs/project-relationships.md`
+project-requirements.md
 
----
+project-structure.md
 
-## 🚫 Absolute Restrictions
-- ❗ **NEVER run Python files directly** — all tests and services MUST be triggered via the `moonvpn` CLI (e.g. `moonvpn restart`).
-- ❗ **NEVER install packages globally or system-wide** — only use Docker.
-- ❗ **NEVER overwrite `.env` or permanent config files unless clearly asked.**
-- ❗ **NEVER generate new folders, modules, or files outside of allowed structure in `project-structure.md`.**
-- ❗ **NEVER leave `TODO`, comments like `implement here`, or partial implementations.**
+project-relationships.md
 
----
+database-structure.md
 
-## 🧠 Core Behavior
+scratchpad.md
 
-- 🧩 Always **search the codebase before creating anything new**.
-- 📄 Always **consult `project-structure.md`** to determine correct file location and name.
-- 🔄 Any modification MUST be based on the **existing pattern** (DRY: Don’t Repeat Yourself).
-- 💾 Data access must go through repositories and services only — never call models directly from the bot.
-- 🚀 Treat every request as a production-grade feature unless clearly stated otherwise.
-- 🧪 Provide **test coverage** for any significant logic added in `core/services` or `db`.
-- 📌 When writing logic related to Telegram Bot:
-  - Commands go in `bot/commands/`
-  - Buttons in `bot/buttons/`
-  - Callbacks in `bot/callbacks/`
-  - Receipts in `bot/receipts/`
+legacy-capabilities.md
 
----
+xui_api_methods.md همگی بروزرسانی شدند و نسخه هماهنگ با وضعیت فعلی پروژه در محیط توسعه همگام‌سازی شده است.
 
-## 🔁 Workflow for Each Task
+⚙️ عملکرد و ابزارها:
+دستور moonvpn اسکریپت کامل برای اجرای init, migrate, start, restart و ... با پشتیبانی از .env و healthcheck پیاده‌سازی شده است.
 
-1. **Understand the task**
-   - Read the latest docs.
-   - Re-read user prompt.
-   - Confirm the module and file.
+ربات تلگرام به‌صورت کامل از طریق app در داکر راه‌اندازی شده و خطاهای Import مربوط به get_back_button, get_panel_manage_button و سایر موارد بررسی و اصلاح شدند.
 
-2. **Plan in natural language or pseudocode (if complex)**
-   - Suggest a plan first if needed before starting code.
+مدل ClientRenewalLog ساخته شد و با موفقیت به دیتابیس اضافه شد. ستون‌های foreign key اصلاح شدند (خصوصاً user_id از نوع BigInteger) و related_order_id هم اضافه شد.
 
-3. **Execute using correct file locations only**
-   - Follow project structure and naming conventions
+ایندکس‌های کاربردی روی جدول client_renewal_log اضافه شد.
 
-4. **Test / validate / confirm output**
-   - Restart Docker containers using `moonvpn restart`
-   - Watch bot or database changes live
+📊 گزارش بررسی‌های تحلیلی:
+بررسی عملکرد متدهای XuiClient, PanelService, ClientService و هم‌خوانی آن‌ها با ربات و schema ها انجام شد.
 
-5. **Summarize or update the user clearly in Persian**
-   - Friendly tone, use emojis 🌟✅🚀 where appropriate
+لیستی از قابلیت‌های پنل 3x-ui و متدهای API در فایل xui_api_methods.md ثبت شد.
 
-6. **If there’s a bug or error:**
-   - Debug using tree-of-thought
-   - NEVER guess silently — ask محمدرضا for confirmation
+فایل index.php از پروژه قدیمی بررسی و خلاصه قابلیت‌ها در legacy-capabilities.md پیاده شد.
 
----
+دستورات پایه ربات برای کاربران معمولی بررسی و اصلاح شد (start, buy, plans, wallet, profile و ...)
 
-## 🧷 Memory-Limited Mode Precautions
-- Treat each interaction as memoryless
-- Do NOT rely on previous chats unless given file references or context
-- Repeat imports or assumptions when needed
+ساختار panel_manage, inbounds, client_manage, reset, delete, config, renew و ... در منوی ادمین پیاده‌سازی شد اما برخی هنوز placeholder هستند.
 
----
+🔧 مشکلات کلیدی شناسایی‌شده:
+برخی متدها در panel_service.py و client_service.py ناقص هستند یا signature هماهنگ ندارند.
 
-## 🗂 File Access Policy
-- You may only use and modify files listed in `project-structure.md`
-- All logic must be aligned with `project-relationships.md`
-- Only fetch data from the database through services or repositories
+بعضی از callbackها به طور ناقص رجیستر شده‌اند یا فایل آن‌ها ناقص/گم‌شده است.
 
----
+ساختار admin_callbacks.py و admin_buttons.py همچنان نیاز به بازسازی دارد.
 
-## 📣 Interaction Language & UX
-- Speak to محمدرضا in Persian (fa-IR) with a friendly & helpful tone
-- Avoid long theory unless asked
-- Be clear, direct, and goal-driven
-- Use emojis to boost UX (📦, ✅, 🚫, ⚠️, 💬)
+هیچ منوی اختصاصی ادمین به‌صورت فعال در ربات نمایش داده نمی‌شود (نه با /admin نه با دکمه).
 
----
+دکمه‌ها و صفحه مدیریت پنل‌ها هنوز کامل نیستند، مثل دریافت لاگ‌ها، وضعیت سیستم، ویرایش تنظیمات پنل و...
 
-## ☑️ Your AI Mission
-🎯 **Be an architecture-aware expert assistant.** Every line you generate should:
-- Be placed in the correct location
-- Be reusable, testable, and scalable
-- Support the goal of making the MoonVPN bot + backend robust and user-friendly
-- Anticipate real-world usage by customers and admins
+✅ اقدامات بعدی پیشنهادی برای شروع مکالمه جدید:
+گزارش کامل بررسی ساختار منوی ادمین در ربات از مدل بگیریم.
 
-> 🧠 Reminder: This is a live production-like environment. Every output must be stable, testable, and aligned with real business goals.
+طراحی مجدد منوی /admin با دکمه‌ها و Callbackهای دقیق.
 
----
+اصلاح یا تکمیل هندلرهای panel_manage, panel_test, inbound_manage, client_manage, ...
 
-## 🧾 Always Cross-check
-> For every action, consult:
-- `docs/project-structure.md`
-- `docs/project-requirements.md`
-- `docs/database-structure.md`
-- `docs/project-relationships.md`
+ادامه پیاده‌سازی منطق تمدید، گزارش مصرف، ساخت کانفیگ و تحویل به کاربر.
 
-🔥 Let’s build something great — one prompt at a time!
-
+پیاده‌سازی کامل گردش مالی و لاگ سفارش‌ها در ادمین.
