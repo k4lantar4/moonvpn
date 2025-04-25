@@ -32,21 +32,9 @@ from bot.callbacks import (
     register_callbacks,
     register_plan_callbacks,
     register_panel_callbacks,
-<<<<<<< HEAD
     register_inbound_callbacks,
     register_account_callbacks,
 )
-from bot.callbacks.admin_callbacks import register_admin_callbacks
-from bot.callbacks.panel_callbacks import register_panel_callbacks
-from bot.callbacks.inbound_callbacks import register_inbound_callbacks
-=======
-    register_account_callbacks,
-)
-from bot.callbacks.admin_callbacks import register_admin_callbacks
-from bot.callbacks.user_callbacks import register_user_callbacks
-from bot.callbacks.panel_callbacks import register_panel_callbacks
->>>>>>> 644afe0cd616ac99872ebfb4b1bd13f07cdc62c2
-from bot.callbacks.client_callbacks import register_client_callbacks
 from bot.middlewares import AuthMiddleware, ErrorMiddleware
 
 # تنظیمات لاگینگ
@@ -110,10 +98,7 @@ async def setup_dispatcher() -> Dispatcher:
     register_plan_callbacks(router, SessionLocal)
     # register panel callbacks for listing inbounds
     register_panel_callbacks(router, SessionLocal)
-<<<<<<< HEAD
     register_inbound_callbacks(router, SessionLocal)
-=======
->>>>>>> 644afe0cd616ac99872ebfb4b1bd13f07cdc62c2
     register_account_callbacks(router, SessionLocal)
     
     # افزودن روتر به دیسپچر
@@ -160,20 +145,6 @@ async def main():
         # تنظیم نمونه ربات برای سرویس نوتیفیکیشن
         if notification_service:
             notification_service.set_bot(bot)
-        
-        # ثبت هندلرهای callback
-<<<<<<< HEAD
-        # register_admin_callbacks(dp) # حذف شد - تکراری و در setup_dispatcher هست
-        # register_user_callbacks(dp) # حذف شد - ماژول وجود ندارد
-        # register_panel_callbacks(dp) # حذف شد - تکراری و در setup_dispatcher هست
-        # register_inbound_callbacks(dp) # حذف شد - تکراری و در setup_dispatcher هست
-        # register_client_callbacks(dp) # حذف شد - تکراری و در setup_dispatcher هست
-=======
-        register_admin_callbacks(dp)
-        register_user_callbacks(dp)
-        register_panel_callbacks(dp)
-        register_client_callbacks(dp)
->>>>>>> 644afe0cd616ac99872ebfb4b1bd13f07cdc62c2
         
         # شروع polling
         logger.info("ربات MoonVPN آماده است!")

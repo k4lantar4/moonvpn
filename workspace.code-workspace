@@ -100,6 +100,22 @@
 			"**/id_dsa",
 			"**/.ssh/id_*"
 		],
-		"cursor.composer.cmdPFilePicker2": false
+		"cursor.composer.cmdPFilePicker2": false,
+		"sqltools.connections": [
+			{
+				"mysqlOptions": {
+					"authProtocol": "default",
+					"enableSsl": "Disabled"
+				},
+				"previewLimit": 50,
+				"server": "localhost",
+				"port": 3306,
+				"driver": "MySQL",
+				"name": "moonvpn",
+				"database": "moonvpn",
+				"username": "moonvpn_user",
+				"password": "strong_password_here"
+			}
+		]
 	}
 }

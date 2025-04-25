@@ -129,3 +129,31 @@
 
 - `notifications/` → سیستم اطلاع‌رسانی
   - `dispatcher.py` → ارسال نوتیفیکیشن به کاربران 
+
+# Bot Commands and Callbacks Log
+
+This document lists the registered commands and callback handlers in the bot.
+
+## Commands
+
+*   `/admin` - `bot/commands/admin.py`
+*   `/wallet` - `bot/commands/wallet.py`
+*   `/profile` - `bot/commands/profile.py`
+*   `/myaccounts` - `bot/commands/myaccounts.py`
+*   `/plans` - `bot/commands/plans.py`
+*   `/buy` - `bot/commands/buy.py`
+*   `/start` - `bot/commands/start.py`
+
+## Callbacks
+
+The following files contain callback query handlers. Specific callback data patterns are defined within each file.
+
+*   `admin_callbacks.py` - `bot/callbacks/admin_callbacks.py`
+*   `panel_callbacks.py` - `bot/callbacks/panel_callbacks.py`
+*   `common_callbacks.py` - `bot/callbacks/common_callbacks.py`
+*   `inbound_callbacks.py` - `bot/callbacks/inbound_callbacks.py`
+*   `client_callbacks.py` - `bot/callbacks/client_callbacks.py`
+*   `wallet_callbacks.py` - `bot/callbacks/wallet_callbacks.py`
+*   `account_callbacks.py` - `bot/callbacks/account_callbacks.py`
+*   `buy_callbacks.py` - `bot/callbacks/buy_callbacks.py`
+*   `plan_callbacks.py` - `bot/callbacks/plan_callbacks.py` 

@@ -4,7 +4,7 @@
 
 **علائم:**
 *   ✅: متد در `core/integrations/xui_client.py` پیاده‌سازی و استفاده شده است.
-*   ❌: متد در `py3xui` وجود دارد اما در `core/integrations/xui_client.py` استفاده نشده است.
+*   ❌: متد در `py3xui` وجود دارد (یا انتظار می‌رود وجود داشته باشد) اما در `core/integrations/xui_client.py` مستقیماً استفاده نشده است.
 
 ---
 
@@ -12,7 +12,7 @@
 
 | نام متد       | عملکرد                       | Endpoint API | ورودی اصلی     | خروجی اصلی    | وضعیت پیاده‌سازی |
 | :------------ | :--------------------------- | :----------- | :------------ | :------------ | :--------------- |
-| `login()`     | احراز هویت و دریافت کوکی | `/login`     | Credentials | Session Token | ✅               |
+| `login()`     | احراز هویت و دریافت کوکی | `/login`     | Credentials | `bool`, Session Token | ✅               |
 
 ---
 
@@ -20,45 +20,47 @@
 
 | نام متد                                 | عملکرد                               | Endpoint API                       | ورودی اصلی           | خروجی اصلی         | وضعیت پیاده‌سازی |
 | :-------------------------------------- | :----------------------------------- | :--------------------------------- | :------------------- | :----------------- | :--------------- |
-| `inbound.get_list()`                    | دریافت لیست تمام Inbound ها         | `/panel/api/inbounds/list`         | -                    | `List[Inbound]`    | ✅               |
-| `inbound.get_by_id(inbound_id)`         | دریافت اطلاعات یک Inbound با ID     | `/panel/api/inbounds/get/{id}`     | `inbound_id` (int)   | `Inbound`          | ✅               |
-| `inbound.add(inbound)`                  | افزودن یک Inbound جدید              | `/panel/api/inbounds/add`          | `Inbound` object     | Result, Inbound    | ✅               |
-| `inbound.update(inbound_id, inbound)`   | به‌روزرسانی یک Inbound موجود        | `/panel/api/inbounds/update/{id}`  | `id`, `Inbound` obj  | Result, Inbound    | ✅               |
-| `inbound.delete(inbound_id)`            | حذف یک Inbound                      | `/panel/api/inbounds/del/{id}`     | `inbound_id` (int)   | Result             | ✅               |
-| `inbound.add_client(inbound_id, client)`| افزودن کلاینت به Inbound (مستقیم) | `/panel/api/inbounds/addClient/`   | `id`, `Client` obj   | Result             | ❌               |
-| `inbound.update_client(...)`            | به‌روزرسانی کلاینت در Inbound     | `/panel/api/inbounds/updateClient/{uuid}` | `id`, `uuid`, `Client` obj | Result | ❌               |
-| `inbound.delete_client(...)`            | حذف کلاینت از Inbound              | `/panel/api/inbounds/delClient/{uuid}` | `id`, `uuid`         | Result             | ❌               |
-| `inbound.reset_client_traffic(...)`     | ریست ترافیک کلاینت در Inbound    | `/panel/api/inbounds/{id}/resetClientTraffic/{uuid}` | `id`, `uuid`         | Result             | ❌               |
+| `inbound.get_list()`                    | دریافت لیست تمام Inbound ها         | `/panel/api/inbounds/list`         | -                    | `List[Dict]`    | ✅               |
+| `inbound.get(inbound_id)`               | دریافت اطلاعات یک Inbound با ID     | `/panel/api/inbounds/get/{id}`     | `inbound_id` (int)   | `Dict` / `None`  | ✅               |
+| `inbound.create(inbound_data)`          | افزودن یک Inbound جدید              | `/panel/api/inbounds/add`          | `Dict` (inbound data)| `Dict` (result)  | ✅               |
+| `inbound.update(inbound_id, inbound_data)`| به‌روزرسانی یک Inbound موجود        | `/panel/api/inbounds/update/{id}`  | `id`, `Dict` (data)  | `Dict` (result)  | ✅               |
+| `inbound.delete(inbound_id)`            | حذف یک Inbound                      | `/panel/api/inbounds/del/{id}`     | `inbound_id` (int)   | `bool` (result)  | ✅               |
+| `inbound.add_client(...)`               | افزودن کلاینت به Inbound (مستقیم) | `/panel/api/inbounds/addClient/`   | `id`, `Client` obj   | Result             | ❌ (از `client.create` استفاده می‌شود) |
+| `inbound.update_client(...)`            | به‌روزرسانی کلاینت در Inbound     | `/panel/api/inbounds/updateClient/{uuid}`(?) | `id`, `uuid`, `Client` obj | Result | ❌ (از `client.update` استفاده می‌شود) |
+| `inbound.delete_client(...)`            | حذف کلاینت از Inbound              | `/panel/api/inbounds/delClient/{uuid}`(?) | `id`, `uuid`         | Result             | ❌ (از `client.delete` استفاده می‌شود) |
+| `inbound.reset_client_traffic(...)`     | ریست ترافیک کلاینت در Inbound    | `/panel/api/inbounds/{id}/resetClientTraffic/{uuid}`(?) | `id`, `uuid`         | Result             | ❌ (از `client.reset_traffic` استفاده می‌شود) |
 
 ---
 
 ## Client Management
 
-*توجه: برخی متدهای کلاینت ممکن است به صورت مستقیم یا از طریق Inbound مربوطه فراخوانی شوند. پیاده‌سازی فعلی در `XuiClient` از دسترسی مستقیم `api.client` استفاده می‌کند.*
+*توجه: پیاده‌سازی فعلی در `XuiClient` از دسترسی مستقیم `api.client` استفاده می‌کند.*
 
-| نام متد                        | عملکرد                           | Endpoint API                        | ورودی اصلی        | خروجی اصلی       | وضعیت پیاده‌سازی |
-| :----------------------------- | :------------------------------- | :---------------------------------- | :---------------- | :--------------- | :--------------- |
-| `client.add(inbound_id, clients)` | افزودن یک یا چند کلاینت به Inbound | `/panel/api/inbounds/addClient/`    | `id`, `List[Client]` | Result         | ✅               |
-| `client.get_by_email(email)`   | دریافت کلاینت با ایمیل           | `/panel/api/clients/get/{email}`(?) | `email` (str)     | `Client`         | ✅               |
-| `client.get(uuid)`             | دریافت کلاینت با UUID            | ?                                   | `uuid` (str)      | `Client`         | ✅               |
-| `client.update(uuid, client)`  | به‌روزرسانی کلاینت با UUID       | `/panel/api/inbounds/updateClient/{uuid}` | `uuid`, `Client` obj | Result, Client | ✅               |
-| `client.delete(uuid)`          | حذف کلاینت با UUID               | `/panel/api/inbounds/delClient/{uuid}` | `uuid` (str)      | Result           | ✅               |
-| `client.reset_traffic(uuid)`   | ریست ترافیک کلاینت با UUID       | `/panel/api/inbounds/resetClientTraffic/{uuid}`(?) | `uuid` (str) | Result           | ✅               |
-| `client.get_traffic(uuid)`     | دریافت اطلاعات ترافیک کلاینت   | ?                                   | `uuid` (str)      | Traffic Info   | ✅               |
+| نام متد                        | عملکرد                           | Endpoint API                        | ورودی اصلی            | خروجی اصلی          | وضعیت پیاده‌سازی |
+| :----------------------------- | :------------------------------- | :---------------------------------- | :-------------------- | :------------------ | :--------------- |
+| `client.create(inbound_id, client_data)` | افزودن کلاینت به Inbound مشخص   | `/panel/api/inbounds/addClient` (?) | `id`, `Dict` (data)   | `Dict` (result)   | ✅               |
+| `client.get_by_email(email)`   | دریافت کلاینت با ایمیل           | (احتمالا از /list و فیلتر داخلی استفاده می‌کند) | `email` (str)     | `Dict` / `None`   | ✅               |
+| `client.get(uuid)`             | دریافت کلاینت با UUID            | (احتمالا از /list و فیلتر داخلی استفاده می‌کند) | `uuid` (str)      | `Dict` / `None`   | ✅               |
+| `client.update(uuid, client_data)`  | به‌روزرسانی کلاینت با UUID       | `/panel/api/inbounds/updateClient/{uuid}` (?) | `uuid`, `Dict` (data) | `Dict` (result)   | ✅               |
+| `client.delete(uuid)`          | حذف کلاینت با UUID               | `/panel/api/inbounds/delClient/{uuid}` (?) | `uuid` (str)      | `bool` (result)   | ✅               |
+| `client.reset_traffic(uuid)`   | ریست ترافیک کلاینت با UUID       | `/panel/api/inbounds/resetClientTraffic/{uuid}`(?) | `uuid` (str)      | `bool` (result)   | ✅               |
+| `client.get_traffic(uuid)`     | دریافت اطلاعات ترافیک کلاینت   | (احتمالا از /list و فیلتر داخلی استفاده می‌کند) | `uuid` (str)      | `Dict`            | ✅               |
+| `client.get_config(uuid)`      | دریافت کانفیگ (لینک) کلاینت    | (احتمالا از /list و فیلتر داخلی استفاده می‌کند) | `uuid` (str)      | `str` (config link)| ✅               |
 
 ---
 
 ## Server Management
 
-| نام متد                 | عملکرد                     | Endpoint API               | ورودی اصلی | خروجی اصلی   | وضعیت پیاده‌سازی |
-| :---------------------- | :------------------------- | :------------------------- | :--------- | :----------- | :--------------- |
-| `server.get_status()`   | دریافت وضعیت سرور        | `/server/status`           | -          | ServerStatus | ✅               |
-| `server.get_config()`   | دریافت تنظیمات سرور      | `/server/config`           | -          | Dict         | ❌               |
-| `server.get_xray_version()` | دریافت نسخه Xray          | `/server/version`          | -          | Dict         | ❌               |
-| `server.restart_xray()` | ری‌استارت سرویس Xray     | `/server/restartXrayService` | -          | Result       | ✅               |
-| `server.stop_xray()`    | توقف سرویس Xray          | `/server/stopXrayService`  | -          | Result       | ❌               |
-| `server.get_xray_logs()`| دریافت لاگ‌های Xray       | `/server/logs`             | -          | Dict         | ❌               |
-| `server.restart_panel()`| ری‌استارت پنل 3x-ui       | `/server/restartPanel`     | -          | Result       | ❌               |
+| نام متد                 | عملکرد                     | Endpoint API               | ورودی اصلی | خروجی اصلی      | وضعیت پیاده‌سازی |
+| :---------------------- | :------------------------- | :------------------------- | :--------- | :-------------- | :--------------- |
+| `server.stats()`        | دریافت آمار کلی سرور     | `/server/status` (?)       | -          | `Dict` / `None` | ✅               |
+| `server.restart_xray()` | ری‌استارت سرویس Xray     | `/server/restartXrayService` | -          | `bool` (result) | ✅               |
+| `server.get_status()`   | دریافت وضعیت سرور (قدیمی؟)| `/server/status`           | -          | ServerStatus    | ❌               |
+| `server.get_config()`   | دریافت تنظیمات سرور      | `/server/config`           | -          | Dict            | ❌               |
+| `server.get_xray_version()` | دریافت نسخه Xray          | `/server/version`          | -          | Dict            | ❌               |
+| `server.stop_xray()`    | توقف سرویس Xray          | `/server/stopXrayService`  | -          | Result          | ❌               |
+| `server.get_xray_logs()`| دریافت لاگ‌های Xray       | `/server/logs`             | -          | Dict            | ❌               |
+| `server.restart_panel()`| ری‌استارت پنل 3x-ui       | `/server/restartPanel`     | -          | Result          | ❌               |
 
 ---
 
@@ -78,4 +80,4 @@
 | `database.backup()`       | ایجاد بکاپ از دیتابیس  | `/server/backupDB` | -          | Result     | ❌               |
 | `database.restore(path)` | بازیابی دیتابیس از بکاپ | `/server/restoreDB`| `file_path`| Result     | ❌               |
 
---- 
+---

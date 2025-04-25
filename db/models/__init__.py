@@ -41,10 +41,7 @@ from .order import Order
 from .test_account_log import TestAccountLog
 from .receipt_log import ReceiptLog
 from .notification_log import NotificationLog
-<<<<<<< HEAD
 from .client_renewal_log import ClientRenewalLog
-=======
->>>>>>> 644afe0cd616ac99872ebfb4b1bd13f07cdc62c2
 from .enums import (
     UserRole,
     PanelStatus,
@@ -74,11 +71,8 @@ __all__ = [
     "TestAccountLog",
     "ReceiptLog",
     "NotificationLog",
-<<<<<<< HEAD
     "ClientRenewalLog",
     # Enums are also often included if needed directly from db.models
-=======
->>>>>>> 644afe0cd616ac99872ebfb4b1bd13f07cdc62c2
     "UserRole",
     "PanelStatus",
     "InboundStatus",

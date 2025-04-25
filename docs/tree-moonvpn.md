@@ -1,3 +1,4 @@
+root@Dev:~/moonvpn# tree
 .
 ├── alembic.ini
 ├── bot
@@ -51,6 +52,9 @@
 │   ├── notifications
 │   │   ├── dispatcher.py
 │   │   └── __init__.py
+│   ├── __pycache__
+│   │   ├── __init__.cpython-312.pyc
+│   │   └── main.cpython-312.pyc
 │   ├── receipts
 │   │   ├── __init__.py
 │   │   └── receipt_handlers.py
@@ -141,9 +145,6 @@
 │   ├── project-structure.md
 │   ├── scratchpad.md
 │   └── xui_api_methods.md
-├── .env
-├── .env.example
-├── .gitignore
 ├── memories.md
 ├── me.rule.md
 ├── moonvpn.session.sql
@@ -159,3 +160,6 @@
 │   ├── __init__.py
 │   └── test_account_service.py
 └── workspace.code-workspace
+
+24 directories, 137 files
+root@Dev:~/moonvpn# 

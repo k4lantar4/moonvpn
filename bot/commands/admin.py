@@ -36,7 +36,7 @@ async def admin_command(message: types.Message):
     session = _session_maker()
     try:
         user_service = UserService(session)
-        is_admin = user_service.is_admin(message.from_user.id)
+        is_admin = await user_service.is_admin(message.from_user.id)
         
         if not is_admin:
             logger.warning(f"User {message.from_user.id} denied access to admin panel")
@@ -64,7 +64,7 @@ async def admin_command(message: types.Message):
         logger.error(f"Error in admin command: {str(e)}")
         await message.answer("⚠️ خطایی در بارگذاری پنل مدیریت رخ داد.")
     finally:
-        session.close()
+        await session.close()
 
 
 async def add_panel_start(message: types.Message, state: FSMContext):
@@ -79,7 +79,7 @@ async def add_panel_start(message: types.Message, state: FSMContext):
     try:
         user_service = UserService(session)
         logger.info(f"Checking admin permission for user {message.from_user.id}")
-        is_admin = user_service.is_admin(message.from_user.id)
+        is_admin = await user_service.is_admin(message.from_user.id)
         logger.info(f"User {message.from_user.id} is admin: {is_admin}")
         
         if not is_admin:
@@ -107,7 +107,7 @@ async def add_panel_start(message: types.Message, state: FSMContext):
         logger.error(f"Error in add_panel_start: {str(e)}")
         await message.answer(f"خطا در اجرای دستور: {str(e)}")
     finally:
-        session.close()
+        await session.close()
 
 
 async def process_panel_name(message: types.Message, state: FSMContext):
@@ -321,14 +321,11 @@ async def confirm_add_panel(callback_query: types.CallbackQuery, state: FSMConte
         await callback_query.message.answer(f"❌ خطای غیرمنتظره: {str(e)}")
         # Stay in the current state or move to a specific error state if needed
     finally:
-        session.close()
+        await session.close()
 
 
 # New handler for managing panels
-<<<<<<< HEAD
 @router.callback_query(F.data == "manage_panels")
-=======
->>>>>>> 644afe0cd616ac99872ebfb4b1bd13f07cdc62c2
 async def manage_panels_handler(callback_query: types.CallbackQuery):
     """
     هندلر نمایش لیست پنل‌ها به ادمین
@@ -340,7 +337,7 @@ async def manage_panels_handler(callback_query: types.CallbackQuery):
     session = _session_maker()
     try:
         user_service = UserService(session)
-        is_admin = user_service.is_admin(user_id)
+        is_admin = await user_service.is_admin(user_id)
 
         if not is_admin:
             logger.warning(f"User {user_id} denied access to manage panels.")
@@ -374,7 +371,7 @@ async def manage_panels_handler(callback_query: types.CallbackQuery):
         logger.error(f"Error in manage_panels_handler for user {user_id}: {str(e)}", exc_info=True)
         await callback_query.message.answer(f"❌ خطایی رخ داد: <code>{str(e)}</code>", parse_mode="HTML")
     finally:
-        session.close()
+        await session.close()
 
 
 async def cancel_add_panel(message: types.Message, state: FSMContext):
@@ -403,12 +400,14 @@ async def cancel_panel_callback(callback_query: types.CallbackQuery, state: FSMC
 
 @router.callback_query(lambda c: c.data == 'register_panel')
 async def cmd_register_panel(callback_query: types.CallbackQuery, state: FSMContext):
-    await state.set_state(RegisterPanelStates.waiting_for_panel_url)
-    await callback_query.message.answer(
-        "لطفاً آدرس کامل پنل (به همراه http/https و مسیر مانند /xui/ در صورت وجود) را وارد کنید:\n"
-        "مثال: `http://123.123.123.123:54321` یا `https://panel.example.com/xui`"
-    )
+    """Starts the panel registration process via a callback query"""
     await callback_query.answer()
+    await state.set_state(RegisterPanelStates.waiting_for_panel_url)
+    # Send the updated prompt message
+    await callback_query.message.answer(
+        "⌨️ لطفاً آدرس کامل پنل را وارد کنید (مثال: http://1.2.3.4:2053/xui/)\n\n"
+        "⚠️ **توجه:** حتماً `http://` یا `https://` و مسیر پایانی (معمولاً `/xui/` یا `/`) را وارد نمایید."
+    )
 
 
 def register_admin_commands(dp: Dispatcher, session_maker: sessionmaker):

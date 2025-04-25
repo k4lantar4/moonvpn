@@ -15,16 +15,11 @@ def get_admin_panel_keyboard() -> InlineKeyboardMarkup:
     kb.button(text="📟 مدیریت پنل‌ها", callback_data="manage_panels")
     kb.button(text="👥 کاربران", callback_data="admin_users")
     kb.button(text="💰 پلن‌ها", callback_data="admin_plans")
-<<<<<<< HEAD
     kb.button(text="💸 تراکنش‌ها", callback_data="admin_transactions")
     kb.button(text="⚙️ تنظیمات", callback_data="admin_settings")
     kb.button(text="📄 گزارش تمدیدها", callback_data="admin:renewal_log")
     kb.button(text="🔙 بازگشت", callback_data="start")
     kb.button(text="➕ ثبت پنل جدید", callback_data="register_panel")
-=======
-    kb.button(text="⚙️ تنظیمات", callback_data="admin_settings")
-    kb.button(text="🔙 بازگشت", callback_data="start") # Assuming 'start' goes to main menu
->>>>>>> 644afe0cd616ac99872ebfb4b1bd13f07cdc62c2
     
     # تنظیم چیدمان - ۲ دکمه در هر ردیف
     kb.adjust(2)

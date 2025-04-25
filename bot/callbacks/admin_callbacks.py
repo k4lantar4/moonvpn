@@ -4,7 +4,6 @@ Admin panel callback handlers
 
 import logging
 from aiogram import Router, F
-<<<<<<< HEAD
 from aiogram.types import CallbackQuery, InlineKeyboardButton
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -19,7 +18,6 @@ from db.models.panel import PanelStatus
 from core.services.client_renewal_log_service import ClientRenewalLogService
 from db import get_async_db
 from bot.states.admin_states import RegisterPanelStates
-=======
 from aiogram.types import CallbackQuery
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -27,7 +25,6 @@ from core.services.panel_service import PanelService
 from core.services.user_service import UserService
 from bot.keyboards.admin_keyboard import get_admin_panel_keyboard
 from db.models.panel import PanelStatus
->>>>>>> 644afe0cd616ac99872ebfb4b1bd13f07cdc62c2
 
 logger = logging.getLogger(__name__)
 
@@ -53,32 +50,21 @@ def register_admin_callbacks(router: Router, session_pool: async_sessionmaker[As
             active_panels = await panel_service.get_active_panels()
             
             admin_text = (
-<<<<<<< HEAD
                 "🎛 <b>پنل مدیریت</b>\n\n"
                 f"📊 پنل‌های فعال: {len(active_panels)}\n"
                 "لطفاً یکی از گزینه‌های زیر را انتخاب کنید:"
-=======
-                "🎛 <b>Admin Panel</b>\n\n"
-                f"📊 Active Panels: {len(active_panels)}\n"
-                "Select an option below:"
->>>>>>> 644afe0cd616ac99872ebfb4b1bd13f07cdc62c2
             )
             
             await callback.message.edit_text(
                 admin_text,
-<<<<<<< HEAD
                 reply_markup=get_admin_panel_keyboard(),
                 parse_mode="HTML"
-=======
-                reply_markup=get_admin_panel_keyboard()
->>>>>>> 644afe0cd616ac99872ebfb4b1bd13f07cdc62c2
             )
             
         except Exception as e:
             logger.error(f"Error in admin panel callback: {e}", exc_info=True)
             await callback.answer("⚠️ Error loading admin panel", show_alert=True)
     
-<<<<<<< HEAD
     @router.callback_query(F.data == "admin_users")
     async def admin_users(callback: CallbackQuery, session: AsyncSession) -> None:
         """Handle admin users button click (placeholder)"""
@@ -170,8 +156,6 @@ def register_admin_callbacks(router: Router, session_pool: async_sessionmaker[As
             await callback.answer("⚠️ خطا در اجرای درخواست", show_alert=True)
 
     # Keep existing callbacks below this line
-=======
->>>>>>> 644afe0cd616ac99872ebfb4b1bd13f07cdc62c2
     @router.callback_query(F.data == "sync_panels")
     async def sync_panels(callback: CallbackQuery, session: AsyncSession) -> None:
         """Handle panel sync button click"""
@@ -248,7 +232,6 @@ def register_admin_callbacks(router: Router, session_pool: async_sessionmaker[As
                 return
 
             # Build panel info text with localized status
-<<<<<<< HEAD
             if panel.status == PanelStatus.ACTIVE:
                 status_text = "فعال"
                 status_emoji = "✅"
@@ -262,10 +245,8 @@ def register_admin_callbacks(router: Router, session_pool: async_sessionmaker[As
                 status_text = str(panel.status)
                 status_emoji = "❓"
                 
-=======
-            status_text = "فعال" if panel.status == PanelStatus.ACTIVE else "غیرفعال" if panel.status == PanelStatus.DISABLED else "حذف شده"
-            status_emoji = "✅" if panel.status == PanelStatus.ACTIVE else "❌"
->>>>>>> 644afe0cd616ac99872ebfb4b1bd13f07cdc62c2
+            status_text = "فعال" if panel.status == PanelStatus.ACTIVE else "غیرفعال" if panel.status == PanelStatus.INACTIVE else "خطا" if panel.status == PanelStatus.ERROR else str(panel.status)
+            status_emoji = "✅" if panel.status == PanelStatus.ACTIVE else "⚠️" if panel.status == PanelStatus.INACTIVE else "❌" if panel.status == PanelStatus.ERROR else "❓"
             text = (
                 f"📟 پنل #{panel.id} – {panel.flag_emoji} {panel.location_name}\n"
                 f"وضعیت: {status_text} {status_emoji}\n"
@@ -284,8 +265,56 @@ def register_admin_callbacks(router: Router, session_pool: async_sessionmaker[As
 
         except Exception as e:
             logger.error(f"Error in panel_manage handler: {e}", exc_info=True)
-<<<<<<< HEAD
             await callback.answer("⚠️ خطایی در نمایش منو رخ داد.", show_alert=True)
+
+    @router.callback_query(F.data.startswith("panel:test_connection:"))
+    async def panel_test_connection(callback: CallbackQuery, session: AsyncSession):
+        """Handle test connection button for a specific panel."""
+        try:
+            # Correctly extract panel ID using index 2
+            panel_id_str = callback.data.split(":")[2]
+            panel_id = int(panel_id_str)
+            logger.info(f"Initiating connection test for panel ID: {panel_id} by user {callback.from_user.id}")
+
+            # Show initial feedback
+            await callback.answer("⏳ در حال تست اتصال...") 
+
+            panel_service = PanelService(session)
+            success, error_message = await panel_service.test_panel_connection(panel_id)
+
+            if success:
+                logger.info(f"Panel ID: {panel_id} connection test successful.")
+                await callback.answer("✅ اتصال به پنل با موفقیت برقرار شد.", show_alert=True)
+                
+                # Update panel status to ACTIVE if test is successful
+                update_success = await panel_service.update_panel_status(panel_id, PanelStatus.ACTIVE)
+                if update_success:
+                    logger.info(f"Panel {panel_id} status updated to ACTIVE after successful test.")
+                    # Optionally, refresh the panel menu message to show the new status immediately
+                    # This requires re-fetching the panel and re-sending the message
+                    # await panel_manage(callback, session) # Be careful with recursion/re-entry
+                else:
+                    logger.error(f"Failed to update panel {panel_id} status to ACTIVE after successful test.")
+                    # Maybe send a non-alert message to user?
+                    # await callback.message.answer("⚠️ نتوانستم وضعیت پنل را به‌روز کنم.")
+            else:
+                logger.warning(f"Panel ID: {panel_id} connection test failed: {error_message}")
+                # Simplify the alert message to avoid potential length issues
+                # Use the core error message which might be more concise
+                simplified_error = error_message.split(":", 1)[-1].strip() # Get text after first colon
+                if not simplified_error or len(simplified_error) > 150: # Fallback if split fails or still too long
+                    simplified_error = "خطا در اتصال یا احراز هویت پنل."
+                await callback.answer(f"❌ تست اتصال ناموفق:\n{simplified_error}", show_alert=True)
+
+        except ValueError:
+            logger.error(f"Invalid panel ID received in callback data: {callback.data}")
+            await callback.answer("⚠️ خطای داخلی: شناسه پنل نامعتبر است.", show_alert=True)
+        except IndexError:
+            logger.error(f"Could not parse panel ID from callback data: {callback.data}")
+            await callback.answer("⚠️ خطای داخلی: اطلاعات دکمه ناقص است.", show_alert=True)
+        except Exception as e:
+            logger.error(f"Unexpected error during panel connection test (callback) for panel data {callback.data}: {e}", exc_info=True)
+            await callback.answer("⚠️ خطای پیش‌بینی نشده در هنگام تست اتصال رخ داد.", show_alert=True)
 
     @router.callback_query(F.data == "admin:renewal_log")
     async def handle_renewal_log(callback: CallbackQuery):
@@ -440,7 +469,24 @@ def register_admin_callbacks(router: Router, session_pool: async_sessionmaker[As
         except PanelConnectionError as conn_err:
             # Catch the specific connection/auth error from the service
             logger.warning(f"Panel connection failed during registration for {panel_url}: {conn_err}")
-            await message.answer(f"❌ خطا در اتصال به پنل:\n{str(conn_err)}") # Show the user-friendly message from the exception
+            
+            error_message = f"❌ خطا در اتصال به پنل: {str(conn_err)}" # Default message
+            # Check the underlying cause if available
+            if conn_err.__cause__:
+                if isinstance(conn_err.__cause__, XuiAuthenticationError):
+                    error_message = f"❌ خطای احراز هویت: نام کاربری یا رمز عبور پنل اشتباه است. لطفا مجددا تلاش کنید."
+                    logger.warning(f"Panel registration failed due to authentication error for {panel_url}")
+                elif isinstance(conn_err.__cause__, XuiConnectionError):
+                    error_message = f"❌ خطای اتصال به پنل: {str(conn_err.__cause__)}" # Use the more detailed message from XuiConnectionError
+                    logger.warning(f"Panel registration failed due to connection error for {panel_url}: {conn_err.__cause__}")
+                else:
+                    # If the cause is something else, use the original PanelConnectionError message
+                    error_message = f"❌ خطا در ارتباط با پنل: {str(conn_err)}" 
+                    logger.warning(f"Panel registration failed due to PanelConnectionError with cause {type(conn_err.__cause__).__name__}: {conn_err}")
+            else:
+                 logger.warning(f"Panel registration failed due to PanelConnectionError (no specific cause): {conn_err}")
+
+            await message.answer(error_message) # Show the more specific user-friendly message
         except ValueError as val_err:
             # Catch potential validation errors from service or database issues
             logger.error(f"Validation or DB error during panel registration for {panel_url}: {val_err}", exc_info=True)
@@ -451,6 +497,3 @@ def register_admin_callbacks(router: Router, session_pool: async_sessionmaker[As
             await message.answer(f"❌ خطای پیش‌بینی نشده در ثبت پنل رخ داد. لطفاً لاگ‌ها را بررسی کنید.")
 
         await state.clear()
-=======
-            await callback.answer("⚠️ خطایی در نمایش منو رخ داد.", show_alert=True) 
->>>>>>> 644afe0cd616ac99872ebfb4b1bd13f07cdc62c2

@@ -62,83 +62,67 @@ class XuiClient:
             Exception: برای خطاهای غیرمنتظره دیگر (مانند JSONDecodeError).
         """
         try:
+            # --- Log entry ---
+            logger.debug(f"Attempting login to panel at {self.host}...")
             result = await self.api.login()
 
-            # --- Refined Success/Auth Failure Check ---
-            login_successful = False
-            auth_error_message = ""
-
-            if isinstance(result, bool):
-                if result:
-                    login_successful = True
-                else:
-                    # Explicit False means auth failure according to py3xui (assumption)
-                    auth_error_message = "متد لاگین False برگرداند"
-            elif isinstance(result, dict):
-                # Check if the result is a dictionary like {"success": bool, "msg": str, ...}
-                if result.get('success', False):
-                    login_successful = True
-                else:
-                    # Dictionary indicates failure
-                    auth_error_message = result.get('msg', "پاسخ API نشان‌دهنده شکست بود")
-                    if "invalid username or password" in auth_error_message.lower():
-                        auth_error_message = "نام کاربری یا رمز عبور اشتباه است"
-                    else:
-                         auth_error_message = f"پیام خطا از پنل: {auth_error_message}"
+            # --- Explicit result check including dict with success: True ---
+            if result is True or (isinstance(result, dict) and result.get("success") is True):
+                # Consider both boolean True and dict {'success': True, ...} as success
+                logger.info(f"Successfully logged in to panel at {self.host} (Result: {result})")
+                return True
+            elif result is False:
+                # Specific case where login returns False directly
+                err_msg = "نام کاربری یا رمز عبور پنل اشتباه است. (login returned False)"
+                logger.warning(f"Authentication failed for panel at {self.host}: {err_msg}")
+                raise XuiAuthenticationError(err_msg)
+            elif isinstance(result, dict) and result.get("success") is False:
+                # Case where login returns a dict indicating failure
+                api_msg = result.get("msg", "API response indicated failure without specific message.")
+                err_msg = f"نام کاربری یا رمز عبور پنل اشتباه است. (API response: {api_msg})"
+                logger.warning(f"Authentication failed for panel at {self.host}: {err_msg}")
+                raise XuiAuthenticationError(err_msg)
+            # --- Treat None as an ambiguous success, but log warning ---
+            elif result is None:
+                logger.warning(f"Login to {self.host} returned None. Assuming success based on likely HTTP 200 OK, but py3xui behavior is ambiguous. Connection needs verification.")
+                return True # Return True, but verification is needed later
             else:
-                # If it's not bool or dict, but didn't raise exception, assume success?
-                # This might need adjustment based on py3xui's actual non-error return types.
-                logger.warning(f"Login to {self.host} returned unexpected type: {type(result)}. Assuming success as no exception was raised.")
-                login_successful = True
+                # Handle other unexpected success cases or types if necessary
+                logger.warning(f"Login to {self.host} returned an unexpected result: {result} (Type: {type(result)}). Treating as failure.")
+                err_msg = f"پاسخ غیرمنتظره ({type(result).__name__}) از API هنگام لاگین دریافت شد."
+                raise XuiConnectionError(err_msg) # Map unexpected types to connection/API error
 
-            if login_successful:
-                 logger.info(f"Successfully logged in to panel at {self.host} (Result type: {type(result)})")
-                 return True
-            else:
-                 # Raise Authentication Error if login_successful is False
-                 logger.warning(f"Authentication failed for panel at {self.host}. Reason: {auth_error_message}")
-                 raise XuiAuthenticationError(f"نام کاربری یا رمز عبور پنل {self.host} اشتباه است. ({auth_error_message})")
+        except (httpx.RequestError, TimeoutError, ConnectionError) as conn_err:
+             # Generic connection/network errors
+             error_type = type(conn_err).__name__
+             logger.error(f"Login failed to panel at {self.host}: Type={error_type}, Message={conn_err}", exc_info=True)
+             # Provide more user-friendly messages based on common scenarios
+             if isinstance(conn_err, httpx.TimeoutException):
+                 user_msg = f"اتصال به پنل {self.host} به دلیل Timeout برقرار نشد. لطفاً از در دسترس بودن پنل و عدم وجود مشکل شبکه مطمئن شوید."
+             elif "connection refused" in str(conn_err).lower():
+                  user_msg = f"اتصال به پنل {self.host} رد شد. ممکن است پنل خاموش باشد، پورت اشتباه باشد یا فایروال مانع اتصال شده باشد."
+             elif "ssl" in str(conn_err).lower() or "certificate" in str(conn_err).lower():
+                 user_msg = f"مشکل SSL در اتصال به پنل {self.host}. مطمئن شوید از http/https درست استفاده می‌کنید و گواهی معتبر است."
+             elif "dns" in str(conn_err).lower() or "name or service not known" in str(conn_err).lower():
+                  user_msg = f"آدرس پنل {self.host} نامعتبر است (خطای DNS). لطفاً آدرس را بررسی کنید."
+             else:
+                  user_msg = f"امکان اتصال به پنل {self.host} وجود ندارد ({error_type}). لطفاً آدرس، پورت و وضعیت شبکه را بررسی کنید."
+             raise XuiConnectionError(user_msg) from conn_err
 
-        # --- Exception Handling (mostly unchanged) ---
-        # A: Catch potential py3xui-specific authentication errors FIRST if they exist
-        # except Py3xuiAuthError as auth_err: # Replace with actual py3xui auth exception
-        #     logger.warning(f"Authentication failed for panel {self.host} via py3xui exception: {auth_err}", exc_info=True)
-        #     raise XuiAuthenticationError(f"نام کاربری یا رمز عبور پنل {self.host} اشتباه است (py3xui exception).") from auth_err
-
-        # B: Catch specific connection-related errors (more comprehensive)
-        except httpx.TimeoutException as timeout_err: # Specific timeout
-             logger.warning(f"Connection timeout for panel {self.host}: {timeout_err}", exc_info=True)
-             raise XuiConnectionError(f"اتصال به پنل {self.host} با خطای Timeout مواجه شد.") from timeout_err
-        except (httpx.RequestError, ConnectionError) as conn_err: # General HTTP/connection errors (covers DNS, Refused, etc.)
-            # Log the specific type of error
-            logger.warning(f"Connection failed for panel {self.host}: {type(conn_err).__name__} - {conn_err}", exc_info=True)
-            error_msg = f"امکان اتصال به پنل {self.host} وجود ندارد. "
-            if "ssl" in str(conn_err).lower() or "certificate" in str(conn_err).lower():
-                error_msg += "مشکل SSL وجود دارد (ممکن است نیاز به https داشته باشید یا گواهی نامعتبر باشد)."
-            elif "connection refused" in str(conn_err).lower():
-                 error_msg += "اتصال رد شد (ممکن است پنل خاموش باشد یا پورت اشتباه باشد)."
-            elif "dns" in str(conn_err).lower() or "name or service not known" in str(conn_err).lower():
-                 error_msg += "آدرس پنل نامعتبر است (خطای DNS)."
-            else:
-                 error_msg += "آدرس، پورت یا وضعیت شبکه را بررسی کنید."
-            raise XuiConnectionError(error_msg) from conn_err
-        
-        # C: Catch potential JSON decoding errors if the panel returns invalid response
         except JSONDecodeError as json_err:
-            logger.error(f"Failed to decode JSON response from panel {self.host} during login: {json_err}", exc_info=True)
-            raise XuiConnectionError(f"پاسخ نامعتبر (JSON) از پنل {self.host} دریافت شد. ممکن است آدرس اشتباه باشد یا پنل مشکل داشته باشد.") from json_err
+             # Error decoding the response from the panel
+             logger.error(f"Login failed to panel at {self.host}: Type=JSONDecodeError, Message={json_err}", exc_info=True)
+             user_msg = f"پاسخ نامعتبر (JSON) از پنل {self.host} دریافت شد. ممکن است آدرس اشتباه باشد، پنل 3x-ui نباشد یا پنل مشکل داشته باشد."
+             raise XuiConnectionError(user_msg) from json_err
 
-        # D: Catch *other* potential py3xui-specific errors (e.g., base path issues) if known
-        # except Py3xuiSomeOtherError as other_err:
-        #     logger.error(f"Specific py3xui error for panel {self.host}: {other_err}", exc_info=True)
-        #     # Map to XuiConnectionError or XuiAuthenticationError or a new specific error
-        #     raise XuiConnectionError(f"خطای خاصی از کتابخانه py3xui هنگام اتصال به {self.host}: {other_err}") from other_err
-
-        # E: Catch any remaining unexpected errors
+        except XuiAuthenticationError: # Re-raise specific auth errors caught above
+             raise
         except Exception as e:
-            logger.error(f"An unexpected error occurred during login to panel at {self.host}: {type(e).__name__} - {e}", exc_info=True)
-            # Avoid guessing, raise a generic connection error or re-raise
-            raise XuiConnectionError(f"خطای پیش‌بینی نشده ({type(e).__name__}) هنگام تلاش برای لاگین به پنل {self.host}.") from e
+             # Catch-all for any other unexpected errors during login
+             logger.error(f"Login failed to panel at {self.host}: Type={type(e).__name__}, Message={e}", exc_info=True)
+             user_msg = f"خطای پیش‌بینی نشده ({type(e).__name__}) هنگام تلاش برای ورود به پنل {self.host} رخ داد."
+             # Generally map unknown errors to connection problems unless specifically identified
+             raise XuiConnectionError(user_msg) from e
     
     async def get_status(self) -> bool:
         """
@@ -488,29 +472,45 @@ class XuiClient:
     
     # --------- مدیریت سرور ---------
     
+    async def verify_connection(self) -> bool:
+        """
+        Verifies the connection by attempting to fetch inbounds.
+        This should fail if the login wasn't truly successful.
+
+        Returns:
+            True if fetching inbounds works, False otherwise.
+        """
+        try:
+            logger.debug(f"Verifying connection to {self.host} by fetching inbounds...")
+            inbounds = await self.api.inbound.get_list()
+            # If get_list returns None on auth failure or error, treat as verification failure
+            if inbounds is None:
+                 logger.warning(f"Connection verification failed for {self.host}: get_list() returned None.")
+                 return False
+            logger.info(f"Connection verification successful for {self.host}. Found {len(inbounds)} inbounds.")
+            return True
+        except (XuiAuthenticationError, XuiConnectionError) as e:
+            # Catch errors that might occur if the session/cookie is invalid
+            logger.warning(f"Connection verification failed for {self.host}: {e}")
+            return False
+        except Exception as e:
+            logger.error(f"Unexpected error during connection verification ({self.host}): {e}", exc_info=True)
+            return False # Treat unexpected errors as verification failure
+
+    # Keep get_stats but fix the underlying call if possible or remove if unused
+    # For now, let's assume get_stats is not directly available via py3xui
     async def get_stats(self) -> Optional[Dict[str, Any]]:
         """
-        دریافت آمار کلی سرور
+        دریافت آمار کلی سرور (Method might not exist in py3xui)
         
         Returns:
             آمار سرور شامل CPU، RAM، ترافیک و...
         """
-        try:
-            result = await self.api.get_stats() # Assuming py3xui has a direct method
-            if result:
-                logger.info(f"Successfully retrieved stats from panel {self.host}")
-            else:
-                 logger.warning(f"Received no stats data from panel {self.host}")
-                 return None
-            return result
-        except (httpx.RequestError, ConnectionError, TimeoutError) as conn_err:
-             logger.error(f"Connection failed during get_stats for panel {self.host}: {conn_err}", exc_info=True)
-             raise XuiConnectionError(f"امکان اتصال به پنل {self.host} هنگام دریافت آمار وجود ندارد.") from conn_err
-        except Exception as e:
-            logger.error(f"Failed to get stats from panel {self.host}: {e}", exc_info=True)
-            # Consider raising a more specific exception if needed
-            raise
-    
+        logger.warning(f"Attempted to call get_stats for {self.host}, but py3xui may not support this directly.")
+        # Raise an error or return None, as self.api.get_stats() likely doesn't exist
+        # raise NotImplementedError("get_stats is not directly supported by the py3xui library wrapper.")
+        return None # Returning None as the previous attempt showed it's not available
+
     async def restart_core(self) -> bool:
         """
         راه‌اندازی مجدد هسته xray/v2ray

@@ -5,6 +5,7 @@
 import logging
 from typing import List, Optional, Dict, Any
 from datetime import datetime
+import json
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -29,6 +30,37 @@ class PanelSyncError(Exception):
     """Raised when syncing inbounds fails."""
     pass
 
+# Helper function to convert potential py3xui objects to dict
+def _to_dict_safe(obj: Any) -> Dict | Any:
+    if obj is None:
+        return {} # Return empty dict for None to store as JSON '{}'
+    if isinstance(obj, dict):
+        return obj # Already a dict
+    if hasattr(obj, 'dict') and callable(getattr(obj, 'dict')):
+        try:
+            return obj.dict() # Try calling .dict() method
+        except Exception as e:
+            logger.warning(f"Failed to call .dict() on object {type(obj)}: {e}. Falling back to vars().")
+            # Fallback or handle error appropriately
+    if hasattr(obj, '__dict__'):
+        try:
+            # Fallback using vars() if .dict() fails or doesn't exist
+            # Be cautious as vars() might expose private attributes
+            d = vars(obj)
+            # Attempt to serialize the dict to catch issues early
+            json.dumps(d) 
+            return d
+        except TypeError:
+             logger.error(f"Object of type {type(obj)} could not be serialized to JSON even with vars(). Returning empty dict.", exc_info=True)
+             return {} # Cannot serialize
+        except Exception as e:
+            logger.error(f"Error converting object {type(obj)} using vars(): {e}. Returning empty dict.", exc_info=True)
+            return {}
+            
+    # If it's not None, not dict, has no .dict() or vars(), or vars() fails serialization
+    logger.warning(f"Object of type {type(obj)} is not directly JSON serializable and couldn't be converted to dict. Storing as empty JSON.")
+    return {} # Default to empty dict if conversion fails
+
 class PanelService:
     """سرویس مدیریت پنل‌ها و تنظیمات inbound"""
 
@@ -43,32 +75,86 @@ class PanelService:
         self.notification_service = NotificationService(session)
         self._xui_clients: Dict[int, XuiClient] = {}  # Cache for XuiClient instances
 
-    async def test_panel_connection(self, url: str, username: str, password: str) -> bool:
+    async def _test_panel_connection_details(self, url: str, username: str, password: str) -> bool:
         """
-        تست اتصال و لاگین به یک پنل بالقوه.
-
-        Args:
-            url: آدرس پنل
-            username: نام کاربری
-            password: رمز عبور
+        Private helper: Tests connection and login to potential panel details,
+        including verification via get_inbounds.
 
         Returns:
-            True if connection and login are successful.
-
+            True if login and verification succeed.
         Raises:
-            PanelConnectionError: If login fails (auth or connection).
+            PanelConnectionError: If login or verification fails.
         """
         temp_client = XuiClient(host=url, username=username, password=password)
         try:
-            login_successful = await temp_client.login()
-            return login_successful # Should be True if no exception was raised
+            login_successful = await temp_client.login() # Attempt login (may return True for None)
+            if not login_successful:
+                 logger.warning(f"Initial login failed during connection test for {url}.")
+                 raise PanelConnectionError("احراز هویت اولیه ناموفق بود.") # More specific than str(e)
+            
+            # Verify connection
+            logger.info(f"Initial login reported success for {url}. Verifying...")
+            verified = await temp_client.verify_connection()
+            if verified:
+                 logger.info(f"Connection test and verification successful for {url}.")
+                 return True
+            else:
+                 logger.warning(f"Connection verification failed during connection test for {url}.")
+                 raise PanelConnectionError("تأیید اتصال پس از لاگین ناموفق بود.")
+
         except (XuiAuthenticationError, XuiConnectionError) as e:
+            # Catch errors from login() or verify_connection()
             logger.warning(f"Panel connection test failed for {url}: {e}")
-            # Re-raise as a service-level exception for the bot layer to catch
-            raise PanelConnectionError(str(e)) from e
+            raise PanelConnectionError(f"تست اتصال ناموفق: {e}") from e
         except Exception as e:
             logger.error(f"Unexpected error during panel connection test for {url}: {e}", exc_info=True)
             raise PanelConnectionError(f"خطای پیش‌بینی نشده در تست اتصال به پنل: {e}") from e
+            
+    async def test_panel_connection(self, panel_id: int) -> tuple[bool, str | None]:
+        """
+        تست اتصال و لاگین به یک پنل ثبت شده با استفاده از ID.
+
+        Args:
+            panel_id: شناسه پنل
+
+        Returns:
+            tuple[bool, str | None]: (موفقیت, پیام خطا در صورت عدم موفقیت)
+        """
+        panel = await self.get_panel_by_id(panel_id)
+        if not panel:
+            return False, "پنل مورد نظر یافت نشد."
+            
+        if not panel.url or not panel.username or not panel.password:
+            return False, "اطلاعات اتصال (URL, نام کاربری، رمز عبور) پنل کامل نیست."
+
+        temp_client = XuiClient(host=panel.url, username=panel.username, password=panel.password)
+        try:
+            login_result = await temp_client.login() # May return True even if ambiguous
+            if login_result:
+                 logger.info(f"Initial login reported success for panel {panel_id} test. Verifying...")
+                 # Verify connection with get_inbounds
+                 verified = await temp_client.verify_connection()
+                 if verified:
+                     logger.info(f"Connection verified successfully for panel {panel_id} test.")
+                     return True, None  # Connection successful and verified
+                 else:
+                     logger.warning(f"Connection verification failed for panel {panel_id} test (get_inbounds failed)." )
+                     return False, "اتصال به پنل برقرار شد اما تأیید نشد (خطای دریافت لیست inboundها)."
+            else:
+                 # Should not happen if login() only returns True or raises Exception
+                 logger.error(f"temp_client.login() returned False unexpectedly during test for panel {panel_id}.")
+                 return False, "خطای داخلی: لاگین ناموفق بود."
+            
+        except XuiAuthenticationError as e:
+            logger.warning(f"Panel {panel_id} authentication failed during login or verification: {e}")
+            return False, f"خطای احراز هویت: {e}"
+        except XuiConnectionError as e:
+            # This will catch connection errors during login() or verify_connection()
+            logger.warning(f"Panel {panel_id} connection failed during login or verification: {e}")
+            return False, f"خطای اتصال/تأیید: {e}"
+        except Exception as e:
+            logger.error(f"Unexpected error testing connection for panel {panel_id}: {e}", exc_info=True)
+            return False, f"خطای پیش‌بینی نشده: {e}"
 
     async def add_panel(self, name: str, location: str, flag_emoji: str,
                      url: str, username: str, password: str) -> Panel:
@@ -86,7 +172,7 @@ class PanelService:
         """
         # 1. تست اتصال به پنل قبل از ایجاد
         try:
-            await self.test_panel_connection(url=url, username=username, password=password)
+            await self._test_panel_connection_details(url=url, username=username, password=password)
             logger.info(f"Panel connection test successful for {url}")
         except PanelConnectionError as e:
             logger.error(f"Failed to add panel {name} at {url}. Connection test failed: {e}")
@@ -127,14 +213,22 @@ class PanelService:
             # Consider deleting the panel if DB add failed but test passed?
             raise ValueError(f"خطا در ذخیره اطلاعات پنل در دیتابیس: {db_err}")
         except PanelSyncError as sync_err: # Catch specific sync error from sync_panel_inbounds
-             logger.error(f"Error syncing inbounds for new panel {panel.id}: {sync_err}", exc_info=True)
-             # Panel exists in DB, but sync failed. Maybe set status to ERROR?
-             panel.status = PanelStatus.ERROR
-             await self.session.commit() # Commit status change
-             await self.notification_service.notify_admins(
-                 f"⚠️ پنل {panel.name} با موفقیت در دیتابیس ثبت شد اما همگام‌سازی اولیه inboundها با خطا مواجه شد: {sync_err}"
-             )
-             # Don't raise here, return the panel with error status
+             logger.error(f"Panel {panel.id} ({panel.name}) created in DB, but initial inbound sync failed: {sync_err}", exc_info=True)
+             # Panel exists in DB, but sync failed. Set status to ERROR.
+             if panel: # Ensure panel object exists before trying to update
+                 panel.status = PanelStatus.ERROR
+                 try:
+                     await self.session.commit() # Commit status change
+                     logger.info(f"Set status of panel {panel.id} to ERROR due to sync failure.")
+                 except SQLAlchemyError as db_commit_err:
+                     logger.error(f"Failed to commit ERROR status for panel {panel.id} after sync failure: {db_commit_err}", exc_info=True)
+                     # Rollback might be needed if commit fails
+                     await self.session.rollback()
+                 # Send notification even if commit failed, as the issue happened
+                 await self.notification_service.notify_admins(
+                     f"⚠️ پنل {panel.name} (ID: {panel.id}) در دیتابیس ثبت شد، اما همگام‌سازی اولیه inboundها با خطا مواجه شد:\n`{sync_err}`\nوضعیت پنل به ERROR تغییر یافت."
+                 )
+             # Don't raise here, return the panel with error status so the callback can inform the user
         except Exception as e:
             logger.error(f"Unexpected error after connection test during panel add/sync {panel.id}: {e}", exc_info=True)
             await self.session.rollback()
@@ -177,39 +271,60 @@ class PanelService:
 
     async def _get_xui_client(self, panel: Panel) -> XuiClient:
         """
-        دریافت یا ایجاد یک نمونه XuiClient برای پنل
-        
-        Args:
-            panel: مدل پنل
-            
-        Returns:
-            نمونه XuiClient
+        Get or create a verified XuiClient instance for a panel.
+        Always verifies the connection upon creation or retrieval if not recently verified.
         """
-        if panel.id not in self._xui_clients:
-            try:
-                client = XuiClient(
-                    host=panel.url,
-                    username=panel.username,
-                    password=panel.password
-                )
-                # Attempt to login when creating the client instance for the cache
-                login_successful = await client.login()
-                # We already raised specific errors in login(), so if we get here, it worked.
-                # No need to check login_successful boolean strictly if exceptions are handled.
-                logger.info(f"Login successful for cached client for panel {panel.id}")
-                self._xui_clients[panel.id] = client
-            except (XuiAuthenticationError, XuiConnectionError) as e:
-                logger.error(f"Failed to login while creating cached client for panel {panel.id}: {e}")
-                # Don't cache the client if login fails
-                # Raise an error that can be handled by the calling function (e.g., sync_panel_inbounds)
-                raise PanelConnectionError(f"خطا در اتصال به پنل {panel.id} هنگام ایجاد کلاینت کش‌شده: {e}") from e
-            except Exception as e:
-                logger.error(f"Unexpected error creating cached client for panel {panel.id}: {e}", exc_info=True)
-                raise PanelConnectionError(f"خطای پیش‌بینی نشده هنگام ایجاد کلاینت کش‌شده برای پنل {panel.id}: {e}") from e
+        # Check cache first
+        if panel.id in self._xui_clients:
+            client = self._xui_clients[panel.id]
+            # Ensure host matches in case panel URL was updated
+            if client.host == panel.url.rstrip("/"):
+                 # Optional: Add a check here to avoid re-verifying too frequently if needed
+                 # For now, let's re-verify to be safe, as the underlying login is ambiguous
+                 logger.debug(f"Re-verifying cached client for panel {panel.id}")
+                 try:
+                     if await client.verify_connection():
+                         logger.info(f"Cached client verification successful for panel {panel.id}")
+                         return client
+                     else:
+                         logger.warning(f"Cached client verification failed for panel {panel.id}. Re-initializing.")
+                 except Exception as verify_err:
+                      logger.error(f"Error verifying cached client for panel {panel.id}: {verify_err}. Re-initializing.", exc_info=True)
+            else:
+                logger.info(f"Panel URL changed for panel {panel.id} or client invalid. Re-initializing XuiClient.")
+        
+        # Initialize or re-initialize if not cached, host mismatch, or verification failed
+        logger.info(f"Initializing XuiClient for panel {panel.id} at {panel.url}")
+        if not panel.url or not panel.username or not panel.password:
+            raise PanelConnectionError(f"اطلاعات اتصال پنل {panel.id} (URL, نام کاربری، رمز عبور) ناقص است.")
 
-        # Return cached client if login was successful, otherwise this line won't be reached
-        return self._xui_clients[panel.id]
+        client = XuiClient(host=panel.url, username=panel.username, password=panel.password)
+        try:
+            login_successful = await client.login() # Attempt login (may return True for None)
+            if not login_successful:
+                 # Should not happen based on current login logic, but handle defensively
+                 logger.error(f"client.login() returned False unexpectedly for panel {panel.id}.")
+                 raise PanelConnectionError(f"احراز هویت اولیه برای پنل {panel.id} ناموفق بود.")
+            
+            # Always verify after login due to ambiguous None return
+            logger.info(f"Initial login reported success for panel {panel.id}. Verifying connection...")
+            verified = await client.verify_connection()
+            if verified:
+                logger.info(f"Connection verified successfully for panel {panel.id} after initialization.")
+                self._xui_clients[panel.id] = client # Cache the verified client
+                return client
+            else:
+                logger.error(f"Connection verification failed for panel {panel.id} after initialization.")
+                raise PanelConnectionError(f"تأیید اتصال به پنل {panel.id} پس از لاگین ناموفق بود.")
 
+        except (XuiAuthenticationError, XuiConnectionError) as e:
+            # Catch errors from login() or verify_connection()
+            logger.error(f"Failed to initialize or verify client for panel {panel.id}: {e}", exc_info=True)
+            raise PanelConnectionError(f"خطا در اتصال یا تأیید پنل {panel.id}: {e}") from e
+        except Exception as e:
+            logger.error(f"Unexpected error initializing/verifying client for panel {panel.id}: {e}", exc_info=True)
+            raise PanelConnectionError(f"خطای پیش‌بینی نشده هنگام مقداردهی کلاینت برای پنل {panel.id}: {e}") from e
+            
     async def sync_panel_inbounds(self, panel_id: int) -> None:
         """
         همگام‌سازی inbound‌های پنل با پایگاه داده
@@ -244,23 +359,30 @@ class PanelService:
                 logger.warning(f"Received None for inbounds from panel {panel.id} during sync. Assuming empty list.")
                 panel_inbounds = []
             
-            # Set of remote inbound IDs from the panel
-            remote_ids = {inb_data["id"] for inb_data in panel_inbounds}
+            # Set of remote inbound IDs from the panel - using attribute access
+            remote_ids = {inb_data.id for inb_data in panel_inbounds}
 
-            # به‌روزرسانی یا ایجاد inbound‌ها
+            # به‌روزرسانی یا ایجاد inbound‌ها - using attribute access and converting objects to dict
             for inb_data in panel_inbounds:
-                remote_id = inb_data["id"]
+                remote_id = inb_data.id # Use attribute access
+                
+                settings_obj = getattr(inb_data, 'settings', None)
+                sniffing_obj = getattr(inb_data, 'sniffing', None)
+
+                # Convert settings and sniffing objects to dictionaries
+                settings_dict = _to_dict_safe(settings_obj)
+                sniffing_dict = _to_dict_safe(sniffing_obj)
                 
                 if remote_id in current_inbounds:
                     # به‌روزرسانی inbound موجود
                     inbound = current_inbounds[remote_id]
-                    inbound.protocol = inb_data["protocol"]
-                    inbound.tag = inb_data.get("remark", "")
-                    inbound.port = inb_data["port"]
-                    inbound.settings_json = inb_data.get("settings", {})
-                    inbound.sniffing = inb_data.get("sniffing", {})
+                    inbound.protocol = getattr(inb_data, 'protocol', None) # Use getattr for safety
+                    inbound.tag = getattr(inb_data, 'remark', "") # Use remark as tag?
+                    inbound.port = getattr(inb_data, 'port', None)
+                    inbound.settings_json = settings_dict # Assign converted dict
+                    inbound.sniffing = sniffing_dict # Assign converted dict
                     inbound.status = (InboundStatus.ACTIVE 
-                                    if inb_data.get("enable", True) 
+                                    if getattr(inb_data, 'enable', True) 
                                     else InboundStatus.DISABLED)
                     inbound.last_synced = datetime.utcnow()
                 else:
@@ -268,15 +390,20 @@ class PanelService:
                     new_inbound = Inbound(
                         panel_id=panel.id,
                         remote_id=remote_id,
-                        protocol=inb_data["protocol"],
-                        tag=inb_data.get("remark", ""), # Use remark as tag?
-                        port=inb_data["port"],
-                        settings_json=inb_data.get("settings", {}),
-                        sniffing=inb_data.get("sniffing", {}),
+                        protocol=getattr(inb_data, 'protocol', None),
+                        tag=getattr(inb_data, 'remark', ""), # Use remark as tag?
+                        port=getattr(inb_data, 'port', None),
+                        settings_json=settings_dict, # Assign converted dict
+                        sniffing=sniffing_dict, # Assign converted dict
                         status=(InboundStatus.ACTIVE 
-                                if inb_data.get("enable", True) 
+                                if getattr(inb_data, 'enable', True) 
                                 else InboundStatus.DISABLED),
                         last_synced=datetime.utcnow()
+                        # Assign other potential fields if they exist in the py3xui object
+                        # Example: Check if attributes exist before assigning to DB model fields
+                        # listen = getattr(inb_data, 'listen', None),
+                        # receive_original_dest = getattr(inb_data, 'receive_original_dest', False),
+                        # allow_transparent = getattr(inb_data, 'allow_transparent', False),
                     )
                     self.session.add(new_inbound)
                     logger.info(f"Added new inbound {remote_id} ('{new_inbound.tag}') for panel {panel.id}")
@@ -311,8 +438,9 @@ class PanelService:
             # Don't change panel status here, the connection might be fine, DB is the issue
             raise PanelSyncError(f"خطا در ذخیره اطلاعات inboundها برای پنل {panel.id}: {db_err}") from db_err
         except Exception as e:
-            logger.error(f"Unexpected error during inbound sync for panel {panel_id}: {e}", exc_info=True)
-            await self.session.rollback()
+            # Catch potential TypeErrors during attribute access or conversion
+            logger.error(f"Unexpected error during inbound sync processing for panel {panel_id}: {e}", exc_info=True)
+            await self.session.rollback() # Rollback any partial changes
             # Consider setting panel status to ERROR for unexpected issues?
             panel.status = PanelStatus.ERROR
             await self.session.commit()
@@ -371,7 +499,6 @@ class PanelService:
     # اضافه کردن متد برای دریافت لیست اینباندها به صورت real-time
     async def get_inbounds_by_panel_id(self, panel_id: int) -> List[Dict[str, Any]]:
         """
-<<<<<<< HEAD
         دریافت لیست inbound‌های یک پنل خاص
         Args:
             panel_id: شناسه پنل
@@ -454,20 +581,12 @@ class PanelService:
     async def get_client_config(self, panel_id: int, inbound_id: int, uuid: str) -> str:
         """
         دریافت لینک کانفیگ یک کلاینت
-=======
-        دریافت لیست inboundها از پنل به صورت real-time
-        Args:
-            panel_id: شناسه پنل
-        Returns:
-            لیست اینباندها به صورت dict
->>>>>>> 644afe0cd616ac99872ebfb4b1bd13f07cdc62c2
         """
         panel = await self.get_panel_by_id(panel_id)
         if not panel:
             raise ValueError(f"پنل با شناسه {panel_id} یافت نشد")
         client = await self._get_xui_client(panel)
         try:
-<<<<<<< HEAD
             config_url = await client.get_config(uuid)
             logger.info(f"Generated config URL for client {uuid} on panel {panel_id}")
             return config_url
@@ -600,9 +719,47 @@ class PanelService:
         except Exception as e:
             logger.error(f"Unexpected error registering panel {url}: {str(e)}", exc_info=True)
             raise RuntimeError(f"خطای غیرمنتظره در زمان ثبت پنل: {str(e)}") # Raise a generic runtime error
-=======
-            return await client.get_inbounds()
+
+    async def update_panel_status(self, panel_id: int, status: PanelStatus) -> bool:
+        """
+        Updates the status of a specific panel.
+        Args:
+            panel_id: ID of the panel to update.
+            status: The new PanelStatus enum value.
+        Returns:
+            True if update was successful, False otherwise.
+        """
+        try:
+            panel = await self.panel_repo.get_panel_by_id(panel_id)
+            if not panel:
+                logger.error(f"Cannot update status: Panel with ID {panel_id} not found.")
+                return False
+            
+            if panel.status == status:
+                logger.info(f"Panel {panel_id} status is already {status}. No update needed.")
+                return True # No change needed
+                
+            panel.status = status
+            await self.session.commit()
+            logger.info(f"Successfully updated status for panel {panel_id} to {status}.")
+            
+            # Notify admins if status changed to ERROR
+            if status == PanelStatus.ERROR:
+                 await self.notification_service.notify_admins(
+                     f"⚠️ وضعیت پنل {panel.name} (ID: {panel.id}) به ERROR تغییر یافت."
+                 )
+            # Notify if changed back to ACTIVE from ERROR
+            elif status == PanelStatus.ACTIVE and panel.status == PanelStatus.ERROR:
+                await self.notification_service.notify_admins(
+                     f"✅ وضعیت پنل {panel.name} (ID: {panel.id}) به ACTIVE بازگردانده شد."
+                 )
+                 
+            return True
+        except SQLAlchemyError as e:
+            await self.session.rollback()
+            logger.error(f"Database error updating status for panel {panel_id}: {e}", exc_info=True)
+            return False
         except Exception as e:
-            logger.error(f"خطا در دریافت inboundهای پنل {panel_id}: {str(e)}", exc_info=True)
-            raise
->>>>>>> 644afe0cd616ac99872ebfb4b1bd13f07cdc62c2
+            await self.session.rollback() # Rollback on any other error
+            logger.error(f"Unexpected error updating status for panel {panel_id}: {e}", exc_info=True)
+            return False

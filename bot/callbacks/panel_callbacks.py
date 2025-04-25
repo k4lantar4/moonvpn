@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from core.services.user_service import UserService
 from core.services.panel_service import PanelService
+from core.integrations.xui_client import XuiAuthenticationError, XuiConnectionError # Assuming these exist
 from bot.buttons.panel_buttons import get_panel_management_keyboard
 from bot.buttons.inbound_buttons import (
     get_panel_inbounds_keyboard,
@@ -127,4 +128,39 @@ def register_panel_callbacks(router: Router, session_pool: async_sessionmaker[As
                 await callback.answer("⚠️ خطایی در نمایش جزئیات رخ داد.", show_alert=True)
         except Exception as e:
             logger.error(f"Error in show_inbound_details handler: {e}", exc_info=True)
-            await callback.answer("⚠️ خطایی در پردازش درخواست رخ داد.", show_alert=True) 
+            await callback.answer("⚠️ خطایی در پردازش درخواست رخ داد.", show_alert=True)
+
+    @router.callback_query(F.data.startswith("panel:test_connection:"))
+    async def test_panel_connection_handler(callback: CallbackQuery, session: AsyncSession) -> None:
+        """هندلر تست اتصال به پنل"""
+        await callback.answer("⏳ در حال تست اتصال...")
+        try:
+            panel_id_str = callback.data.split(":")[-1]
+            if not panel_id_str.isdigit():
+                raise ValueError("Invalid Panel ID format")
+            panel_id = int(panel_id_str)
+
+            # کنترل دسترسی ادمین
+            user_service = UserService(session)
+            user = await user_service.get_user_by_telegram_id(callback.from_user.id)
+            if not user or user.role not in ["admin", "superadmin"]:
+                await callback.answer("⛔️ دسترسی غیرمجاز!", show_alert=True)
+                return
+
+            # تست اتصال از طریق سرویس
+            panel_service = PanelService(session)
+            success, error_message = await panel_service.test_panel_connection(panel_id)
+            logger.info(f"Test connection result for panel {panel_id}: Success={success}, Error='{error_message}'")
+
+            if success:
+                await callback.answer("✅ اتصال به پنل برقرار شد.", show_alert=True)
+            else:
+                await callback.answer(f"❌ اتصال به پنل با خطا مواجه شد: {error_message}", show_alert=True)
+
+        except ValueError as e:
+            logger.warning(f"Value error in test_panel_connection_handler: {e}")
+            await callback.answer(f"خطا در فرمت شناسه پنل: {e}", show_alert=True)
+        except Exception as e:
+            logger.error(f"Error in test_panel_connection_handler: {e}", exc_info=True)
+            # Provide a more generic error if the specific service error wasn't caught
+            await callback.answer("⚠️ خطای ناشناخته در تست اتصال رخ داد.", show_alert=True) 

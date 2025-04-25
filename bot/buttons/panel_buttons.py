@@ -10,7 +10,7 @@ def get_panel_management_keyboard(panel_id: int) -> InlineKeyboardMarkup:
     # ردیف اول: لیست اینباندها و تست اتصال
     row1 = [
         InlineKeyboardButton(text="📋 لیست اینباندها", callback_data=f"panel_inbounds:{panel_id}"),
-        InlineKeyboardButton(text="📶 تست اتصال", callback_data=f"panel_test:{panel_id}")
+        InlineKeyboardButton(text="📶 تست اتصال", callback_data=f"panel:test_connection:{panel_id}")
     ]
     # ردیف دوم: ویرایش تنظیمات و حذف
     row2 = [
