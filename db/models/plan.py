@@ -8,7 +8,7 @@ from typing import List, Optional, TYPE_CHECKING
 from enum import Enum
 from datetime import datetime
 
-from db.models import Base
+from . import Base
 
 if TYPE_CHECKING:
     from .user import User

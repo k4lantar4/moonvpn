@@ -8,7 +8,7 @@ from typing import List
 from sqlalchemy import Column, Integer, String, ForeignKey, JSON, DateTime, Boolean, Enum as SQLEnum
 from sqlalchemy.orm import relationship, backref, Mapped
 
-from db.models import Base
+from . import Base
 from .panel import Panel
 from .client_account import ClientAccount
 

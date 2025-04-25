@@ -6,7 +6,7 @@ from sqlalchemy import ForeignKey, Index, String, Text, BigInteger, Column, Inte
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
-from db.models import Base
+from . import Base
 
 
 class OperationType(str, PyEnum):
@@ -21,7 +21,7 @@ class ClientRenewalLog(Base):
     __tablename__ = "client_renewal_logs"
     
     id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    user_id = Column(BigInteger, ForeignKey("users.id"), nullable=False)
     client_id = Column(Integer, ForeignKey("client_accounts.id"), nullable=False)
     time_added = Column(Integer, nullable=True)  # Days added
     data_added = Column(Float, nullable=True)  # GB added

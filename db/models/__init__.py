@@ -18,23 +18,14 @@ convention: Dict[str, Any] = {
 
 metadata = MetaData(naming_convention=convention)
 
-
-# کلاس پایه برای همه مدل‌ها - سازگار با نسخه‌های قدیمی SQLAlchemy
+# کلاس پایه برای همه مدل‌ها
 class CustomBase:
-    """کلاس پایه برای تمام مدل‌های SQLAlchemy"""
-    
-    # اضافه کردن پیشوند به نام جداول به صورت خودکار
-    @declared_attr
-    def __tablename__(cls) -> str:
-        """تبدیل نام کلاس به نام جدول"""
-        return cls.__name__.lower()
+    pass # Models define __tablename__ explicitly
 
-
-# ایجاد کلاس پایه با declarative_base
+# --- DEFINE Base FIRST ---
 Base = declarative_base(metadata=metadata, cls=CustomBase)
 
-
-# ایمپورت مدل‌های مورد نیاز
+# --- THEN import models that depend on Base ---
 from .user import User
 from .panel import Panel
 from .inbound import Inbound
@@ -42,7 +33,7 @@ from .account_transfer import AccountTransfer
 from .bank_card import BankCard
 from .client_account import ClientAccount
 from .discount_code import DiscountCode
-# from .account import Account  # Temporarily commented out
+# from .account import Account
 from .plan import Plan
 from .setting import Setting
 from .transaction import Transaction
@@ -50,17 +41,19 @@ from .order import Order
 from .test_account_log import TestAccountLog
 from .receipt_log import ReceiptLog
 from .notification_log import NotificationLog
+from .client_renewal_log import ClientRenewalLog
 from .enums import (
     UserRole,
     PanelStatus,
     InboundStatus,
     OrderStatus,
     TransactionStatus,
-    PaymentMethod,
-    AccountStatus
+    # PaymentMethod,
+    AccountStatus,
+    # UserStatus
 )
 
-# لیست مدل‌ها برای استفاده توسط Alembic
+# لیست مدل‌ها برای استفاده توسط Alembic و __init__
 __all__ = [
     "Base",
     "User",
@@ -70,7 +63,7 @@ __all__ = [
     "BankCard",
     "ClientAccount",
     "DiscountCode",
-    # "Account",  # Temporarily commented out
+    # "Account",
     "Plan",
     "Setting",
     "Transaction",
@@ -78,11 +71,13 @@ __all__ = [
     "TestAccountLog",
     "ReceiptLog",
     "NotificationLog",
+    "ClientRenewalLog",
+    # Enums are also often included if needed directly from db.models
     "UserRole",
     "PanelStatus",
     "InboundStatus",
     "OrderStatus",
     "TransactionStatus",
-    "PaymentMethod",
     "AccountStatus",
+    # "UserStatus"
 ] 

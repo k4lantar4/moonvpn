@@ -7,7 +7,7 @@ from decimal import Decimal
 from enum import Enum
 from typing import List, Optional, TYPE_CHECKING
 
-from sqlalchemy import BigInteger, DateTime, String, Column, Enum as SQLEnum, ForeignKey, Text, JSON, DECIMAL, Integer
+from sqlalchemy import BigInteger, DateTime, String, Column, Enum as SQLEnum, ForeignKey, Text, JSON, DECIMAL
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 
 from . import Base
@@ -42,7 +42,7 @@ class User(Base):
     __tablename__ = "users"
     
     # فیلدهای اصلی
-    id = Column(BigIntegerInteger, primary_key=True, autoincrement=True)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
     telegram_id = Column(BigInteger, unique=True, index=True, nullable=False)
     username = Column(String(255), nullable=True)
     full_name = Column(String(255), nullable=True)

@@ -38,7 +38,7 @@ class Order(Base):
     __tablename__ = "orders"
     
     # فیلدهای اصلی
-    id = Column(Integer, primary_key=True, autoincrement=True)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
     user_id = Column(BigInteger, ForeignKey("users.id"), nullable=False)
     plan_id = Column(Integer, ForeignKey("plans.id"), nullable=False)
     location_name = Column(String(100), nullable=False)

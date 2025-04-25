@@ -33,24 +33,30 @@ class OrderService:
         self,
         user_id: int,
         plan_id: int,
+        location_name: str,
         amount: Decimal,
-        inbound_id: int,
         status: OrderStatus = OrderStatus.PENDING
     ) -> Optional[Order]:
         """
-        Creates a new order.
+        Creates a new order and commits the transaction.
         """
         order_data = {
             "user_id": user_id,
             "plan_id": plan_id,
-            "inbound_id": inbound_id,
-            "amount": float(amount),
+            "location_name": location_name,
+            "amount": amount,
             "status": status,
-            "created_at": datetime.utcnow()
         }
-        order = await self.order_repo.create(order_data)
-        logger.info(f"Created new order {order.id} for user {user_id}, plan {plan_id}")
-        return order
+        try:
+            order = await self.order_repo.create(order_data)
+            await self.session.commit()
+            await self.session.refresh(order)
+            logger.info(f"Created and committed new order {order.id} for user {user_id}, plan {plan_id}")
+            return order
+        except Exception as e:
+            logger.error(f"Failed to create order for user {user_id}, plan {plan_id}: {e}", exc_info=True)
+            await self.session.rollback()
+            return None
     
     async def get_order_by_id(self, order_id: int) -> Optional[Order]:
         """Get order details by ID using the repository."""
@@ -62,63 +68,81 @@ class OrderService:
     
     async def update_order_status(self, order_id: int, new_status: OrderStatus) -> Optional[Order]:
         """
-        Update the status of an order using the repository.
+        Update the status of an order using the repository and commit.
         """
-        updated_order = await self.order_repo.update_status(order_id, new_status)
-
-        if updated_order and new_status == OrderStatus.PAID:
-             logger.info(f"Order {order_id} status updated to PAID. Further processing might be needed.")
-
-        return updated_order
+        try:
+            updated_order = await self.order_repo.update_status(order_id, new_status)
+            if updated_order:
+                 await self.session.commit()
+                 await self.session.refresh(updated_order)
+                 if new_status == OrderStatus.PAID:
+                     logger.info(f"Order {order_id} status updated to PAID and committed. Further processing might be needed.")
+                 return updated_order
+            else:
+                 logger.warning(f"Attempted to update status for non-existent order {order_id}")
+                 return None
+        except Exception as e:
+             logger.error(f"Failed to update status for order {order_id} to {new_status}: {e}", exc_info=True)
+             await self.session.rollback()
+             return None
     
     async def attempt_payment_from_wallet(self, order_id: int) -> Tuple[bool, str]:
         """
         Attempts to pay for an order using the user's wallet balance via PaymentService.
-        Updates order status based on payment result.
+        Updates order status based on payment result. Commits the entire transaction.
         """
-        order = await self.get_order_by_id(order_id)
-        if not order:
-            return False, "سفارش یافت نشد."
+        async with self.session.begin_nested():
+            order = await self.get_order_by_id(order_id)
+            if not order:
+                return False, "سفارش یافت نشد."
 
-        if order.status != OrderStatus.PENDING:
-            return False, "وضعیت سفارش معتبر نیست (باید در انتظار پرداخت باشد)."
+            if order.status != OrderStatus.PENDING:
+                return False, "وضعیت سفارش معتبر نیست (باید در انتظار پرداخت باشد)."
 
-        logger.info(f"Attempting wallet payment for order {order_id}, amount {order.amount}")
+            logger.info(f"Attempting wallet payment for order {order_id}, amount {order.amount}")
 
-        payment_transaction = await self.payment_service.pay_from_wallet(
-            user_id=order.user_id,
-            amount=order.amount,
-            description=f"Payment for Order #{order_id}",
-            order_id=order.id
-        )
+            payment_success, payment_message = await self.payment_service.pay_from_wallet(
+                user_id=order.user_id,
+                amount=order.amount,
+                description=f"Payment for Order #{order_id}",
+                order_id=order.id
+            )
 
-        if payment_transaction:
-            logger.info(f"Wallet payment successful for order {order_id}. Transaction ID: {payment_transaction.id}")
-            updated_order = await self.update_order_status(order_id, OrderStatus.PAID)
-
-            if updated_order:
-                user = await self.user_repo.get_by_id(order.user_id)
-                current_balance = await self.payment_service.wallet_service.get_balance(order.user_id)
-                if user and current_balance is not None:
-                    success_message = (
-                        f"✅ پرداخت سفارش با موفقیت انجام شد\n\n"
-                        f"🔢 شناسه سفارش: #{order.id}\n"
-                        f"💰 مبلغ پرداختی: {order.amount} تومان\n"
-                        f"💼 موجودی فعلی: {Decimal(current_balance):.2f} تومان\n\n"
-                        f"🕒 اکانت شما در حال آماده‌سازی است..."
-                    )
-                    await self.notification_service.notify_user(user.telegram_id, success_message)
-                    admin_message = (
-                        f"💲 پرداخت جدید از کیف پول:\n\n"
-                        f"👤 کاربر: {user.telegram_id} (ID: {user.user_id})\n"
-                        f"🔢 شناسه سفارش: #{order.id}\n"
-                        f"💰 مبلغ: {order.amount} تومان"
-                    )
-                    await self.notification_service.notify_admin(admin_message)
-                return True, "پرداخت با موفقیت انجام و سفارش به‌روز شد."
+            if payment_success:
+                 logger.info(f"Wallet payment successful for order {order_id}. Transaction ID: {payment_message}")
+                 updated_order_in_mem = await self.order_repo.update_status(order_id, OrderStatus.PAID)
+                 if not updated_order_in_mem:
+                     logger.error(f"Wallet payment successful for order {order_id}, but failed to stage order status update.")
+                     raise Exception("Failed to stage order status update after payment")
+                 
+                 try:
+                     await self.session.commit()
+                     order = await self.get_order_by_id(order_id)
+                     user = await self.user_repo.get_by_id(order.user_id)
+                     current_balance = await self.payment_service.wallet_service.get_balance(order.user_id)
+                     
+                     if user and current_balance is not None:
+                         success_message = (
+                             f"✅ پرداخت سفارش با موفقیت انجام شد\n\n"
+                             f"🔢 شناسه سفارش: #{order.id}\n"
+                             f"💰 مبلغ پرداختی: {order.amount} تومان\n"
+                             f"💼 موجودی فعلی: {Decimal(current_balance):.2f} تومان\n\n"
+                             f"🕒 اکانت شما در حال آماده‌سازی است..."
+                         )
+                         await self.notification_service.notify_user(user.telegram_id, success_message)
+                         admin_message = (
+                             f"💲 پرداخت جدید از کیف پول:\n\n"
+                             f"👤 کاربر: {user.telegram_id} (ID: {user.user_id})\n"
+                             f"🔢 شناسه سفارش: #{order.id}\n"
+                             f"💰 مبلغ: {order.amount} تومان"
+                         )
+                         await self.notification_service.notify_admin(admin_message)
+                     return True, "پرداخت با موفقیت انجام و سفارش به‌روز شد."
+                 except Exception as commit_err:
+                     logger.error(f"Commit failed after successful wallet payment for order {order_id}: {commit_err}", exc_info=True)
+                     return False, "پرداخت انجام شد اما در ثبت نهایی وضعیت سفارش خطایی رخ داد."
             else:
-                logger.error(f"Wallet payment successful for order {order_id}, but failed to update order status.")
-                return False, "پرداخت انجام شد اما در به‌روزرسانی وضعیت سفارش خطایی رخ داد."
-        else:
-            logger.warning(f"Wallet payment failed for order {order_id}. Insufficient funds or other error.")
-            return False, "پرداخت با کیف پول ناموفق بود (موجودی کافی نیست یا خطای دیگر)." 
+                 logger.warning(f"Wallet payment failed for order {order_id}: {payment_message}")
+                 return False, payment_message
+
+        return False, "خطای ناشناخته در فرآیند پرداخت با کیف پول." 
