@@ -1,12 +1,26 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from db.models import Inbound, Panel
+from sqlalchemy.orm import selectinload
+from db.models import Inbound, Panel, InboundStatus
 from db.repositories.base_repository import BaseRepository
-from typing import List
+from typing import List, Optional
 
-class InboundRepository(BaseRepository):
+class InboundRepository(BaseRepository[Inbound]):
     def __init__(self, session: AsyncSession):
         super().__init__(session, Inbound)
+
+    async def get_by_remote_id_and_panel(self, remote_id: int, panel_id: int) -> Optional[Inbound]:
+        """
+        دریافت inbound بر اساس remote_id و panel_id.
+        فقط inbound‌های غیرحذف‌شده را برمی‌گرداند.
+        """
+        query = select(self.model).where(
+            self.model.remote_id == remote_id,
+            self.model.panel_id == panel_id,
+            self.model.status != InboundStatus.DELETED
+        )
+        result = await self.session.execute(query)
+        return result.scalar_one_or_none()
 
     async def get_active_inbounds(self) -> List[Inbound]:
         """

@@ -30,11 +30,17 @@ class PanelRepository:
         """Get panel by ID"""
         return await self.session.get(Panel, panel_id)
     
+    async def get_panel_by_url(self, url: str) -> Optional[Panel]:
+        """Get panel by URL"""
+        query = select(Panel).where(Panel.url == url)
+        result = await self.session.execute(query)
+        return result.scalar_one_or_none()
+    
     async def create_panel(self, panel_data: dict) -> Panel:
         """Create a new panel"""
         panel = Panel(**panel_data)
         self.session.add(panel)
-        await self.session.commit()
+        await self.session.flush()
         await self.session.refresh(panel)
         return panel
     

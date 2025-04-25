@@ -9,8 +9,9 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from aiogram import types
 from aiogram.fsm.context import FSMContext
+import re
 
-from core.services.panel_service import PanelService
+from core.services.panel_service import PanelService, PanelConnectionError
 from core.services.user_service import UserService
 from bot.keyboards.admin_keyboard import get_admin_panel_keyboard
 from db.models.panel import PanelStatus
@@ -224,8 +225,19 @@ def register_admin_callbacks(router: Router, session_pool: async_sessionmaker[As
                 return
 
             # Build panel info text with localized status
-            status_text = "فعال" if panel.status == PanelStatus.ACTIVE else "غیرفعال" if panel.status == PanelStatus.DISABLED else "حذف شده"
-            status_emoji = "✅" if panel.status == PanelStatus.ACTIVE else "❌"
+            if panel.status == PanelStatus.ACTIVE:
+                status_text = "فعال"
+                status_emoji = "✅"
+            elif panel.status == PanelStatus.INACTIVE:
+                status_text = "غیرفعال"
+                status_emoji = "⚠️"
+            elif panel.status == PanelStatus.ERROR:
+                 status_text = "خطا"
+                 status_emoji = "❌" 
+            else: # Fallback for unexpected statuses
+                status_text = str(panel.status)
+                status_emoji = "❓"
+                
             text = (
                 f"📟 پنل #{panel.id} – {panel.flag_emoji} {panel.location_name}\n"
                 f"وضعیت: {status_text} {status_emoji}\n"
@@ -307,7 +319,7 @@ def register_admin_callbacks(router: Router, session_pool: async_sessionmaker[As
         panel_url = message.text.strip()
         # Optionally, add URL validation here
         await state.update_data(panel_url=panel_url)
-        await message.answer("لطفا نام کاربری پنل را وارد کنید:")
+        await message.answer("✅ آدرس پنل دریافت شد.\n\nلطفا نام کاربری پنل را وارد کنید:")
         await state.set_state(RegisterPanelStates.waiting_for_username)
 
     @router.message(RegisterPanelStates.waiting_for_username)
@@ -321,11 +333,11 @@ def register_admin_callbacks(router: Router, session_pool: async_sessionmaker[As
     async def process_panel_password(message: types.Message, state: FSMContext):
         password = message.text.strip()
         await state.update_data(password=password)
-        await message.answer("لطفا نام موقعیت مکانی پنل (مثلاً فرانسه 🇫🇷) را وارد کنید:")
+        await message.answer("لطفا نام موقعیت مکانی پنل را به همراه ایموجی پرچم وارد کنید (مثلاً: `آلمان 🇩🇪` یا `هلند 🇳🇱`):")
         await state.set_state(RegisterPanelStates.waiting_for_location_name)
 
     @router.message(RegisterPanelStates.waiting_for_location_name)
-    async def process_panel_location(message: types.Message, state: FSMContext):
+    async def process_panel_location(message: types.Message, state: FSMContext, session: AsyncSession):
         location_name = message.text.strip()
         await state.update_data(location_name=location_name)
 
@@ -335,20 +347,78 @@ def register_admin_callbacks(router: Router, session_pool: async_sessionmaker[As
         password = data.get('password')
         location_name = data.get('location_name')
 
-        try:
-            session = await async_session_maker()
-            try:
-                panel_service = PanelService(session)
-                panel = await panel_service.register_panel(panel_url, username, password, location_name)
-                await message.answer("✅ پنل جدید با موفقیت ثبت شد.")
-                await session.commit()
-            except Exception as e:
-                await session.rollback()
-                await message.answer(f"❌ خطا در ثبت پنل: {str(e)}")
-                raise
-            finally:
-                await session.close()
-        except Exception as e:
-            logging.error(f"Error registering panel: {e}", exc_info=True)
+        # Basic validation
+        if not all([panel_url, username, password, location_name]):
+             await message.answer("❌ اطلاعات پنل ناقص است. لطفاً دوباره فرآیند ثبت را شروع کنید.")
+             await state.clear()
+             return
 
-        await state.clear() 
+        await message.answer("⏳ در حال بررسی و ثبت پنل، لطفاً صبر کنید...") # Inform user
+
+        try:
+            panel_service = PanelService(session)
+            # Assuming register_panel needs name, location, flag_emoji
+            # We need to extract flag_emoji from location_name or ask for it separately
+            # For now, let's assume location_name contains both or service handles it.
+            # A better approach would be to ask for them separately.
+            # Let's use add_panel which we reviewed earlier
+            # We need name, location, flag_emoji. Let's use location_name as name for now
+            # and extract emoji if possible.
+            # TODO: Improve panel info gathering (ask name, location, emoji separately)
+            flag_emoji = ""
+            clean_location_name = location_name
+            # Simple regex to find emoji (might need refinement - using unicode property for flags)
+            # Matches Flag emoji like 🇩🇪 by checking for two Regional Indicator symbols
+            # Unicode range for Regional Indicator Symbols: U+1F1E6 to U+1F1FF
+            match = re.search(r'([\U0001F1E6-\U0001F1FF]{2})', location_name)
+            # Also match other single character flags/symbols if used
+            # Removed the second regex search using \p{So} as it's unsupported by standard 're'
+            # if not match:
+            #     match = re.search(r'(\p{So})', location_name) 
+
+            if match:
+                flag_emoji = match.group(1)
+                # Remove the emoji and surrounding spaces from the name
+                clean_location_name = re.sub(r'\s*' + re.escape(flag_emoji) + r'\s*', '', location_name).strip()
+            
+            if not flag_emoji:
+                # Assign a default or raise an error if emoji is mandatory
+                flag_emoji = "🏳️" # Default flag
+                logger.warning(f"Could not extract flag emoji from location: {location_name}. Using default.")
+
+            # Use the cleaned name and extracted emoji
+            panel = await panel_service.add_panel(
+                 name=clean_location_name if clean_location_name else location_name, # Use original if cleaning failed
+                 location=clean_location_name if clean_location_name else location_name,
+                 flag_emoji=flag_emoji,
+                 url=panel_url,
+                 username=username,
+                 password=password
+            )
+
+            # Check if panel was created successfully and has an ID
+            if not panel or not panel.id:
+                 logger.error(f"Failed to register panel (panel object empty or no ID) for {panel_url}. Panel: {panel}")
+                 await message.answer("❌ خطا در ثبت پنل در پایگاه داده. لطفاً مجدداً تلاش کنید.")
+            # Check if sync failed (status might be ERROR)
+            elif panel.status == PanelStatus.ERROR:
+                 logger.warning(f"Panel {panel.id} registered but sync failed. Status: {panel.status}")
+                 await message.answer(f"⚠️ پنل در دیتابیس ثبت شد، اما همگام‌سازی اولیه با خطا مواجه شد. لطفاً وضعیت پنل را بررسی کنید.")
+            else:
+                 logger.info(f"✅ Panel registered successfully: ID={panel.id}, Location={panel.location_name}, Status={panel.status}")
+                 await message.answer("✅ پنل جدید با موفقیت ثبت و همگام‌سازی شد.")
+
+        except PanelConnectionError as conn_err:
+            # Catch the specific connection/auth error from the service
+            logger.warning(f"Panel connection failed during registration for {panel_url}: {conn_err}")
+            await message.answer(f"❌ خطا در اتصال به پنل:\n{str(conn_err)}") # Show the user-friendly message from the exception
+        except ValueError as val_err:
+            # Catch potential validation errors from service or database issues
+            logger.error(f"Validation or DB error during panel registration for {panel_url}: {val_err}", exc_info=True)
+            await message.answer(f"❌ خطا در ثبت اطلاعات پنل: {str(val_err)}")
+        except Exception as e:
+            # Catch any other unexpected errors
+            logger.error(f"Unexpected error registering panel {panel_url}: {e}", exc_info=True)
+            await message.answer(f"❌ خطای پیش‌بینی نشده در ثبت پنل رخ داد. لطفاً لاگ‌ها را بررسی کنید.")
+
+        await state.clear()

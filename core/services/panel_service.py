@@ -11,15 +11,23 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlalchemy.exc import SQLAlchemyError
 
-from db.models.panel import Panel, PanelStatus
+from db.models.panel import Panel, PanelStatus, PanelType
 from db.models.inbound import Inbound, InboundStatus
-from core.integrations.xui_client import XuiClient
+from core.integrations.xui_client import XuiClient, XuiAuthenticationError, XuiConnectionError
 from core.services.notification_service import NotificationService
 from db.repositories.panel_repo import PanelRepository
 from db import get_async_db
 
 logger = logging.getLogger(__name__)
 
+# Define service-level exceptions
+class PanelConnectionError(Exception):
+    """Raised when connection testing fails."""
+    pass
+
+class PanelSyncError(Exception):
+    """Raised when syncing inbounds fails."""
+    pass
 
 class PanelService:
     """سرویس مدیریت پنل‌ها و تنظیمات inbound"""
@@ -35,6 +43,33 @@ class PanelService:
         self.notification_service = NotificationService(session)
         self._xui_clients: Dict[int, XuiClient] = {}  # Cache for XuiClient instances
 
+    async def test_panel_connection(self, url: str, username: str, password: str) -> bool:
+        """
+        تست اتصال و لاگین به یک پنل بالقوه.
+
+        Args:
+            url: آدرس پنل
+            username: نام کاربری
+            password: رمز عبور
+
+        Returns:
+            True if connection and login are successful.
+
+        Raises:
+            PanelConnectionError: If login fails (auth or connection).
+        """
+        temp_client = XuiClient(host=url, username=username, password=password)
+        try:
+            login_successful = await temp_client.login()
+            return login_successful # Should be True if no exception was raised
+        except (XuiAuthenticationError, XuiConnectionError) as e:
+            logger.warning(f"Panel connection test failed for {url}: {e}")
+            # Re-raise as a service-level exception for the bot layer to catch
+            raise PanelConnectionError(str(e)) from e
+        except Exception as e:
+            logger.error(f"Unexpected error during panel connection test for {url}: {e}", exc_info=True)
+            raise PanelConnectionError(f"خطای پیش‌بینی نشده در تست اتصال به پنل: {e}") from e
+
     async def add_panel(self, name: str, location: str, flag_emoji: str,
                      url: str, username: str, password: str) -> Panel:
         """
@@ -49,39 +84,69 @@ class PanelService:
         Returns:
             Panel: پنل ایجاد شده
         """
-        # تست اتصال به پنل
-        client = await self._get_xui_client(Panel(
-            name=name,
-            location=location,
-            flag_emoji=flag_emoji,
-            url=url,
-            username=username,
-            password=password,
-            status=PanelStatus.ACTIVE
-        ))
-        if not await client.test_connection():
-            raise ValueError("خطا در اتصال به پنل")
-
-        # ایجاد پنل
-        panel = Panel(
-            name=name,
-            location=location,
-            flag_emoji=flag_emoji,
-            url=url,
-            username=username,
-            password=password,
-            status=PanelStatus.ACTIVE
-        )
-        
-        await self.panel_repo.add(panel)
-        await self.session.flush()
-        
-        # همگام‌سازی inbound‌ها
+        # 1. تست اتصال به پنل قبل از ایجاد
         try:
-            await self.sync_panel_inbounds(panel.id)
+            await self.test_panel_connection(url=url, username=username, password=password)
+            logger.info(f"Panel connection test successful for {url}")
+        except PanelConnectionError as e:
+            logger.error(f"Failed to add panel {name} at {url}. Connection test failed: {e}")
+            # Raise the specific connection error for the bot layer
+            raise e
         except Exception as e:
-            logger.error(f"خطا در همگام‌سازی inbound‌های پنل {panel.id}: {str(e)}", exc_info=True)
-            
+             logger.error(f"Unexpected error during connection test for panel {name} at {url}: {e}", exc_info=True)
+             # Raise a generic error for other unexpected issues
+             raise PanelConnectionError(f"خطای پیش‌بینی نشده در زمان تست اتصال: {e}") from e
+
+        # 2. ایجاد پنل در دیتابیس
+        panel_data = {
+            "name": name,
+            "location_name": location, # Changed key from location to location_name
+            "flag_emoji": flag_emoji,
+            "url": url,
+            "username": username,
+            "password": password,
+            "status": PanelStatus.ACTIVE,
+            "type": PanelType.XUI # Assuming XUI is the default/only type for now
+        }
+        
+        panel: Optional[Panel] = None # Initialize panel as None
+        try:
+            # Use the repository method to create the panel
+            panel = await self.panel_repo.create_panel(panel_data)
+            # No need to flush here, create_panel should handle it.
+            # await self.session.flush() # Flush to get the panel ID
+            logger.info(f"Panel {name} (ID: {panel.id}) created successfully in DB.")
+
+            # 3. همگام‌سازی اولیه inbound‌ها
+            await self.sync_panel_inbounds(panel.id)
+            logger.info(f"Initial inbound sync completed for panel {panel.id}.")
+
+        except SQLAlchemyError as db_err:
+            logger.error(f"Database error while adding panel {name} or syncing: {db_err}", exc_info=True)
+            await self.session.rollback()
+            # Consider deleting the panel if DB add failed but test passed?
+            raise ValueError(f"خطا در ذخیره اطلاعات پنل در دیتابیس: {db_err}")
+        except PanelSyncError as sync_err: # Catch specific sync error from sync_panel_inbounds
+             logger.error(f"Error syncing inbounds for new panel {panel.id}: {sync_err}", exc_info=True)
+             # Panel exists in DB, but sync failed. Maybe set status to ERROR?
+             panel.status = PanelStatus.ERROR
+             await self.session.commit() # Commit status change
+             await self.notification_service.notify_admins(
+                 f"⚠️ پنل {panel.name} با موفقیت در دیتابیس ثبت شد اما همگام‌سازی اولیه inboundها با خطا مواجه شد: {sync_err}"
+             )
+             # Don't raise here, return the panel with error status
+        except Exception as e:
+            logger.error(f"Unexpected error after connection test during panel add/sync {panel.id}: {e}", exc_info=True)
+            await self.session.rollback()
+            # If panel object exists and has an ID, maybe try setting status to ERROR
+            if panel and panel.id:
+                try:
+                    panel.status = PanelStatus.ERROR
+                    await self.session.commit()
+                except Exception as commit_err:
+                    logger.error(f"Failed to set panel {panel.id} status to ERROR after failed sync: {commit_err}")
+            raise ValueError(f"خطای پیش‌بینی نشده در زمان ثبت پنل یا همگام‌سازی: {e}")
+
         return panel
 
     async def get_panel_by_id(self, panel_id: int) -> Optional[Panel]:
@@ -92,7 +157,7 @@ class PanelService:
         Returns:
             Panel: پنل یافت شده یا None
         """
-        return await self.panel_repo.get_by_id(panel_id)
+        return await self.panel_repo.get_panel_by_id(panel_id)
 
     async def get_active_panels(self) -> List[Panel]:
         """
@@ -121,14 +186,28 @@ class PanelService:
             نمونه XuiClient
         """
         if panel.id not in self._xui_clients:
-            client = XuiClient(
-                host=panel.url,
-                username=panel.username,
-                password=panel.password
-            )
-            await client.login()  # Login to the panel
-            self._xui_clients[panel.id] = client
-            
+            try:
+                client = XuiClient(
+                    host=panel.url,
+                    username=panel.username,
+                    password=panel.password
+                )
+                # Attempt to login when creating the client instance for the cache
+                login_successful = await client.login()
+                # We already raised specific errors in login(), so if we get here, it worked.
+                # No need to check login_successful boolean strictly if exceptions are handled.
+                logger.info(f"Login successful for cached client for panel {panel.id}")
+                self._xui_clients[panel.id] = client
+            except (XuiAuthenticationError, XuiConnectionError) as e:
+                logger.error(f"Failed to login while creating cached client for panel {panel.id}: {e}")
+                # Don't cache the client if login fails
+                # Raise an error that can be handled by the calling function (e.g., sync_panel_inbounds)
+                raise PanelConnectionError(f"خطا در اتصال به پنل {panel.id} هنگام ایجاد کلاینت کش‌شده: {e}") from e
+            except Exception as e:
+                logger.error(f"Unexpected error creating cached client for panel {panel.id}: {e}", exc_info=True)
+                raise PanelConnectionError(f"خطای پیش‌بینی نشده هنگام ایجاد کلاینت کش‌شده برای پنل {panel.id}: {e}") from e
+
+        # Return cached client if login was successful, otherwise this line won't be reached
         return self._xui_clients[panel.id]
 
     async def sync_panel_inbounds(self, panel_id: int) -> None:
@@ -138,18 +217,35 @@ class PanelService:
             panel_id: شناسه پنل
         """
         # دریافت پنل
-        panel = await self.panel_repo.get_by_id(panel_id, [selectinload(Panel.inbounds)])
+        panel = await self.panel_repo.get_panel_by_id(panel_id)
         if not panel:
             raise ValueError(f"پنل با شناسه {panel_id} یافت نشد")
 
         # دریافت inbound‌های فعلی
+        await self.session.refresh(panel, attribute_names=['inbounds']) # Explicitly load/refresh inbounds
         current_inbounds = {inb.remote_id: inb for inb in panel.inbounds 
                           if inb.status != InboundStatus.DELETED}
 
+        client: Optional[XuiClient] = None # Initialize client to None
         try:
-            # دریافت inbound‌ها از پنل
+            # دریافت کلاینت (شامل تست اتصال/لاگین)
             client = await self._get_xui_client(panel)
+        except PanelConnectionError as client_err:
+            logger.error(f"Failed to get XUI client for panel {panel_id} during sync: {client_err}", exc_info=True)
+            panel.status = PanelStatus.ERROR # Mark panel as error if client cannot be initialized
+            await self.session.commit()
+            raise PanelSyncError(f"امکان اتصال یا احراز هویت به پنل {panel.name} برای همگام‌سازی وجود ندارد.") from client_err
+
+        try:
+            # دریافت inbound‌ها از پنل با کلاینت تایید شده
             panel_inbounds = await client.get_inbounds()
+
+            if panel_inbounds is None: # Handle case where get_inbounds might return None
+                logger.warning(f"Received None for inbounds from panel {panel.id} during sync. Assuming empty list.")
+                panel_inbounds = []
+            
+            # Set of remote inbound IDs from the panel
+            remote_ids = {inb_data["id"] for inb_data in panel_inbounds}
 
             # به‌روزرسانی یا ایجاد inbound‌ها
             for inb_data in panel_inbounds:
@@ -173,32 +269,54 @@ class PanelService:
                         panel_id=panel.id,
                         remote_id=remote_id,
                         protocol=inb_data["protocol"],
-                        tag=inb_data.get("remark", ""),
+                        tag=inb_data.get("remark", ""), # Use remark as tag?
                         port=inb_data["port"],
                         settings_json=inb_data.get("settings", {}),
                         sniffing=inb_data.get("sniffing", {}),
                         status=(InboundStatus.ACTIVE 
-                               if inb_data.get("enable", True) 
-                               else InboundStatus.DISABLED),
-                        max_clients=inb_data.get("max_clients", 0),
+                                if inb_data.get("enable", True) 
+                                else InboundStatus.DISABLED),
                         last_synced=datetime.utcnow()
                     )
-                    panel.inbounds.append(new_inbound)
+                    self.session.add(new_inbound)
+                    logger.info(f"Added new inbound {remote_id} ('{new_inbound.tag}') for panel {panel.id}")
 
-            # علامت‌گذاری inbound‌های حذف شده
-            panel_inbound_ids = {inb["id"] for inb in panel_inbounds}
-            for inbound in current_inbounds.values():
-                if inbound.remote_id not in panel_inbound_ids:
+            # شناسایی و حذف inbound‌هایی که در پنل نیستند
+            inbounds_to_delete = []
+            for remote_id, inbound in current_inbounds.items():
+                if remote_id not in remote_ids:
                     inbound.status = InboundStatus.DELETED
                     inbound.last_synced = datetime.utcnow()
+                    inbounds_to_delete.append(inbound)
+                    logger.info(f"Marking inbound {remote_id} ('{inbound.tag}') for panel {panel.id} as DELETED.")
 
             await self.session.commit()
-            logger.info(f"همگام‌سازی موفق inbound‌های پنل {panel_id}")
+            logger.info(f"Successfully synced inbounds for panel {panel.id}.")
 
-        except Exception as e:
+            # Update panel status to ACTIVE if it was previously in ERROR
+            if panel.status == PanelStatus.ERROR:
+                logger.info(f"Panel {panel.id} was in ERROR status, setting back to ACTIVE after successful sync.")
+                panel.status = PanelStatus.ACTIVE
+                await self.session.commit()
+
+        except (XuiAuthenticationError, XuiConnectionError) as panel_api_err:
+            # Errors specifically from client.get_inbounds()
+            logger.error(f"XUI API error during inbound sync for panel {panel_id}: {panel_api_err}", exc_info=True)
+            panel.status = PanelStatus.ERROR # Mark panel as error on sync failure
+            await self.session.commit()
+            raise PanelSyncError(f"خطا در ارتباط با API پنل {panel.name} هنگام همگام‌سازی: {panel_api_err}") from panel_api_err
+        except SQLAlchemyError as db_err:
+            logger.error(f"Database error during inbound sync commit for panel {panel_id}: {db_err}", exc_info=True)
             await self.session.rollback()
-            logger.error(f"خطا در همگام‌سازی inbound‌های پنل {panel_id}: {str(e)}", exc_info=True)
-            raise
+            # Don't change panel status here, the connection might be fine, DB is the issue
+            raise PanelSyncError(f"خطا در ذخیره اطلاعات inboundها برای پنل {panel.id}: {db_err}") from db_err
+        except Exception as e:
+            logger.error(f"Unexpected error during inbound sync for panel {panel_id}: {e}", exc_info=True)
+            await self.session.rollback()
+            # Consider setting panel status to ERROR for unexpected issues?
+            panel.status = PanelStatus.ERROR
+            await self.session.commit()
+            raise PanelSyncError(f"خطای پیش‌بینی نشده در همگام‌سازی inboundها برای پنل {panel.id}: {e}") from e
 
     async def sync_all_panels_inbounds(self) -> Dict[int, List[Inbound]]:
         """
@@ -395,26 +513,81 @@ class PanelService:
             raise
 
     async def register_panel(self, url: str, username: str, password: str, location_name: str) -> Panel:
-        """
-        ثبت یک پنل جدید
-        Args:
-            url: آدرس پنل
-            username: نام کاربری
-            password: رمز عبور
-            location_name: نام موقعیت
-        Returns:
-            Panel: پنل ثبت شده
-        """
-        # Check for duplicate panel by URL
+        """Register a new panel after testing connection."""
+        logger.info(f"Attempting to register panel: {url}, Location: {location_name}")
+
+        # Check if panel with this URL already exists
         existing_panel = await self.panel_repo.get_panel_by_url(url)
         if existing_panel:
-            raise Exception("پنل با این آدرس قبلاً ثبت شده است.")
-        panel_data = {
-            "url": url,
-            "username": username,
+            logger.warning(f"Panel registration failed: Panel with URL {url} already exists (ID: {existing_panel.id})")
+            raise ValueError(f"پنلی با آدرس {url} قبلاً ثبت شده است.")
+
+        # Temporary panel object for connection testing
+        temp_panel_data = {
+            "url": url, 
+            "username": username, 
             "password": password,
-            "location_name": location_name,
-            "status": PanelStatus.ACTIVE
+            "location_name": location_name # Need a name for logging/error context
         }
-        panel = await self.panel_repo.create_panel(panel_data)
-        return panel
+        
+        # Use a temporary Panel object structure for testing
+        client = XuiClient(
+            host=url,
+            username=username,
+            password=password
+        )
+
+        try:
+            logger.info(f"Attempting to login to panel at {url} for connection test...")
+            # Use login() method to test connection and credentials
+            is_connected = await client.login() 
+            if not is_connected:
+                logger.error(f"Login failed for panel at {url} during registration test.")
+                # Optionally raise a more specific error if login returns False but doesn't raise exception
+                raise ConnectionError("ورود به پنل ناموفق بود. لطفاً اطلاعات را بررسی کنید.")
+            logger.info(f"Connection test (via login) successful for panel at {url}")
+
+            # Extract flag emoji if possible
+            flag_emoji = self._extract_flag_emoji(location_name)
+
+            # Create panel data
+            panel_data = {
+                "url": url,
+                "username": username,
+                "password": password,  # Consider encrypting password later
+                "location_name": location_name.strip(),
+                "flag_emoji": flag_emoji,
+                "status": PanelStatus.ACTIVE, # Set to active after successful test
+                "type": "xui" # Assuming x-ui panel type for now
+            }
+            
+            # Create panel using repository
+            logger.info(f"Creating panel record in database for {url}...")
+            panel = await self.panel_repo.create_panel(panel_data)
+            
+            # Log success after flush/refresh in repo confirms persistence tentatively
+            logger.info(f"✅ Panel persisted to DB: ID={panel.id}, Location={panel.location_name}, URL={panel.url}")
+
+            # Perform initial inbound sync after creation
+            try:
+                logger.info(f"Performing initial inbound sync for panel {panel.id}...")
+                await self.sync_panel_inbounds(panel.id)
+                logger.info(f"Initial inbound sync completed for panel {panel.id}")
+            except Exception as sync_error:
+                logger.error(f"Error during initial inbound sync for panel {panel.id}: {sync_error}", exc_info=True)
+                # Decide if this error should prevent panel registration or just be logged
+                # For now, log it and continue, panel is registered but sync failed.
+                # Consider adding a notification here.
+
+
+            return panel
+
+        except ConnectionError as ce:
+             logger.error(f"ConnectionError during panel registration for {url}: {ce}")
+             raise # Re-raise connection errors to be handled by the caller
+        except ValueError as ve:
+            logger.error(f"ValueError during panel registration for {url}: {ve}")
+            raise # Re-raise value errors (like duplicate URL)
+        except Exception as e:
+            logger.error(f"Unexpected error registering panel {url}: {str(e)}", exc_info=True)
+            raise RuntimeError(f"خطای غیرمنتظره در زمان ثبت پنل: {str(e)}") # Raise a generic runtime error

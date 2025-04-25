@@ -401,7 +401,11 @@ async def cancel_panel_callback(callback_query: types.CallbackQuery, state: FSMC
 @router.callback_query(lambda c: c.data == 'register_panel')
 async def cmd_register_panel(callback_query: types.CallbackQuery, state: FSMContext):
     await state.set_state(RegisterPanelStates.waiting_for_panel_url)
-    await callback_query.message.answer("لطفاً آدرس پنل را وارد کنید:")
+    await callback_query.message.answer(
+        "لطفاً آدرس کامل پنل (به همراه http/https و مسیر مانند /xui/ در صورت وجود) را وارد کنید:\n"
+        "مثال: `http://123.123.123.123:54321` یا `https://panel.example.com/xui`"
+    )
+    await callback_query.answer()
 
 
 def register_admin_commands(dp: Dispatcher, session_maker: sessionmaker):

@@ -9,6 +9,9 @@ class PanelStatus(str, enum.Enum):
     INACTIVE = "inactive"
     ERROR = "error"
 
+class PanelType(str, enum.Enum):
+    XUI = "xui"
+
 class InboundStatus(str, enum.Enum):
     ACTIVE = "active"
     DISABLED = "disabled"
