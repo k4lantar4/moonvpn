@@ -79,8 +79,8 @@ show_help() {
     echo "  update-bot      Pull changes and restart bot"
     echo "  reload          Send reload signal to bot"
     echo "  logs [service]  View last 50 lines of logs (app, db, redis, phpmyadmin)"
-    echo "  logs-follow [s] Follow logs continuously (app, db, redis, phpmyadmin)"
-    echo "  bot-logs        View last 50 lines of bot logs"
+    echo "  logs-follow [s] Follow logs continuously (defaults to app service if none specified)"
+    echo "  bot-logs        View last 200 lines of bot logs"
     echo "  migrate         Run database migrations (alias for migrate upgrade)"
     echo "  migrate upgrade Run all pending migrations"
     echo "  migrate show    Show current migration state"
@@ -293,11 +293,11 @@ case "$1" in
     
     logs)
         check_docker
-        echo -e "${BLUE}Showing last 50 lines of logs...${NC}"
+        echo -e "${BLUE}Showing last 100 lines of logs...${NC}"
         if [ -z "$2" ]; then
-            docker compose logs --tail=50
+            docker compose logs --tail=100
         else
-            docker compose logs --tail=50 "$2"
+            docker compose logs --tail=100 "$2"
         fi
         ;;
 
@@ -305,7 +305,9 @@ case "$1" in
         check_docker
         echo -e "${BLUE}Following logs continuously (Ctrl+C to stop)...${NC}"
         if [ -z "$2" ]; then
-            docker compose logs -f
+            # Default to 'app' service if no service is specified
+            echo -e "${YELLOW}No service specified, following 'app' logs...${NC}"
+            docker compose logs -f app
         else
             docker compose logs -f "$2"
         fi
@@ -313,8 +315,8 @@ case "$1" in
 
     bot-logs)
         check_docker
-        echo -e "${BLUE}Showing last 50 lines of bot logs...${NC}"
-        docker compose logs --tail=50 app
+        echo -e "${BLUE}Showing last 200 lines of bot logs...${NC}"
+        docker compose logs --tail=200 app
         ;;
     
     migrate)

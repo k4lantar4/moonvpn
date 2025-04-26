@@ -60,7 +60,7 @@
 		"terminal.integrated.shellArgs.linux": [
 			"--login"
 		],
-		"terminal.integrated.limitCharacters": 10000,
+		"terminal.integrated.limitCharacters": 5000,
 		"terminal.integrated.shellIntegration.history": 2000,
 		"terminal.integrated.allowChords": true,
 		"terminal.integrated.automationProfile.linux": {
@@ -100,7 +100,7 @@
 			"**/id_dsa",
 			"**/.ssh/id_*"
 		],
-		"cursor.composer.cmdPFilePicker2": false,
+		"cursor.composer.cmdPFilePicker2": true,
 		"sqltools.connections": [
 			{
 				"mysqlOptions": {

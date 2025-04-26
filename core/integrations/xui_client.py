@@ -8,6 +8,9 @@ from datetime import datetime
 import time
 import httpx # Assuming py3xui uses httpx or similar, need to know the actual connection error type
 from json import JSONDecodeError
+import base64
+import json
+from urllib.parse import urlparse, urlunparse, parse_qs, urlencode
 
 # استفاده از کلاس AsyncApi از کتابخانه py3xui
 from py3xui import AsyncApi
@@ -21,6 +24,10 @@ class XuiAuthenticationError(Exception):
 
 class XuiConnectionError(Exception):
     """Raised when connection to the panel fails."""
+    pass
+
+class XuiNotFoundError(Exception):
+    """خطا زمانی که موردی در پنل XUI پیدا نشود."""
     pass
 
 class XuiClient:
@@ -140,51 +147,129 @@ class XuiClient:
         # Re-uses the login logic including exception handling
         return await self.login()
     
+    async def logout(self) -> bool:
+        """
+        خروج از پنل (اگر py3xui از آن پشتیبانی کند).
+        توجه: نیاز به بررسی وجود متد logout در py3xui.async_api است.
+
+        Returns:
+            True در صورت موفقیت آمیز بودن خروج.
+        """
+        try:
+            # --- فرض بر اینکه متدی به نام logout وجود دارد ---
+            # result = await self.api.logout()
+            # logger.info(f"Successfully logged out from panel {self.host}")
+            # return result
+            # --- اگر متد logout وجود ندارد ---
+            logger.warning(f"Logout method called for {self.host}, but assumed not implemented or needed in py3xui. Skipping.")
+            return True
+        except AttributeError:
+            logger.warning(f"Logout method explicitly not found in py3xui for panel {self.host}.")
+            return False
+        except Exception as e:
+            logger.error(f"Failed to logout from panel {self.host}: {e}", exc_info=True)
+            raise # خطای اصلی را دوباره ایجاد می‌کنیم
+    
     # --------- مدیریت کلاینت‌ها ---------
     
-    async def add_client_to_inbound(self, inbound_id: int, client_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def get_all_clients(self) -> List[Dict[str, Any]]:
         """
-        ایجاد کلاینت جدید در یک inbound خاص
-        
+        دریافت لیست کامل تمام کلاینت‌های موجود در پنل (از تمام inboundها).
+
+        Returns:
+            لیستی از دیکشنری‌ها که هر کدام اطلاعات یک کلاینت را نشان می‌دهد.
+            ساختار دقیق دیکشنری بستگی به پاسخ API پنل دارد.
+
+        Raises:
+            XuiConnectionError: اگر اتصال به پنل برقرار نشود.
+            Exception: برای خطاهای دیگر API.
+        """
+        logger.info(f"Attempting to get all clients from panel {self.host}")
+        try:
+            # استفاده از متد get_list از py3xui.async_api.client
+            clients = await self.api.client.get_list()
+            if clients is None:
+                logger.warning(f"Received None when getting all clients from panel {self.host}. Assuming empty list.")
+                return []
+            logger.info(f"Successfully retrieved {len(clients)} clients from panel {self.host}")
+            # py3xui ممکن است لیستی از آبجکت‌ها برگرداند، نیاز به تبدیل به dict؟
+            # فرض می‌کنیم clients لیستی از dict است یا آیتم‌های آن __dict__ دارند
+            processed_clients = []
+            for client in clients:
+                if hasattr(client, '__dict__'):
+                    processed_clients.append(client.__dict__)
+                elif isinstance(client, dict):
+                    processed_clients.append(client)
+                else:
+                    logger.warning(f"Found unexpected item type ({type(client)}) in client list from {self.host}. Skipping.")
+            return processed_clients
+        except AttributeError:
+            logger.error(f"The py3xui library (or its client module) does not seem to have a 'get_list' method for panel {self.host}.")
+            return [] # یا raise خطا
+        except (httpx.RequestError, ConnectionError, TimeoutError) as conn_err:
+            logger.error(f"Connection failed while getting all clients for panel {self.host}: {conn_err}", exc_info=True)
+            raise XuiConnectionError(f"امکان اتصال به پنل {self.host} هنگام دریافت لیست کلاینت‌ها وجود ندارد.") from conn_err
+        except Exception as e:
+            logger.error(f"Failed to get all clients from panel {self.host}: {e}", exc_info=True)
+            raise
+
+    async def create_client(self, inbound_id: int, client_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        ایجاد کلاینت جدید در یک inbound خاص (معادل py3xui client.create).
+
         Args:
             inbound_id: شناسه inbound
             client_data: داده‌های کلاینت شامل email، uuid، total_gb و...
-            
+
         Returns:
-            اطلاعات کلاینت ایجاد شده
+            اطلاعات کلاینت ایجاد شده (به صورت دیکشنری).
+
+        Raises:
+            XuiConnectionError: اگر اتصال به پنل برقرار نشود.
+            Exception: برای خطاهای دیگر API.
         """
+        logger.info(f"Attempting to create client in inbound {inbound_id} on panel {self.host}")
         try:
-            # Assuming py3xui API method for adding client is 'client.create'
-            result = await self.api.client.create(inbound_id, client_data)
-            logger.info(f"Successfully added client to inbound {inbound_id} on panel {self.host}")
+            # استفاده از client.create
+            result = await self.api.client.create(inbound_id=inbound_id, client=client_data)
+            logger.info(f"Successfully created client in inbound {inbound_id} on panel {self.host}")
+            # تبدیل به dict اگر آبجکت بود
+            if hasattr(result, '__dict__'): return result.__dict__
             return result
+        except AttributeError:
+             logger.error(f"The py3xui library (or its client module) does not seem to have a 'create' method for panel {self.host}.")
+             raise NotImplementedError("create_client is not available in the current py3xui version.") from None
         except Exception as e:
-            logger.error(f"Failed to add client to inbound {inbound_id} on panel {self.host}: {e}", exc_info=True)
-            # Consider raising a more specific exception if needed
+            logger.error(f"Failed to create client in inbound {inbound_id} on panel {self.host}: {e}", exc_info=True)
             raise
-    
-    async def get_client(self, email: str) -> Optional[Dict[str, Any]]:
+
+    async def get_client_by_email(self, email: str) -> Optional[Dict[str, Any]]:
         """
-        دریافت اطلاعات یک کلاینت با ایمیل/نام آن
-        
+        دریافت اطلاعات یک کلاینت با ایمیل/نام آن (معادل py3xui client.get_by_email).
+
         Args:
             email: آدرس ایمیل/نام کلاینت
-            
+
         Returns:
-            اطلاعات کلاینت
+            اطلاعات کلاینت یا None اگر پیدا نشد
         """
         try:
             result = await self.api.client.get_by_email(email)
             if result:
                 logger.info(f"Successfully retrieved client with email {email}")
+                 # تبدیل به dict اگر آبجکت بود
+                if hasattr(result, '__dict__'): return result.__dict__
+                return result
             else:
-                logger.warning(f"Client with email {email} not found")
+                logger.warning(f"Client with email {email} not found on panel {self.host}")
                 return None # Return None if not found
-            return result
+        except AttributeError:
+            logger.error(f"The py3xui library (or its client module) does not seem to have a 'get_by_email' method for panel {self.host}.")
+            return None
         except Exception as e:
-            logger.error(f"Failed to get client with email {email}: {e}")
+            logger.error(f"Failed to get client with email {email} on panel {self.host}: {e}")
             raise
-    
+
     async def get_client_by_uuid(self, uuid: str) -> Optional[Dict[str, Any]]:
         """
         دریافت اطلاعات یک کلاینت با UUID آن
@@ -282,61 +367,183 @@ class XuiClient:
     
     async def get_config(self, uuid: str) -> str:
         """
-        دریافت لینک کانفیگ یک کلاینت
-        
+        دریافت لینک کانفیگ یک کلاینت بر اساس UUID آن.
+        از فرمت‌های VLESS و VMess پشتیبانی می‌کند.
+
         Args:
             uuid: UUID کلاینت
-            
+
         Returns:
-            لینک کانفیگ کلاینت (vmess/vless)
+            لینک کانفیگ کلاینت (VLESS یا VMess) یا رشته خالی در صورت بروز مشکل.
+
+        Raises:
+            XuiConnectionError: اگر اتصال به پنل برقرار نشود.
+            Exception: برای خطاهای دیگر API یا پردازش.
         """
+        logger.info(f"Attempting to generate config link for client UUID {uuid} on panel {self.host}")
         try:
             # دریافت اطلاعات کلاینت
             client = await self.get_client_by_uuid(uuid)
             if not client:
                 logger.warning(f"Client with UUID {uuid} not found when trying to get config.")
-                return "" # Return empty string or raise error?
-
-            # دریافت اطلاعات inbound مرتبط
-            inbound_id = client.get("inbound_id") # Assuming 'inbound_id' is available in client data
-            if not inbound_id:
-                 logger.error(f"Could not determine inbound_id for client UUID {uuid}.")
-                 return "" # Or raise appropriate error
-
-            inbound = await self.get_inbound(inbound_id)
-            if not inbound:
-                logger.error(f"Could not retrieve inbound {inbound_id} for client UUID {uuid}.")
-                return "" # Or raise error
-
-            # تولید لینک کانفیگ بر اساس نوع inbound و اطلاعات کلاینت
-            # این بخش نیاز به پیاده‌سازی دقیق بر اساس فرمت لینک‌های xui دارد
-            # Example (needs actual implementation based on py3xui or panel structure):
-            protocol = inbound.get("protocol")
-            address = self.host.replace("http://", "").replace("https://", "") # Simplistic address extraction
-            port = inbound.get("port")
-            settings = client.get("settings", {}) # Assuming settings are within client data directly
-
-            if protocol == "vmess":
-                # Construct VMess link (requires specific format knowledge)
-                # Example structure - requires real implementation
-                # link = f"vmess://..."
-                link = f"vmess://{{'add':'{address}','port':'{port}','id':'{uuid}', ...}}" # Placeholder
-                logger.warning("VMess link generation is a placeholder.")
-                return link # Placeholder return
-            elif protocol == "vless":
-                # Construct VLESS link (requires specific format knowledge)
-                # Example structure - requires real implementation
-                # link = f"vless://{uuid}@{address}:{port}?..."
-                link = f"vless://{uuid}@{address}:{port}?type=tcp&security=none#Placeholder" # Placeholder
-                logger.warning("VLESS link generation is a placeholder.")
-                return link # Placeholder return
-            else:
-                logger.warning(f"Unsupported protocol {protocol} for config generation for client UUID {uuid}.")
                 return ""
 
+            # دریافت اطلاعات inbound مرتبط
+            inbound_id = client.get("inboundId") # نام فیلد ممکن است فرق کند!
+            if not inbound_id:
+                 logger.error(f"Could not determine inboundId for client UUID {uuid}. Client data: {client}")
+                 return ""
+
+            inbound = await self.get_inbound_by_id(inbound_id)
+            if not inbound:
+                logger.error(f"Could not retrieve inbound {inbound_id} for client UUID {uuid}.")
+                return ""
+
+            # استخراج اطلاعات لازم
+            protocol = inbound.get("protocol")
+            # استخراج آدرس دامنه/IP از هاست پنل (بدون http/https)
+            parsed_host = urlparse(self.host)
+            address = parsed_host.hostname if parsed_host.hostname else self.host # اگر hostname نبود، کل هاست را بگذار
+            port = inbound.get("port")
+            remark = client.get("email") or uuid # اسم کانفیگ: ایمیل یا اگر نبود، UUID
+
+            # تنظیمات streamSettings و sniffing
+            stream_settings = inbound.get("streamSettings", {})
+            sniffing_settings = inbound.get("sniffing", {})
+            network = stream_settings.get("network", "tcp") # ws, tcp, grpc, etc.
+            security = stream_settings.get("security", "none") # tls, reality, none
+
+            # مقادیر پیش‌فرض
+            config_link = ""
+
+            # --- ساخت لینک VLESS ---
+            if protocol == "vless":
+                base_link = f"vless://{uuid}@{address}:{port}"
+                params = {
+                    "type": network,
+                    "security": security,
+                }
+
+                # پارامترهای خاص شبکه
+                if network == "tcp":
+                    tcp_settings = stream_settings.get("tcpSettings", {})
+                    header = tcp_settings.get("header", {})
+                    if header.get("type") == "http":
+                         params["headerType"] = "http"
+                         # path و host را از request یا host در header استخراج کن
+                         req = header.get("request", {})
+                         path = req.get("path", ["/"])[0] # معمولا لیست است
+                         host_headers = req.get("headers", {}).get("Host", [])
+                         host = host_headers[0] if host_headers else ""
+                         params["path"] = path
+                         if host: params["host"] = host
+                elif network == "ws":
+                    ws_settings = stream_settings.get("wsSettings", {})
+                    params["path"] = ws_settings.get("path", "/")
+                    host = ws_settings.get("headers", {}).get("Host", "")
+                    if host: params["host"] = host
+                elif network == "grpc":
+                    grpc_settings = stream_settings.get("grpcSettings", {})
+                    params["serviceName"] = grpc_settings.get("serviceName", "")
+                    # mode (multi) ?
+
+                # پارامترهای امنیتی
+                if security == "tls":
+                    tls_settings = stream_settings.get("tlsSettings", {})
+                    params["sni"] = tls_settings.get("serverName", address) # SNI
+                    params["fp"] = tls_settings.get("fingerprint", "") # Fingerprint
+                    # alpn? 
+                elif security == "reality":
+                    reality_settings = stream_settings.get("realitySettings", {})
+                    params["sni"] = reality_settings.get("serverNames", [address])[0] # اولین SNI
+                    params["fp"] = reality_settings.get("fingerprints", ["chrome"])[0] # اولین fingerprint
+                    params["pbk"] = reality_settings.get("publicKey", "") # Public Key
+                    params["sid"] = reality_settings.get("shortIds", [""])[0] # اولین Short ID
+                    # spiderX ?
+
+                # اضافه کردن پارامترهای sniffing اگر فعال بود
+                if sniffing_settings.get("enabled", False):
+                    dest_override = sniffing_settings.get("destOverride", [])
+                    if "http" in dest_override: params["flow"] = "xtls-rprx-vision"
+                    # آیا sniffing پارامتر دیگری در لینک دارد؟
+
+                # Encode کردن پارامترها
+                query_string = urlencode({k: v for k, v in params.items() if v is not None and v != ""}) # حذف پارامترهای خالی
+                config_link = f"{base_link}?{query_string}#{remark}"
+
+            # --- ساخت لینک VMess ---
+            elif protocol == "vmess":
+                # ساخت دیکشنری JSON بر اساس فرمت رایج
+                vmess_data = {
+                    "v": "2", # Version
+                    "ps": remark, # Remark
+                    "add": address,
+                    "port": str(port),
+                    "id": uuid,
+                    "aid": str(client.get("alterId", 0)), # AlterId, default 0
+                    "net": network,
+                    "type": "none", # Header type, default none (برای tcp)
+                    "host": "", # Host header
+                    "path": "", # Path (برای ws/grpc)
+                    "tls": "", # tls or reality
+                    "sni": "",
+                    "alpn": "",
+                    "fp": ""
+                }
+
+                # تنظیمات شبکه
+                if network == "tcp":
+                    tcp_settings = stream_settings.get("tcpSettings", {})
+                    header = tcp_settings.get("header", {})
+                    if header.get("type") == "http":
+                        vmess_data["type"] = "http"
+                        req = header.get("request", {})
+                        # path و host را از request یا host در header استخراج کن
+                        paths = req.get("path", ["/"])
+                        vmess_data["path"] = ",".join(paths) if paths else "/" # Join if multiple paths?
+                        host_headers = req.get("headers", {}).get("Host", [])
+                        vmess_data["host"] = host_headers[0] if host_headers else ""
+                elif network == "ws":
+                    ws_settings = stream_settings.get("wsSettings", {})
+                    vmess_data["path"] = ws_settings.get("path", "/")
+                    vmess_data["host"] = ws_settings.get("headers", {}).get("Host", "")
+                elif network == "grpc":
+                    grpc_settings = stream_settings.get("grpcSettings", {})
+                    vmess_data["path"] = grpc_settings.get("serviceName", "")
+                    # mode? ('gun' for grpc?)
+                    vmess_data["type"] = "multi" if grpc_settings.get("multiMode", False) else "gun"
+
+                # تنظیمات امنیتی
+                if security == "tls":
+                    vmess_data["tls"] = "tls"
+                    tls_settings = stream_settings.get("tlsSettings", {})
+                    vmess_data["sni"] = tls_settings.get("serverName", address)
+                    vmess_data["fp"] = tls_settings.get("fingerprint", "")
+                    # alpn?
+                    alpn_list = tls_settings.get("alpn", [])
+                    vmess_data["alpn"] = ",".join(alpn_list) if alpn_list else ""
+                # VMess از Reality پشتیبانی نمی‌کند؟ اگر بکند باید اضافه شود
+
+                # تبدیل به JSON و کد کردن با Base64
+                json_string = json.dumps(vmess_data, separators=(',', ':')) # فشرده‌ترین حالت
+                encoded_bytes = base64.urlsafe_b64encode(json_string.encode('utf-8'))
+                encoded_string = encoded_bytes.decode('utf-8').rstrip('=') # حذف padding =
+                config_link = f"vmess://{encoded_string}"
+
+            else:
+                logger.warning(f"Unsupported protocol '{protocol}' for config generation for client UUID {uuid}.")
+                return ""
+
+            logger.info(f"Successfully generated config link for client UUID {uuid}")
+            return config_link
+
+        except KeyError as ke:
+             logger.error(f"Missing expected key in client or inbound data for UUID {uuid}: {ke}", exc_info=True)
+             return ""
         except Exception as e:
-            logger.error(f"Failed to get config for client with UUID {uuid}: {e}", exc_info=True)
-            raise
+            logger.error(f"Failed to get/generate config for client with UUID {uuid}: {e}", exc_info=True)
+            # raise # یا برگرداندن رشته خالی؟
+            return ""
     
     # --------- مدیریت Inbound‌ها ---------
     
@@ -385,50 +592,77 @@ class XuiClient:
             # Consider raising a more specific exception if needed
             raise
 
-    async def get_inbound(self, inbound_id: int) -> Optional[Dict[str, Any]]:
+    async def get_inbound_by_id(self, inbound_id: int) -> Optional[Dict[str, Any]]:
         """
-        دریافت اطلاعات یک inbound خاص با شناسه آن
-        
+        دریافت اطلاعات یک inbound خاص با شناسه آن (معادل py3xui inbound.get_by_id).
+
         Args:
             inbound_id: شناسه inbound
-            
+
         Returns:
-            اطلاعات inbound
+            اطلاعات inbound یا None اگر پیدا نشد
         """
         try:
             # Assuming py3xui method is 'inbound.get'
-            result = await self.api.inbound.get(inbound_id)
+            # **اصلاح:** بر اساس مستندات py3xui باید از get_by_id استفاده شود
+            result = await self.api.inbound.get_by_id(inbound_id)
             if result:
                 logger.info(f"Successfully retrieved inbound {inbound_id} from panel {self.host}")
+                 # تبدیل به dict اگر آبجکت بود
+                if hasattr(result, '__dict__'): return result.__dict__
+                return result
             else:
                 logger.warning(f"Inbound {inbound_id} not found on panel {self.host}")
                 return None # Return None if not found
-            return result
+        except AttributeError:
+            logger.error(f"The py3xui library (or its inbound module) does not seem to have a 'get_by_id' method for panel {self.host}.")
+            return None
         except Exception as e:
             logger.error(f"Failed to get inbound {inbound_id} from panel {self.host}: {e}", exc_info=True)
             # Consider raising a more specific exception if needed
             raise
-    
-    async def create_inbound(self, inbound_data: Dict[str, Any]) -> Dict[str, Any]:
+
+    async def add_inbound(self, inbound_data: Dict[str, Any]) -> Dict[str, Any]:
         """
-        ایجاد یک inbound جدید
-        
+        ایجاد یک inbound جدید (معادل py3xui inbound.add).
+        توجه: py3xui معمولا آبجکت Inbound را به عنوان ورودی انتظار دارد.
+              این پیاده‌سازی سعی می‌کند دیکشنری را مستقیما ارسال کند.
+
         Args:
-            inbound_data: داده‌های inbound
-            
+            inbound_data: داده‌های inbound (به صورت دیکشنری).
+
         Returns:
-            اطلاعات inbound ایجاد شده
+            اطلاعات inbound ایجاد شده (به صورت دیکشنری).
+
+        Raises:
+            XuiConnectionError: اگر اتصال به پنل برقرار نشود.
+            ValueError: اگر داده‌های ورودی با مدل py3xui سازگار نباشد.
+            Exception: برای خطاهای دیگر API.
         """
+        logger.info(f"Attempting to add inbound on panel {self.host}")
         try:
-            # Assuming py3xui method is 'inbound.create'
-            result = await self.api.inbound.create(inbound_data)
-            logger.info(f"Successfully created inbound on panel {self.host}")
+            # استفاده از inbound.add
+            # **توجه:** py3xui آبجکت Inbound می‌گیرد.
+            # from py3xui.models import Inbound
+            # inbound_obj = Inbound(**inbound_data) # ممکن است نیاز به تبدیل دقیق‌تر باشد
+            # result = await self.api.inbound.add(inbound=inbound_obj)
+            # --- روش فعلی با فرض اینکه add دیکشنری هم قبول می‌کند (نیاز به تست) ---
+            logger.warning("The 'add_inbound' method ideally expects an Inbound object from py3xui, but received a dict. Attempting to pass dict directly.")
+            result = await self.api.inbound.add(inbound=inbound_data) # استفاده مستقیم از دیکشنری
+            logger.info(f"Successfully added inbound on panel {self.host}")
+            # تبدیل نتیجه به dict اگر آبجکت بود
+            if hasattr(result, '__dict__'): return result.__dict__
             return result
+        except AttributeError:
+             logger.error(f"The py3xui library (or its inbound module) does not seem to have an 'add' method for panel {self.host}.")
+             raise NotImplementedError("add_inbound is not available in the current py3xui version.") from None
+        except TypeError as te:
+            logger.error(f"Type error during inbound creation on {self.host}. Input data might be incompatible with py3xui's Inbound model: {te}", exc_info=True)
+            raise ValueError("داده‌های ورودی برای ساخت inbound با مدل py3xui سازگار نیست.") from te
         except Exception as e:
-            logger.error(f"Failed to create inbound on panel {self.host}: {e}", exc_info=True)
-            # Consider raising a more specific exception if needed
+            logger.error(f"Failed to add inbound on panel {self.host}: {e}", exc_info=True)
             raise
-    
+
     async def update_inbound(self, inbound_id: int, inbound_data: Dict[str, Any]) -> Dict[str, Any]:
         """
         به‌روزرسانی یک inbound
@@ -470,6 +704,65 @@ class XuiClient:
             # Consider raising a more specific exception if needed
             raise
     
+    async def reset_all_inbound_stats(self) -> bool:
+        """
+        ریست کردن آمار ترافیک *تمام* inboundهای پنل.
+
+        Returns:
+            True اگر دستور با موفقیت به پنل ارسال شد، False در غیر این صورت.
+
+        Raises:
+            XuiConnectionError: اگر اتصال به پنل برقرار نشود.
+            Exception: برای خطاهای دیگر API.
+        """
+        logger.info(f"Requesting reset of all inbound stats on panel {self.host}")
+        try:
+            # استفاده از متد reset_stats از py3xui.async_api.inbound
+            await self.api.inbound.reset_stats()
+            logger.info(f"Successfully requested reset of all inbound stats on panel {self.host}")
+            return True
+        except AttributeError:
+            logger.error(f"The py3xui library (or its inbound module) does not seem to have a 'reset_stats' method for panel {self.host}.")
+            return False
+        except (httpx.RequestError, ConnectionError, TimeoutError) as conn_err:
+            logger.error(f"Connection failed during reset_all_inbound_stats request for panel {self.host}: {conn_err}", exc_info=True)
+            raise XuiConnectionError(f"امکان اتصال به پنل {self.host} هنگام درخواست ریست آمار inboundها وجود ندارد.") from conn_err
+        except Exception as e:
+            logger.error(f"Failed to request reset of all inbound stats on panel {self.host}: {e}", exc_info=True)
+            raise
+
+    async def reset_inbound_client_stats(self, inbound_id: int) -> bool:
+        """
+        ریست کردن آمار ترافیک *تمام کلاینت‌های* یک inbound خاص.
+
+        Args:
+            inbound_id: شناسه inbound مورد نظر.
+
+        Returns:
+            True اگر دستور با موفقیت به پنل ارسال شد، False در غیر این صورت.
+
+        Raises:
+            XuiConnectionError: اگر اتصال به پنل برقرار نشود.
+            Exception: برای خطاهای دیگر API (مانند پیدا نشدن inbound_id).
+        """
+        logger.info(f"Requesting reset of client stats for inbound {inbound_id} on panel {self.host}")
+        try:
+            # استفاده از متد reset_client_stats از py3xui.async_api.inbound
+            await self.api.inbound.reset_client_stats(inbound_id=inbound_id)
+            logger.info(f"Successfully requested reset of client stats for inbound {inbound_id} on panel {self.host}")
+            return True
+        except AttributeError:
+            logger.error(f"The py3xui library (or its inbound module) does not seem to have a 'reset_client_stats' method for panel {self.host}.")
+            return False
+        except (httpx.RequestError, ConnectionError, TimeoutError) as conn_err:
+            logger.error(f"Connection failed during reset_inbound_client_stats request for inbound {inbound_id} on panel {self.host}: {conn_err}", exc_info=True)
+            raise XuiConnectionError(f"امکان اتصال به پنل {self.host} هنگام درخواست ریست آمار کلاینت‌های inbound {inbound_id} وجود ندارد.") from conn_err
+        except Exception as e:
+            # اینجا می‌تواند خطای مربوط به پیدا نشدن inbound_id هم باشد
+            logger.error(f"Failed to request reset of client stats for inbound {inbound_id} on panel {self.host}: {e}", exc_info=True)
+            # می‌توان خطای خاص‌تری برای Not Found برگرداند اگر py3xui آن را مشخص کند
+            raise
+    
     # --------- مدیریت سرور ---------
     
     async def verify_connection(self) -> bool:
@@ -499,33 +792,191 @@ class XuiClient:
 
     # Keep get_stats but fix the underlying call if possible or remove if unused
     # For now, let's assume get_stats is not directly available via py3xui
-    async def get_stats(self) -> Optional[Dict[str, Any]]:
-        """
-        دریافت آمار کلی سرور (Method might not exist in py3xui)
+    # async def get_stats(self) -> Optional[Dict[str, Any]]:
+    #     """
+    #     دریافت آمار کلی سرور (Method might not exist in py3xui)
         
-        Returns:
-            آمار سرور شامل CPU، RAM، ترافیک و...
+    #     Returns:
+    #         آمار سرور شامل CPU، RAM، ترافیک و...
+    #     """
+    #     logger.warning(f"Attempted to call get_stats for {self.host}, but py3xui may not support this directly.")
+    #     # Raise an error or return None, as self.api.get_stats() likely doesn't exist
+    #     # raise NotImplementedError("get_stats is not directly supported by the py3xui library wrapper.")
+    #     return None # Returning None as the previous attempt showed it's not available
+
+    async def get_server_status(self) -> Optional[Dict[str, Any]]:
         """
-        logger.warning(f"Attempted to call get_stats for {self.host}, but py3xui may not support this directly.")
-        # Raise an error or return None, as self.api.get_stats() likely doesn't exist
-        # raise NotImplementedError("get_stats is not directly supported by the py3xui library wrapper.")
-        return None # Returning None as the previous attempt showed it's not available
+        دریافت وضعیت فعلی سرور (CPU، RAM، شبکه و غیره) از پنل.
+
+        Returns:
+            یک دیکشنری شامل اطلاعات وضعیت سرور در صورت موفقیت، None در غیر این صورت.
+            ساختار دقیق دیکشنری بستگی به پاسخ API پنل دارد.
+            {'cpu': float, 'mem': {'current': int, 'total': int}, 'swap': ..., 'net': ...}
+
+        Raises:
+            XuiConnectionError: اگر اتصال به پنل برقرار نشود.
+            Exception: برای خطاهای دیگر API یا پردازش.
+        """
+        logger.info(f"Attempting to get server status from panel {self.host}")
+        try:
+            # استفاده از متد get_status از py3xui.async_api.server
+            status = await self.api.server.get_status()
+            if status:
+                 logger.info(f"Successfully retrieved server status from panel {self.host}")
+                 # py3xui ممکن است مستقیماً آبجکت Server برگرداند، نیاز به تبدیل به dict؟
+                 # فرض می‌کنیم status یا dict است یا دارای __dict__
+                 if hasattr(status, '__dict__'):
+                     return status.__dict__ # تبدیل آبجکت به دیکشنری
+                 elif isinstance(status, dict):
+                     return status
+                 else:
+                     logger.warning(f"Received unexpected type for server status from {self.host}: {type(status)}. Returning raw.")
+                     return status # یا None یا raise خطا
+            else:
+                 logger.warning(f"Received empty or None status from panel {self.host}")
+                 return None
+        except AttributeError:
+            logger.error(f"The py3xui library (or its server module) does not seem to have a 'get_status' method for panel {self.host}.")
+            # raise NotImplementedError("get_server_status is not available in the current py3xui version.") from None
+            return None # یا raise خطا
+        except (httpx.RequestError, ConnectionError, TimeoutError) as conn_err:
+            logger.error(f"Connection failed while getting server status for panel {self.host}: {conn_err}", exc_info=True)
+            raise XuiConnectionError(f"امکان اتصال به پنل {self.host} هنگام دریافت وضعیت سرور وجود ندارد.") from conn_err
+        except Exception as e:
+            logger.error(f"Failed to get server status from panel {self.host}: {e}", exc_info=True)
+            raise # خطای اصلی را دوباره ایجاد می‌کنیم
+
+    async def download_db_backup(self, save_path: str) -> bool:
+        """
+        دانلود فایل بکاپ دیتابیس پنل و ذخیره آن در مسیر مشخص شده.
+
+        Args:
+            save_path: مسیر کامل فایل برای ذخیره بکاپ (مثال: '/backups/panel_backup.db').
+
+        Returns:
+            True اگر دانلود و ذخیره موفقیت آمیز باشد، False در غیر این صورت.
+
+        Raises:
+            XuiConnectionError: اگر اتصال به پنل برقرار نشود.
+            IOError: اگر مشکلی در نوشتن فایل ذخیره وجود داشته باشد.
+            Exception: برای خطاهای دیگر API.
+        """
+        logger.info(f"Attempting to download database backup from {self.host} to {save_path}")
+        try:
+            # استفاده از متد get_db از py3xui.async_api.server
+            # این متد در py3xui ممکن است خودش فایل را ذخیره کند یا محتوا را برگرداند
+            # مستندات py3xui نشان می‌دهد save_path را به عنوان آرگومان می‌گیرد و None برمی‌گرداند
+            await self.api.server.get_db(save_path=save_path)
+            logger.info(f"Successfully downloaded database backup from {self.host} and saved to {save_path}")
+            # در اینجا باید بررسی کنیم فایل واقعا ایجاد شده یا نه؟ (اختیاری)
+            # import os
+            # if not os.path.exists(save_path):
+            #     logger.error(f"Backup file {save_path} was not created after download attempt from {self.host}.")
+            #     return False
+            return True
+        except AttributeError:
+            logger.error(f"The py3xui library (or its server module) does not seem to have a 'get_db' method for panel {self.host}.")
+            # raise NotImplementedError("download_db_backup is not available in the current py3xui version.") from None
+            return False
+        except (httpx.RequestError, ConnectionError, TimeoutError) as conn_err:
+            logger.error(f"Connection failed during DB backup download for panel {self.host}: {conn_err}", exc_info=True)
+            raise XuiConnectionError(f"امکان اتصال به پنل {self.host} هنگام دانلود بکاپ دیتابیس وجود ندارد.") from conn_err
+        except IOError as io_err:
+            logger.error(f"Failed to save database backup file to {save_path} from panel {self.host}: {io_err}", exc_info=True)
+            raise # خطای نوشتن فایل را دوباره ایجاد می‌کنیم
+        except Exception as e:
+            logger.error(f"Failed to download database backup from panel {self.host}: {e}", exc_info=True)
+            raise # خطای اصلی را دوباره ایجاد می‌کنیم
+
+    async def export_database(self) -> bool:
+        """
+        دستور به پنل برای ایجاد بکاپ دیتابیس و ارسال آن (معمولا به تلگرام ادمین‌ها).
+        این متد فقط دستور را صادر می‌کند و وضعیت ارسال را چک نمی‌کند.
+
+        Returns:
+            True اگر دستور با موفقیت به پنل ارسال شد، False در غیر این صورت.
+
+        Raises:
+            XuiConnectionError: اگر اتصال به پنل برقرار نشود.
+            Exception: برای خطاهای دیگر API.
+        """
+        logger.info(f"Requesting database export on panel {self.host}")
+        try:
+            # استفاده از متد export از py3xui.async_api.database
+            # این متد معمولا None برمی‌گرداند اگر موفق باشد
+            await self.api.database.export()
+            logger.info(f"Successfully requested database export on panel {self.host}")
+            return True
+        except AttributeError:
+            logger.error(f"The py3xui library (or its database module) does not seem to have an 'export' method for panel {self.host}.")
+            # raise NotImplementedError("export_database is not available in the current py3xui version.") from None
+            return False
+        except (httpx.RequestError, ConnectionError, TimeoutError) as conn_err:
+            logger.error(f"Connection failed during database export request for panel {self.host}: {conn_err}", exc_info=True)
+            raise XuiConnectionError(f"امکان اتصال به پنل {self.host} هنگام درخواست export دیتابیس وجود ندارد.") from conn_err
+        except Exception as e:
+            logger.error(f"Failed to request database export on panel {self.host}: {e}", exc_info=True)
+            raise # خطای اصلی را دوباره ایجاد می‌کنیم
 
     async def restart_core(self) -> bool:
         """
-        راه‌اندازی مجدد هسته xray/v2ray
+        راه‌اندازی مجدد هسته xray/v2ray پنل.
         
         Returns:
-            True در صورت موفقیت
+            True در صورت موفقیت ارسال دستور (وضعیت ریستارت شدن چک نمی‌شود).
+            False اگر متد در کتابخانه موجود نباشد.
+
+        Raises:
+            XuiConnectionError: اگر اتصال به پنل برقرار نشود.
+            Exception: برای خطاهای دیگر API.
         """
+        logger.info(f"Requesting core restart on panel {self.host}")
         try:
-            result = await self.api.restart_core() # Assuming py3xui has a direct method
-            logger.info(f"Successfully requested core restart on panel {self.host}")
-            return result
-        except (httpx.RequestError, ConnectionError, TimeoutError) as conn_err:
-             logger.error(f"Connection failed during restart_core for panel {self.host}: {conn_err}", exc_info=True)
-             raise XuiConnectionError(f"امکان اتصال به پنل {self.host} هنگام درخواست ریستارت وجود ندارد.") from conn_err
+            # --- تلاش برای یافتن متد ریستارت --- 
+            restart_method = None
+            if hasattr(self.api, 'restart_core'):
+                 restart_method = self.api.restart_core
+            elif hasattr(self.api, 'server') and hasattr(self.api.server, 'restart_core'):
+                 restart_method = self.api.server.restart_core
+            # اضافه کردن بررسی‌های دیگر اگر لازم باشد # کامنت اضافی حذف شود
+
+            if restart_method:
+                result = await restart_method()
+                # بررسی نتیجه (معمولا None یا True)
+                if result is None or result is True:
+                    logger.info(f"Successfully requested core restart on panel {self.host} (Result: {result})")
+                    return True
+                else:
+                    logger.warning(f"Core restart request on {self.host} returned unexpected result: {result}. Assuming failure.")
+                    return False
+            else:
+                logger.error(f"Could not find a 'restart_core' method in py3xui (checked api and api.server) for panel {self.host}.")
+                return False # متد یافت نشد
+
+        except (httpx.RequestError, httpx.TimeoutException, httpx.ConnectError) as conn_err:
+             logger.error(f"Connection failed during core restart request for panel {self.host}: {conn_err}", exc_info=True)
+             raise XuiConnectionError(f"امکان اتصال به پنل {self.host} هنگام درخواست ریستارت هسته وجود ندارد.") from conn_err
         except Exception as e:
-            logger.error(f"Failed to restart core on panel {self.host}: {e}", exc_info=True)
-            # Consider raising a more specific exception if needed
-            raise
+            logger.error(f"Failed to request core restart on panel {self.host}: {e}", exc_info=True)
+            # raise # یا False # کامنت اضافی حذف شود
+            return False
+
+    def is_logged_in(self) -> bool:
+        """
+        بررسی اینکه آیا کلاینت احتمالاً لاگین شده است یا خیر.
+        این متد فقط یک حدس آگاهانه بر اساس وجود توکن ارائه می‌دهد
+        و نمی‌تواند اعتبار واقعی سشن را تضمین کند.
+
+        Returns:
+            bool: True اگر کلاینت احتمالاً لاگین شده باشد، False در غیر این صورت.
+        """
+        # بررسی اینکه آیا api توکن یا کوکی دارد
+        has_token = bool(getattr(self.api, 'token', None))
+        has_cookie = False
+        
+        # بررسی وجود کوکی در کلاینت httpx داخلی
+        if hasattr(self.api, '_client') and hasattr(self.api._client, 'cookies'):
+            has_cookie = bool(self.api._client.cookies)
+        
+        # اگر توکن یا کوکی داشته باشیم، احتمالاً لاگین هستیم
+        return has_token or has_cookie

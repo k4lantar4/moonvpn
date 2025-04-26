@@ -58,6 +58,25 @@ class ReceiptLogRepository(BaseRepository[ReceiptLog]):
         await self.session.refresh(receipt)
         return receipt
 
+    async def update_telegram_info(
+        self,
+        receipt_id: int,
+        message_id: int,
+        channel_id: int
+    ) -> Optional[ReceiptLog]:
+        """Update the Telegram message ID and channel ID for a receipt log."""
+        receipt = await self.get_by_id(receipt_id)
+        if not receipt:
+            # Log or handle error: receipt not found
+            return None
+        receipt.telegram_message_id = message_id
+        receipt.telegram_channel_id = channel_id
+        # Should we commit here? Or rely on the calling service to commit?
+        # Let's commit here for simplicity, assuming this update is atomic.
+        await self.session.commit()
+        await self.session.refresh(receipt)
+        return receipt
+
     async def add_note(
         self,
         receipt_id: int,

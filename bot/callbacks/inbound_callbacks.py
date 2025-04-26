@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from core.services.user_service import UserService
 from core.services.panel_service import PanelService
 from bot.buttons.inbound_buttons import (
-    get_inbound_management_keyboard,
+    get_inbound_manage_buttons,
     get_inbound_clients_keyboard,
     format_inbound_details
 )
@@ -47,11 +47,28 @@ def register_inbound_callbacks(router: Router, session_pool: async_sessionmaker[
             
             # دریافت اطلاعات اینباند برای نمایش در بالای پیام
             all_inbounds = await panel_service.get_inbounds_by_panel_id(panel_id)
-            inbound_info = next((inb for inb in all_inbounds if inb.get("id") == inbound_id), None)
             
-            if not inbound_info:
-                await callback.answer("❌ اینباند مورد نظر یافت نشد یا از پنل حذف شده است.", show_alert=True)
-                return
+            # Check if inbounds are SQLAlchemy model objects or dictionaries and handle accordingly
+            if all_inbounds and hasattr(all_inbounds[0], 'remote_id'):
+                # SQLAlchemy objects
+                inbound_info = next((inb for inb in all_inbounds if inb.remote_id == inbound_id), None)
+                
+                if not inbound_info:
+                    await callback.answer("❌ اینباند مورد نظر یافت نشد یا از پنل حذف شده است.", show_alert=True)
+                    return
+                
+                inbound_tag = inbound_info.tag  # Access as attribute
+                inbound_remark = inbound_info.remark if hasattr(inbound_info, 'remark') else f'#{inbound_id}'
+            else:
+                # Dictionary objects
+                inbound_info = next((inb for inb in all_inbounds if inb.get("id") == inbound_id), None)
+                
+                if not inbound_info:
+                    await callback.answer("❌ اینباند مورد نظر یافت نشد یا از پنل حذف شده است.", show_alert=True)
+                    return
+                
+                inbound_tag = inbound_info.get('tag', '')
+                inbound_remark = inbound_info.get('remark', f'#{inbound_id}')
             
             # دریافت لیست کلاینت‌های اینباند
             inbound_clients = await panel_service.get_clients_by_inbound(panel_id, inbound_id)
@@ -59,8 +76,8 @@ def register_inbound_callbacks(router: Router, session_pool: async_sessionmaker[
             # اگر کلاینتی وجود نداشت
             if not inbound_clients:
                 await callback.message.edit_text(
-                    f"⚠️ هیچ کلاینتی در اینباند <b>{inbound_info.get('remark', f'#{inbound_id}')}</b> وجود ندارد.",
-                    reply_markup=get_inbound_management_keyboard(panel_id, inbound_id),
+                    f"⚠️ هیچ کلاینتی در اینباند <b>{inbound_remark}</b> وجود ندارد.",
+                    reply_markup=get_inbound_manage_buttons(panel_id, inbound_id),
                     parse_mode="HTML"
                 )
                 return
@@ -89,7 +106,7 @@ def register_inbound_callbacks(router: Router, session_pool: async_sessionmaker[
                 )
 
             # ساخت متن کامل پیام
-            header = f"👥 <b>لیست کلاینت‌های اینباند {inbound_info.get('remark', '')} (#{inbound_id})</b>\n\n"
+            header = f"👥 <b>لیست کلاینت‌های اینباند {inbound_remark} (#{inbound_id})</b>\n\n"
             message_text = header + "\n\n".join(clients_text)
             
             # ساخت کیبورد با دکمه‌های عملیاتی برای هر کلاینت

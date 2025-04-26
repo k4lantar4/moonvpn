@@ -14,7 +14,7 @@ from core.integrations.xui_client import XuiAuthenticationError, XuiConnectionEr
 from bot.buttons.panel_buttons import get_panel_management_keyboard
 from bot.buttons.inbound_buttons import (
     get_panel_inbounds_keyboard,
-    get_inbound_management_keyboard,
+    get_inbound_manage_buttons,
     format_inbound_details
 )
 
@@ -107,7 +107,7 @@ def register_panel_callbacks(router: Router, session_pool: async_sessionmaker[As
 
             # فرمت کردن جزئیات و ساخت کیبورد مدیریت
             details_text = format_inbound_details(selected_inbound)
-            management_keyboard = get_inbound_management_keyboard(panel_id, inbound_id)
+            management_keyboard = get_inbound_manage_buttons(panel_id, inbound_id)
 
             # ویرایش پیام برای نمایش جزئیات و کیبورد
             await callback.message.edit_text(

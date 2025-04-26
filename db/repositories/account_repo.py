@@ -14,7 +14,7 @@ class AccountRepository(BaseRepository[ClientAccount]):
 
     def __init__(self, session: AsyncSession):
         """مقداردهی اولیه با کلاس مدل ClientAccount"""
-        super().__init__(ClientAccount, session)
+        super().__init__(session, ClientAccount)
 
     async def get_active_accounts(self) -> List[ClientAccount]:
         """دریافت تمام اکانت‌های فعال"""

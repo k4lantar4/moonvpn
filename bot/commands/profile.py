@@ -10,6 +10,14 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from core.services.user_service import UserService
 from core.services.client_service import ClientService
+from core.services.panel_service import PanelService
+from db.repositories.user_repo import UserRepository
+from db.repositories.client_repo import ClientRepository
+from db.repositories.order_repo import OrderRepository
+from db.repositories.panel_repo import PanelRepository
+from db.repositories.inbound_repo import InboundRepository
+from db.repositories.plan_repo import PlanRepository
+from db.repositories.client_renewal_log_repo import ClientRenewalLogRepository
 from bot.keyboards.profile_keyboard import get_profile_keyboard
 
 logger = logging.getLogger(__name__)
@@ -24,8 +32,31 @@ def register_profile_command(router: Router, session_pool: async_sessionmaker[As
         user_id = message.from_user.id
         
         try:
-            # Get user info
+            # Initialize repositories
+            user_repo = UserRepository(session)
+            client_repo = ClientRepository(session)
+            order_repo = OrderRepository(session)
+            panel_repo = PanelRepository(session)
+            inbound_repo = InboundRepository(session)
+            plan_repo = PlanRepository(session)
+            renewal_log_repo = ClientRenewalLogRepository(session)
+
+            # Initialize services
             user_service = UserService(session)
+            panel_service = PanelService(session)
+            client_service = ClientService(
+                session=session,
+                client_repo=client_repo,
+                order_repo=order_repo,
+                panel_repo=panel_repo,
+                inbound_repo=inbound_repo,
+                user_repo=user_repo,
+                plan_repo=plan_repo,
+                renewal_log_repo=renewal_log_repo,
+                panel_service=panel_service
+            )
+
+            # Get user info
             user = await user_service.get_user_by_telegram_id(user_id)
             
             if not user:
@@ -33,7 +64,6 @@ def register_profile_command(router: Router, session_pool: async_sessionmaker[As
                 return
             
             # Get user's VPN accounts
-            client_service = ClientService(session)
             active_accounts = await client_service.get_user_active_accounts(user.id)
             
             # Format profile text
@@ -54,7 +84,7 @@ def register_profile_command(router: Router, session_pool: async_sessionmaker[As
                         f"\n🔹 نام اشتراک: {account.client_name}\n"
                         f"📍 موقعیت: {account.panel.location_name}\n"
                         f"⏳ تاریخ انقضا: {account.expires_at.strftime('%Y-%m-%d')}\n"
-                        f"📊 حجم مصرفی: {account.traffic_used}/{account.traffic_limit} گیگابایت\n"
+                        f"📊 حجم مصرفی: {account.traffic_used_gb:.2f}/{account.traffic_limit_gb:.2f} گیگابایت\n"
                     )
             
             await message.answer(

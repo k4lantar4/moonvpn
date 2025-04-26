@@ -30,6 +30,7 @@ class OrderStatus(str, Enum):
     COMPLETED = "completed"
     FAILED = "failed"
     EXPIRED = "expired"
+    PENDING_RECEIPT = "pending_receipt"  # Added for orders waiting for receipt approval
 
 
 class Order(Base):
@@ -55,7 +56,7 @@ class Order(Base):
     # ارتباط با سایر مدل‌ها
     user: Mapped["User"] = relationship(back_populates="orders")
     plan: Mapped["Plan"] = relationship(back_populates="orders")
-    discount_code: Mapped[Optional["DiscountCode"]] = relationship(back_populates="orders")
+    discount_code: Mapped[Optional["DiscountCode"]] = relationship()  # Remove back_populates to avoid the error
     receipt: Mapped[Optional["ReceiptLog"]] = relationship(back_populates="order")
     transactions: Mapped[List["Transaction"]] = relationship(back_populates="order")
     client_account: Mapped[Optional["ClientAccount"]] = relationship(
