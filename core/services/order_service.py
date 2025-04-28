@@ -13,7 +13,8 @@ from db.models.enums import OrderStatus
 from db.repositories.order_repo import OrderRepository
 from db.schemas.order import OrderCreate, OrderUpdate
 from core.services.notification_service import NotificationService
-from core.services.payment_service import PaymentService, InsufficientFundsError
+# Fix the circular import
+# from core.services.payment_service import PaymentService, InsufficientFundsError
 from core.services.account_service import AccountService
 from core.services.panel_service import PanelService
 from core.services.client_service import ClientService
@@ -41,13 +42,18 @@ class AccountProvisioningError(OrderError):
     """خطای ایجاد اکانت"""
     pass
 
+# Define InsufficientFundsError here instead of importing it
+class InsufficientFundsError(OrderError):
+    """خطای کمبود موجودی کیف پول"""
+    pass
+
 class OrderService:
     """سرویس مدیریت سفارشات با منطق کسب و کار مرتبط"""
     
     def __init__(
         self, 
         session: AsyncSession,
-        payment_service: Optional[PaymentService] = None,
+        payment_service: Optional[Any] = None,
         account_service: Optional[AccountService] = None,
         panel_service: Optional[PanelService] = None,
         client_service: Optional[ClientService] = None,
@@ -61,7 +67,11 @@ class OrderService:
         self.notification_service = NotificationService(session)
         
         # Initialize dependent services if not provided
-        self.payment_service = payment_service or PaymentService(session)
+        self.payment_service = payment_service
+        if not self.payment_service:
+            # Import here to avoid circular import
+            from core.services.payment_service import PaymentService
+            self.payment_service = PaymentService(session)
         
         # For account_service, we need panel_service and client_service
         if not panel_service:

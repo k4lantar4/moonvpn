@@ -84,5 +84,8 @@ class User(Base):
     # Add to relationships section
     renewal_logs = relationship("ClientRenewalLog", back_populates="user")
     
+    # Wallet relationship
+    wallet: Mapped[Optional["Wallet"]] = relationship(back_populates="user", uselist=False)
+    
     def __repr__(self) -> str:
         return f"<User(id={self.id}, telegram_id={self.telegram_id}, role={self.role})>"

@@ -1,7 +1,8 @@
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, desc
 
 from db.models.receipt_log import ReceiptLog, ReceiptStatus
 from db.repositories.base_repository import BaseRepository
@@ -95,4 +96,32 @@ class ReceiptLogRepository(BaseRepository[ReceiptLog]):
         receipt.responded_at = datetime.utcnow()
         await self.session.commit()
         await self.session.refresh(receipt)
-        return receipt 
+        return receipt
+        
+    async def get_by_status(
+        self,
+        status: str,
+        limit: int = 10
+    ) -> List[ReceiptLog]:
+        """Get ReceiptLog entries by status, sorted by newest first."""
+        query = select(ReceiptLog).where(ReceiptLog.status == status).order_by(desc(ReceiptLog.submitted_at)).limit(limit)
+        result = await self.session.execute(query)
+        return list(result.scalars().all())
+    
+    async def get_by_tracking_code(
+        self,
+        tracking_code: str
+    ) -> Optional[ReceiptLog]:
+        """Get a receipt by its tracking code."""
+        query = select(ReceiptLog).where(ReceiptLog.tracking_code == tracking_code)
+        result = await self.session.execute(query)
+        return result.scalars().first()
+    
+    async def get_by_order_id(
+        self,
+        order_id: int
+    ) -> List[ReceiptLog]:
+        """Get all receipts for a specific order."""
+        query = select(ReceiptLog).where(ReceiptLog.order_id == order_id).order_by(desc(ReceiptLog.submitted_at))
+        result = await self.session.execute(query)
+        return list(result.scalars().all()) 

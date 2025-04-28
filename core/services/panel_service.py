@@ -332,6 +332,27 @@ class PanelService:
         # logger.debug(f"جستجوی پنل بر اساس آدرس: {address} (Searching panel by address: {address})")
         return await self.panel_repo.get_panel_by_address(address)
 
+    async def get_suitable_panel_for_location(self, location_name: str) -> Optional[Panel]:
+        """
+        یافتن پنل مناسب برای یک لوکیشن خاص.
+        
+        Args:
+            location_name: نام لوکیشن.
+            
+        Returns:
+            شیء Panel مناسب یا None در صورت عدم وجود.
+        """
+        logger.debug(f"جستجوی پنل مناسب برای لوکیشن: {location_name}")
+        panels = await self.panel_repo.filter_by(location_name=location_name, status=PanelStatus.ACTIVE)
+        
+        if not panels:
+            logger.warning(f"هیچ پنل فعالی برای لوکیشن {location_name} یافت نشد.")
+            return None
+            
+        # فعلاً اولین پنل فعال را انتخاب می‌کنیم
+        # در آینده می‌توان الگوریتم‌های پیچیده‌تری برای توزیع بار اضافه کرد
+        return panels[0]
+
     async def get_inbounds_by_panel_id(self, panel_id: int, status: Optional[InboundStatus] = None) -> List[Inbound]:
         """
         دریافت لیست inboundهای مرتبط با یک پنل خاص از دیتابیس.

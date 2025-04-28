@@ -61,4 +61,25 @@ class InboundService:
             return await self.repository.get_by_panel_id(panel_id)
         except Exception as e:
             logger.error(f"Failed to get inbounds for panel {panel_id}: {e}")
-            return [] 
+            return []
+
+    async def get_suitable_inbound(self, panel_id: int) -> Optional[Inbound]:
+        """
+        یافتن اینباند مناسب برای یک پنل خاص.
+        
+        Args:
+            panel_id: شناسه پنل.
+            
+        Returns:
+            شیء Inbound مناسب یا None در صورت عدم وجود.
+        """
+        logger.debug(f"جستجوی اینباند مناسب برای پنل: {panel_id}")
+        inbounds = await self.repository.get_active_inbounds_by_panel_id(panel_id)
+        
+        if not inbounds:
+            logger.warning(f"هیچ اینباند فعالی برای پنل {panel_id} یافت نشد.")
+            return None
+            
+        # فعلاً اولین اینباند فعال را انتخاب می‌کنیم
+        # در آینده می‌توان الگوریتم‌های پیچیده‌تری برای انتخاب اینباند اضافه کرد
+        return inbounds[0] 

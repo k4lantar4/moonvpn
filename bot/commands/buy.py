@@ -4,7 +4,7 @@
 
 import logging
 from aiogram import Router, F
-from aiogram.types import Message
+from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.filters.command import Command
 from aiogram.fsm.context import FSMContext
 from sqlalchemy.ext.asyncio import async_sessionmaker
@@ -32,6 +32,12 @@ def register_buy_command(router: Router, session_pool: async_sessionmaker):
             # پاکسازی وضعیت فعلی کاربر
             await state.clear()
             
+            # نمایش پیام در حال بارگذاری
+            processing_message = await message.answer(
+                "🔄 در حال بارگذاری لیست پلن‌ها...\n"
+                "لطفا چند لحظه صبر کنید."
+            )
+            
             # ایجاد جلسه دیتابیس
             async with session_pool() as session:
                 # بررسی وجود کاربر در سیستم
@@ -40,7 +46,7 @@ def register_buy_command(router: Router, session_pool: async_sessionmaker):
                 
                 if not user:
                     logger.warning(f"User {user_id} tried to buy but is not registered")
-                    await message.answer(
+                    await processing_message.edit_text(
                         "⚠️ شما هنوز در سیستم ثبت‌نام نکرده‌اید!\n"
                         "لطفاً ابتدا با ارسال دستور /start ثبت‌نام کنید."
                     )
@@ -52,7 +58,7 @@ def register_buy_command(router: Router, session_pool: async_sessionmaker):
                 
                 if not plans:
                     logger.warning(f"No active plans available for user {user_id}")
-                    await message.answer(
+                    await processing_message.edit_text(
                         "⚠️ در حال حاضر هیچ پلن فعالی موجود نیست.\n"
                         "لطفاً بعداً دوباره تلاش کنید یا با پشتیبانی تماس بگیرید."
                     )
@@ -69,7 +75,7 @@ def register_buy_command(router: Router, session_pool: async_sessionmaker):
                 balance_message = f"💰 موجودی کیف پول شما: {int(balance):,} تومان\n\n"
                 
                 # نمایش لیست پلن‌ها با دکمه‌های انتخاب
-                await message.answer(
+                await processing_message.edit_text(
                     text=balance_message + "🔍 لطفاً پلن مورد نظر خود را انتخاب کنید:",
                     reply_markup=get_plans_keyboard(plans)
                 )
@@ -83,5 +89,8 @@ def register_buy_command(router: Router, session_pool: async_sessionmaker):
             logger.error(f"Error in buy command: {e}", exc_info=True)
             await message.answer(
                 "❌ متاسفانه خطایی در سیستم رخ داده است.\n"
-                "لطفاً بعداً دوباره تلاش کنید یا با استفاده از دستور /support با پشتیبانی تماس بگیرید."
+                "لطفاً بعداً دوباره تلاش کنید یا با استفاده از دستور /support با پشتیبانی تماس بگیرید.",
+                reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                    [InlineKeyboardButton(text="🏠 بازگشت به منوی اصلی", callback_data="start")]
+                ])
             ) 

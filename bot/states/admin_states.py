@@ -35,4 +35,25 @@ class RegisterPanelStates(StatesGroup):
     waiting_for_panel_url = State()
     waiting_for_username = State()
     waiting_for_password = State()
-    waiting_for_location_name = State() 
+    waiting_for_location_name = State()
+
+
+class BankCardStates(StatesGroup):
+    """
+    وضعیت‌های مربوط به مدیریت کارت‌های بانکی
+    """
+    # افزودن کارت جدید
+    add_card_number = State()        # وارد کردن شماره کارت
+    add_holder_name = State()        # وارد کردن نام دارنده کارت
+    add_bank_name = State()          # وارد کردن نام بانک
+    add_rotation_policy = State()    # انتخاب سیاست چرخش کارت
+    add_rotation_interval = State()  # وارد کردن بازه زمانی چرخش (اگر سیاست interval باشد)
+    add_confirmation = State()       # تایید نهایی
+    
+    # ویرایش کارت موجود
+    edit_select_field = State()       # انتخاب فیلد برای ویرایش
+    edit_card_number = State()        # ویرایش شماره کارت
+    edit_holder_name = State()        # ویرایش نام دارنده کارت
+    edit_bank_name = State()          # ویرایش نام بانک
+    edit_rotation_policy = State()    # ویرایش سیاست چرخش
+    edit_rotation_interval = State()  # ویرایش بازه زمانی چرخش

@@ -19,6 +19,7 @@ from .commands import (
     plans,
     admin
 )
+from .callbacks.receipt_callbacks import receipt_callbacks_router
 
 async def setup_bot(token: str) -> Bot:
     """Initialize and configure the bot instance."""
@@ -43,6 +44,7 @@ async def setup_dispatcher() -> Dispatcher:
     dp.include_router(buy.router)
     dp.include_router(wallet.router)
     dp.include_router(plans.router)
+    dp.include_router(receipt_callbacks_router)  # Include receipt callbacks router
     
     return dp
 

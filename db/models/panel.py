@@ -35,13 +35,13 @@ class Panel(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(255), nullable=False) # Added name field based on previous service usage
     location_name = Column(String(100), nullable=False)
-    flag_emoji = Column(String(10), nullable=False) # Changed nullable to False
-    url = Column(String(1024), unique=True, nullable=False) # Change url type to String(1024) to allow unique constraint in MySQL
+    flag_emoji = Column(String(10), nullable=True) # Changed to match the documentation
+    url = Column(Text, nullable=False) # Use Text type as per documentation
     username = Column(String(100), nullable=False)
     password = Column(String(255), nullable=False) # Store securely later
-    type = Column(SQLEnum(PanelType, name="paneltype", native_enum=False), 
+    type = Column(SQLEnum(PanelType), 
                   default=PanelType.XUI, nullable=False)
-    status = Column(SQLEnum(PanelStatus, name="panelstatus", native_enum=False), # Use imported enum, specify name, native_enum=False
+    status = Column(SQLEnum(PanelStatus), 
                     default=PanelStatus.ACTIVE, 
                     nullable=False)
     notes = Column(Text, nullable=True)

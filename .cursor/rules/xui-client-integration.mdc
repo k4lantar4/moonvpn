@@ -1,0 +1,44 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# XUI Client Integration
+
+This document provides guidelines for working with the XUI client integration in the MoonVPN system.
+
+## Overview
+
+The `XuiClient` class in [core/integrations/xui_client.py](mdc:core/integrations/xui_client.py) provides a wrapper around the `py3xui` library to interact with 3x-ui panels. This allows us to manage clients, inbounds, and server operations.
+
+## Temporary Implementations
+
+Some methods in the XUI client are implemented temporarily to enable MVP functionality:
+
+### `create_client` Method
+
+The `create_client` method currently uses a temporary implementation that:
+- Takes standard inputs (`inbound_id`, `client_data`)
+- Logs the received data with `[TEMPORARY]` prefix instead of making actual API calls
+- Returns a success response with the client UUID
+
+This implementation helps maintain the client creation flow without requiring a real XUI panel connection during development.
+
+## Test Files
+
+There are several test files available to verify the functionality:
+
+- [test_xui_simple.py](mdc:test_xui_simple.py): Simple test for the temporary `create_client` method
+- [test_xui_client.py](mdc:test_xui_client.py): More comprehensive test for the XUI client
+- [test_client_service.py](mdc:test_client_service.py): Tests the client service integration with the temporary implementation
+
+## Key Considerations
+
+When working with the XUI client:
+
+1. Temporary implementations are marked with `[TEMPORARY]` in log messages
+2. The response structure must match what the service layer expects
+3. The client UUID is extracted from the input data or generated if not present
+4. Success responses follow the format: `{"success": True, "msg": "...", "obj": client_uuid}`
+
+As the integration with real XUI panels progresses, these temporary implementations will be replaced with actual API calls.

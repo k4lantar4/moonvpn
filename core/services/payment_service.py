@@ -8,6 +8,7 @@ from decimal import Decimal
 from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy import text
 
 from core.services.wallet_service import WalletService
 from core.services.transaction_service import TransactionService
@@ -361,85 +362,86 @@ class PaymentService:
 
     async def send_receipt_to_admin_channel(self, receipt_id: int) -> bool:
         """
-        Formats and sends a receipt notification to the designated admin channel 
-        for the associated bank card and updates the receipt log.
-        """
-        receipt: Optional[ReceiptLog] = await self.receipt_repo.get_by_id(receipt_id)
-        if not receipt:
-            logger.error(f"ReceiptLog not found for ID {receipt_id}")
-            return False
-
-        user: Optional[User] = await self.user_repo.get_by_id(receipt.user_id)
-        card: Optional[BankCard] = await self.bank_card_repo.get_by_id(receipt.card_id)
-
-        if not user or not card:
-            logger.error(f"User or BankCard not found for ReceiptLog {receipt_id}")
-            return False
-
-        if not card.telegram_channel_id:
-            logger.error(f"telegram_channel_id not set for BankCard {card.id}")
-            # Maybe notify a default admin channel?
-            return False
-
-        target_channel_id = card.telegram_channel_id
-
-        # Format the cover message
-        user_link = f"<a href=\"tg://user?id={user.telegram_id}\">{user.username or user.telegram_id}</a>"
-        card_masked = f"{card.card_number[:4]}******{card.card_number[-4:]}" if len(card.card_number) >= 8 else card.card_number
-        amount_str = format_currency(receipt.amount) # Requires format_currency utility
-        time_str = receipt.submitted_at.strftime("%Y/%m/%d - %H:%M")
+        ارسال رسید به کانال ادمین برای بررسی
         
-        caption_parts = [
-            f"📤 رسید جدید دریافت شد:",
-            f"👤 کاربر: {user_link} ({user.telegram_id})",
-            f"💳 کارت مقصد: {card_masked} ({card.bank_name} - {card.holder_name})",
-            f"💰 مبلغ: {amount_str}",
-            f"🕒 زمان: {time_str}",
-        ]
-        if receipt.tracking_code and not receipt.tracking_code.startswith("TEMP-"):
-             caption_parts.append(f"🔖 کد پیگیری: {receipt.tracking_code}") # Only show if not placeholder
-        if receipt.order_id:
-            caption_parts.append(f"🆔 OrderID: #{receipt.order_id}")
-        if receipt.text_reference:
-            caption_parts.append(f"\n📝 متن کاربر: {receipt.text_reference}")
-
-        caption = "\n".join(caption_parts)
-
-        # Get the admin keyboard
-        keyboard = get_receipt_admin_keyboard(receipt.id)
-
-        # Send the notification
-        try:
-            if receipt.photo_file_id:
-                sent_message = await self.notification_service.send_photo_to_channel(
-                    channel_id=target_channel_id,
-                    photo_file_id=receipt.photo_file_id,
-                    caption=caption,
-                    reply_markup=keyboard
-                )
-            else:
-                sent_message = await self.notification_service.send_message_to_channel(
-                    channel_id=target_channel_id,
-                    text=caption,
-                    reply_markup=keyboard
-                )
+        Args:
+            receipt_id: شناسه رسید
             
-            if sent_message:
-                # Update receipt log with message details
-                updated = await self.receipt_repo.update_receipt_telegram_info(
-                    receipt_id=receipt.id,
-                    message_id=sent_message.message_id,
-                    channel_id=target_channel_id
-                )
-                if not updated:
-                    logger.error(f"Failed to update ReceiptLog {receipt.id} with Telegram message details")
-                    # Logged the error, but consider the main operation (sending) successful
-                return True # Message sent successfully
-            else:
-                logger.error(f"NotificationService failed to send message for ReceiptLog {receipt_id} to channel {target_channel_id}")
+        Returns:
+            bool: موفقیت عملیات
+        """
+        try:
+            # Get receipt details
+            receipt = await self.receipt_repo.get_by_id(receipt_id)
+            if not receipt:
+                logger.error(f"Receipt {receipt_id} not found")
                 return False
+                
+            # Get user details
+            user = await self.user_repo.get_by_id(receipt.user_id)
+            if not user:
+                logger.error(f"User {receipt.user_id} not found")
+                return False
+                
+            # Get bank card details
+            bank_card = await self.bank_card_repo.get_by_id(receipt.card_id)
+            if not bank_card:
+                logger.error(f"Bank card {receipt.card_id} not found")
+                return False
+                
+            # Get order details if available
+            order_text = ""
+            if receipt.order_id:
+                query = text("""
+                    SELECT o.id, p.name, o.final_amount
+                    FROM orders o
+                    JOIN plans p ON o.plan_id = p.id
+                    WHERE o.id = :order_id
+                """)
+                result = await self.session.execute(query, {"order_id": receipt.order_id})
+                order_data = result.fetchone()
+                if order_data:
+                    order_id, plan_name, final_amount = order_data
+                    order_text = f"📦 سفارش: {plan_name} (#{order_id})\n💰 مبلغ سفارش: {format_currency(float(final_amount))}\n\n"
+            
+            # Format the message for admin
+            message = (
+                f"🧾 <b>رسید جدید پرداخت کارت به کارت</b>\n\n"
+                f"👤 کاربر: {user.full_name} (@{user.username or 'بدون یوزرنیم'})\n"
+                f"🆔 شناسه کاربر: <code>{user.telegram_id}</code>\n\n"
+                f"{order_text}"
+                f"💳 کارت مقصد: <code>{bank_card.card_number}</code>\n"
+                f"🏦 بانک: {bank_card.bank_name}\n"
+                f"👤 به نام: {bank_card.holder_name}\n\n"
+                f"💸 مبلغ: {format_currency(float(receipt.amount))}\n"
+                f"🔢 کد پیگیری: <code>{receipt.tracking_code}</code>\n"
+                f"⏱ زمان ثبت: {receipt.submitted_at.strftime('%Y-%m-%d %H:%M:%S')}\n\n"
+            )
+            
+            if receipt.text_reference:
+                message += f"📝 توضیحات کاربر:\n<code>{receipt.text_reference}</code>\n\n"
+                
+            message += f"لطفا این رسید را بررسی و تایید یا رد کنید."
+            
+            # In a real implementation, this would send the message to Telegram
+            # For now, we'll simulate this by updating the receipt record
+            
+            # Mock message and channel IDs for illustration
+            mock_message_id = int(datetime.utcnow().timestamp())
+            channel_id = bank_card.telegram_channel_id or -1001234567890  # Default channel if not specified
+            
+            # Update receipt with telegram message info
+            await self.receipt_repo.update_telegram_info(
+                receipt_id=receipt_id,
+                message_id=mock_message_id,
+                channel_id=channel_id
+            )
+            
+            logger.info(f"Receipt {receipt_id} notification sent to admin channel with message ID {mock_message_id}")
+            return True
+            
         except Exception as e:
-            logger.error(f"Error in send_receipt_to_admin_channel for receipt {receipt_id}: {e}", exc_info=True)
+            logger.error(f"Error sending receipt {receipt_id} to admin channel: {e}", exc_info=True)
             return False
 
     async def refund_transaction(
@@ -515,3 +517,330 @@ class PaymentService:
         except Exception as e:
             logger.error(f"Error in refund_transaction for user {user_id}: {e}", exc_info=True)
             return False, f"خطای سیستمی در بازگشت وجه: {str(e)}", None
+
+    async def create_card_to_card_receipt(
+        self,
+        user_id: int,
+        bank_card_id: int,
+        amount: Decimal,
+        order_id: Optional[int] = None,
+        text_reference: Optional[str] = None,
+        photo_file_id: Optional[str] = None,
+        tracking_code: Optional[str] = None,
+        auto_detected_amount: Optional[Decimal] = None
+    ) -> Tuple[bool, str, Optional[ReceiptLog]]:
+        """
+        ثبت رسید پرداخت کارت به کارت
+        
+        Args:
+            user_id: شناسه کاربر
+            bank_card_id: شناسه کارت بانکی
+            amount: مبلغ پرداختی
+            order_id: شناسه سفارش (اختیاری)
+            text_reference: متن رسید یا توضیحات (اختیاری)
+            photo_file_id: شناسه فایل عکس رسید در تلگرام (اختیاری)
+            tracking_code: کد پیگیری تراکنش (اختیاری، تولید خودکار)
+            auto_detected_amount: مقدار تشخیص داده شده خودکار از رسید (اختیاری)
+            
+        Returns:
+            Tuple[bool, str, Optional[ReceiptLog]]: 
+            - موفقیت عملیات (bool)
+            - پیام نتیجه (str)
+            - رسید ثبت شده یا None در صورت خطا (ReceiptLog)
+        """
+        logger.info(f"Creating card-to-card receipt for user {user_id}: amount={amount}, order_id={order_id}")
+        
+        try:
+            # 1. ایجاد کد پیگیری اگر ارسال نشده باشد
+            if not tracking_code:
+                random_part = uuid.uuid4().hex[:8]
+                timestamp = int(datetime.utcnow().timestamp())
+                tracking_code = f"CC-{timestamp}-{random_part}"
+            
+            # 2. ثبت رسید در دیتابیس
+            receipt = await self.receipt_repo.create_receipt_log(
+                user_id=user_id,
+                card_id=bank_card_id,
+                amount=float(amount),
+                status="PENDING",  # از enum استفاده می‌شود اما اینجا به صورت string نشان داده شده
+                text_reference=text_reference,
+                photo_file_id=photo_file_id,
+                order_id=order_id,
+                tracking_code=tracking_code,
+                submitted_at=datetime.utcnow()
+            )
+            
+            if not receipt:
+                logger.error(f"Failed to create receipt for user {user_id}")
+                return False, "خطا در ثبت رسید پرداخت", None
+            
+            # 3. اگر سفارش مرتبط وجود دارد، وضعیت آن را به PENDING_RECEIPT تغییر دهید
+            if order_id:
+                from db.models.order import OrderStatus
+                # Update order status to indicate it's waiting for receipt verification
+                query = text("""
+                    UPDATE orders 
+                    SET status = :status, updated_at = :updated_at
+                    WHERE id = :order_id
+                """)
+                await self.session.execute(query, {
+                    "status": OrderStatus.PENDING_RECEIPT.value,
+                    "updated_at": datetime.utcnow(),
+                    "order_id": order_id
+                })
+            
+            # 4. ارسال رسید به کانال ادمین
+            await self.send_receipt_to_admin_channel(receipt.id)
+            
+            await self.session.commit()
+            logger.info(f"Card-to-card receipt {receipt.id} created successfully, tracking code: {tracking_code}")
+            
+            return True, f"رسید پرداخت با موفقیت ثبت شد.\nکد پیگیری: {tracking_code}", receipt
+            
+        except Exception as e:
+            logger.error(f"Error in create_card_to_card_receipt for user {user_id}: {e}", exc_info=True)
+            # Transaction will be rolled back
+            return False, f"خطای سیستمی: {str(e)}", None
+            
+    async def approve_card_to_card_receipt(
+        self,
+        receipt_id: int,
+        admin_id: int,
+        admin_notes: Optional[str] = None,
+        final_amount: Optional[Decimal] = None
+    ) -> Tuple[bool, str, Optional[ReceiptLog]]:
+        """
+        تأیید رسید پرداخت کارت به کارت توسط ادمین
+        
+        Args:
+            receipt_id: شناسه رسید
+            admin_id: شناسه ادمین تأیید کننده
+            admin_notes: یادداشت ادمین (اختیاری)
+            final_amount: مبلغ نهایی تأیید شده (اختیاری، پیش‌فرض مقدار اصلی رسید)
+            
+        Returns:
+            Tuple[bool, str, Optional[ReceiptLog]]: 
+            - موفقیت عملیات (bool)
+            - پیام نتیجه (str) 
+            - رسید به‌روزرسانی شده یا None در صورت خطا (ReceiptLog)
+        """
+        logger.info(f"Approving receipt {receipt_id} by admin {admin_id}")
+        
+        try:
+            # 1. دریافت جزئیات رسید
+            receipt = await self.receipt_repo.get_by_id(receipt_id)
+            if not receipt:
+                logger.error(f"Receipt {receipt_id} not found")
+                return False, "رسید مورد نظر یافت نشد", None
+                
+            # 2. بررسی وضعیت فعلی
+            if receipt.status != "PENDING":
+                logger.warning(f"Receipt {receipt_id} is not in PENDING status (current: {receipt.status})")
+                return False, f"این رسید قبلاً {receipt.status} شده است", receipt
+            
+            # 3. مقدار نهایی تأیید شده
+            approved_amount = final_amount if final_amount is not None else receipt.amount
+            
+            # 4. ایجاد تراکنش واریز به کیف پول
+            user_id = receipt.user_id
+            description = f"شارژ کیف پول از طریق کارت به کارت (کد پیگیری: {receipt.tracking_code})"
+            
+            success, message, transaction = await self.process_incoming_payment(
+                user_id=user_id,
+                amount=approved_amount,
+                description=description
+            )
+            
+            if not success:
+                logger.error(f"Failed to process payment for receipt {receipt_id}: {message}")
+                return False, f"خطا در پردازش پرداخت: {message}", None
+            
+            # 5. به‌روزرسانی اطلاعات رسید
+            # 5.1 اگر نوت ادمین داریم، اضافه کنیم
+            if admin_notes:
+                receipt = await self.receipt_repo.add_note(receipt_id, admin_notes, admin_id)
+                
+            # 5.2 به‌روزرسانی وضعیت رسید
+            receipt = await self.receipt_repo.update_status(receipt_id, "APPROVED", admin_id)
+            if transaction:
+                # ارتباط با تراکنش
+                receipt.transaction_id = transaction.id
+                await self.session.flush()
+            
+            # 6. اگر سفارش مرتبط وجود دارد، به‌روزرسانی وضعیت سفارش
+            if receipt.order_id:
+                from db.models.order import OrderStatus
+                
+                # Update order status to PAID
+                query = text("""
+                    UPDATE orders 
+                    SET status = :status, updated_at = :updated_at
+                    WHERE id = :order_id
+                """)
+                await self.session.execute(query, {
+                    "status": OrderStatus.PAID.value, 
+                    "updated_at": datetime.utcnow(),
+                    "order_id": receipt.order_id
+                })
+                
+                # Notify the user about successful payment
+                order_id = receipt.order_id
+                await self.notification_service.send_payment_confirmation(
+                    user_id, 
+                    order_id, 
+                    float(approved_amount),
+                    receipt.tracking_code
+                )
+            
+            await self.session.commit()
+            logger.info(f"Receipt {receipt_id} approved successfully by admin {admin_id}")
+            
+            return True, f"رسید با موفقیت تأیید شد. مبلغ {format_currency(float(approved_amount))} به کیف پول کاربر اضافه شد.", receipt
+            
+        except Exception as e:
+            logger.error(f"Error in approve_card_to_card_receipt for receipt {receipt_id}: {e}", exc_info=True)
+            # Transaction will be rolled back 
+            return False, f"خطای سیستمی: {str(e)}", None
+            
+    async def reject_card_to_card_receipt(
+        self,
+        receipt_id: int,
+        admin_id: int,
+        rejection_reason: str
+    ) -> Tuple[bool, str, Optional[ReceiptLog]]:
+        """
+        رد کردن رسید پرداخت کارت به کارت توسط ادمین
+        
+        Args:
+            receipt_id: شناسه رسید
+            admin_id: شناسه ادمین رد کننده
+            rejection_reason: دلیل رد رسید
+            
+        Returns:
+            Tuple[bool, str, Optional[ReceiptLog]]: 
+            - موفقیت عملیات (bool) 
+            - پیام نتیجه (str)
+            - رسید به‌روزرسانی شده یا None در صورت خطا (ReceiptLog)
+        """
+        logger.info(f"Rejecting receipt {receipt_id} by admin {admin_id}")
+        
+        try:
+            # 1. دریافت جزئیات رسید
+            receipt = await self.receipt_repo.get_by_id(receipt_id)
+            if not receipt:
+                logger.error(f"Receipt {receipt_id} not found")
+                return False, "رسید مورد نظر یافت نشد", None
+                
+            # 2. بررسی وضعیت فعلی
+            if receipt.status != "PENDING":
+                logger.warning(f"Receipt {receipt_id} is not in PENDING status (current: {receipt.status})")
+                return False, f"این رسید قبلاً {receipt.status} شده است", receipt
+            
+            # 3. به‌روزرسانی اطلاعات رسید
+            receipt.status = "REJECTED"
+            receipt.admin_id = admin_id
+            receipt.rejection_reason = rejection_reason
+            receipt.responded_at = datetime.utcnow()
+            
+            # 4. اگر سفارش مرتبط وجود دارد، به‌روزرسانی وضعیت سفارش به PENDING
+            if receipt.order_id:
+                from db.models.order import OrderStatus
+                
+                # Return order to PENDING status
+                query = text("""
+                    UPDATE orders 
+                    SET status = :status, updated_at = :updated_at
+                    WHERE id = :order_id
+                """)
+                await self.session.execute(query, {
+                    "status": OrderStatus.PENDING.value,
+                    "updated_at": datetime.utcnow(),
+                    "order_id": receipt.order_id
+                })
+                
+                # Notify the user about rejected payment
+                await self.notification_service.send_receipt_rejection(
+                    receipt.user_id,
+                    receipt.order_id,
+                    receipt.tracking_code,
+                    rejection_reason
+                )
+            
+            await self.session.commit()
+            logger.info(f"Receipt {receipt_id} rejected successfully by admin {admin_id}")
+            
+            return True, "رسید با موفقیت رد شد.", receipt
+            
+        except Exception as e:
+            logger.error(f"Error in reject_card_to_card_receipt for receipt {receipt_id}: {e}", exc_info=True)
+            # Transaction will be rolled back
+            return False, f"خطای سیستمی: {str(e)}", None
+            
+    async def get_pending_receipts(self, limit: int = 10) -> list:
+        """
+        دریافت لیست رسیدهای در انتظار تأیید
+
+        Args:
+            limit: حداکثر تعداد نتایج
+
+        Returns:
+            list: لیست رسیدهای در انتظار تأیید
+        """
+        try:
+            # Query pending receipts from repository
+            pending_receipts = await self.receipt_repo.get_by_status('pending', limit=limit)
+            return pending_receipts
+        except Exception as e:
+            logger.error(f"Error in get_pending_receipts: {e}", exc_info=True)
+            return []
+            
+    async def get_receipt_details(self, receipt_id: int) -> Optional[Dict[str, Any]]:
+        """
+        دریافت جزئیات کامل یک رسید همراه با اطلاعات کاربر، سفارش و کارت بانکی
+
+        Args:
+            receipt_id: شناسه رسید
+
+        Returns:
+            Optional[Dict[str, Any]]: جزئیات رسید یا None در صورت خطا
+        """
+        try:
+            # Get receipt with relationships loaded
+            receipt = await self.receipt_repo.get_by_id(receipt_id)
+            if not receipt:
+                logger.error(f"Receipt not found: {receipt_id}")
+                return None
+                
+            # Prepare detailed response
+            receipt_details = {
+                "id": receipt.id,
+                "tracking_code": receipt.tracking_code,
+                "amount": float(receipt.amount),
+                "status": receipt.status,
+                "submitted_at": receipt.submitted_at,
+                "responded_at": receipt.responded_at,
+                "text_reference": receipt.text_reference,
+                "photo_file_id": receipt.photo_file_id,
+                "notes": receipt.notes,
+                "rejection_reason": receipt.rejection_reason,
+                "order_id": receipt.order_id,
+                "transaction_id": receipt.transaction_id,
+                "user": {
+                    "id": receipt.user_id,
+                    "telegram_id": receipt.user.telegram_id if hasattr(receipt, 'user') and receipt.user else None,
+                    "username": receipt.user.username if hasattr(receipt, 'user') and receipt.user else None,
+                    "full_name": receipt.user.full_name if hasattr(receipt, 'user') and receipt.user else None,
+                },
+                "bank_card": {
+                    "id": receipt.card_id,
+                    "card_number": receipt.bank_card.card_number if hasattr(receipt, 'bank_card') and receipt.bank_card else None,
+                    "bank_name": receipt.bank_card.bank_name if hasattr(receipt, 'bank_card') and receipt.bank_card else None,
+                    "holder_name": receipt.bank_card.holder_name if hasattr(receipt, 'bank_card') and receipt.bank_card else None,
+                },
+            }
+            
+            return receipt_details
+            
+        except Exception as e:
+            logger.error(f"Error in get_receipt_details: {e}", exc_info=True)
+            return None

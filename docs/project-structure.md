@@ -1,8 +1,18 @@
 .
+├── admin_refactor_restart.sh
 ├── alembic.ini
 ├── bot
 │   ├── buttons
 │   │   ├── account_buttons.py
+│   │   ├── admin
+│   │   │   ├── bank_card_buttons.py
+│   │   │   ├── __init__.py
+│   │   │   ├── main_buttons.py
+│   │   │   ├── order_buttons.py
+│   │   │   ├── panel_buttons.py
+│   │   │   ├── plan_buttons.py
+│   │   │   ├── receipt_buttons.py
+│   │   │   └── user_buttons.py
 │   │   ├── admin_buttons.py
 │   │   ├── buy_buttons.py
 │   │   ├── common_buttons.py
@@ -10,10 +20,20 @@
 │   │   ├── __init__.py
 │   │   ├── panel_buttons.py
 │   │   ├── plan_buttons.py
+│   │   ├── receipt_buttons.py
 │   │   ├── start_buttons.py
 │   │   └── wallet_buttons.py
 │   ├── callbacks
 │   │   ├── account_callbacks.py
+│   │   ├── admin
+│   │   │   ├── bank_card_callbacks.py
+│   │   │   ├── __init__.py
+│   │   │   ├── main_callbacks.py
+│   │   │   ├── order_callbacks.py
+│   │   │   ├── panel_callbacks.py
+│   │   │   ├── plan_callbacks.py
+│   │   │   ├── receipt_callbacks.py
+│   │   │   └── user_callbacks.py
 │   │   ├── admin_callbacks.py
 │   │   ├── buy_callbacks.py
 │   │   ├── client_callbacks.py
@@ -22,6 +42,7 @@
 │   │   ├── __init__.py
 │   │   ├── panel_callbacks.py
 │   │   ├── plan_callbacks.py
+│   │   ├── receipt_callbacks.py
 │   │   └── wallet_callbacks.py
 │   ├── commands
 │   │   ├── admin.py
@@ -61,15 +82,18 @@
 │   │   └── receipt_states.py
 │   ├── states.py
 │   └── utils.py
+├── CHANGELOG.md
 ├── core
 │   ├── __init__.py
 │   ├── integrations
 │   │   └── xui_client.py
+│   ├── log_config.py
 │   ├── scripts
 │   │   ├── seed_panel_and_plan.py
 │   │   └── seed_users.py
 │   ├── services
 │   │   ├── account_service.py
+│   │   ├── bank_card_service.py
 │   │   ├── client_renewal_log_service.py
 │   │   ├── client_service.py
 │   │   ├── inbound_service.py
@@ -79,6 +103,7 @@
 │   │   ├── panel_service.py
 │   │   ├── payment_service.py
 │   │   ├── plan_service.py
+│   │   ├── receipt_service.py
 │   │   ├── settings_service.py
 │   │   ├── transaction_service.py
 │   │   ├── user_service.py
@@ -92,7 +117,11 @@
 │   │   ├── __init__.py
 │   │   ├── script.py.mako
 │   │   └── versions
-│   │       └── 20250425_053314_initial_schema_generation_final.py
+│   │       ├── 20250425_053314_initial_schema_generation_final.py
+│   │       ├── 20250427_015905_fix_panel_inbound_clientaccount_models.py
+│   │       ├── 20250427_add_pending_receipt_status.py
+│   │       ├── add_payment_settings.py
+│   │       └── add_wallet_model.py
 │   ├── models
 │   │   ├── account_transfer.py
 │   │   ├── bank_card.py
@@ -110,12 +139,15 @@
 │   │   ├── setting.py
 │   │   ├── test_account_log.py
 │   │   ├── transaction.py
-│   │   └── user.py
+│   │   ├── user.py
+│   │   └── wallet.py
 │   ├── repositories
 │   │   ├── account_repo.py
 │   │   ├── bank_card_repository.py
 │   │   ├── base_repository.py
+│   │   ├── client_renewal_log_repo.py
 │   │   ├── client_repo.py
+│   │   ├── discount_code_repo.py
 │   │   ├── inbound_repo.py
 │   │   ├── __init__.py
 │   │   ├── order_repo.py
@@ -124,7 +156,8 @@
 │   │   ├── receipt_log_repository.py
 │   │   ├── setting_repo.py
 │   │   ├── transaction_repo.py
-│   │   └── user_repo.py
+│   │   ├── user_repo.py
+│   │   └── wallet_repo.py
 │   └── schemas
 │       ├── account_schema.py
 │       ├── order.py
@@ -140,20 +173,23 @@
 │   ├── project-requirements.md
 │   ├── project-structure.md
 │   ├── scratchpad.md
+│   ├── tree-moonvpn.md
 │   └── xui_api_methods.md
 ├── .env
 ├── .env.example
 ├── .gitignore
+├── lessons-learned.md
 ├── memories.md
 ├── me.rule.md
-├── moonvpn.session.sql
 ├── poetry.lock
 ├── pyproject.toml
 ├── README.md
 ├── scratchpad.md
 ├── scripts
 │   ├── moonvpn.sh
-│   └── test_py3xui_login.py
+│   ├── sync_panels.py
+│   ├── test_card_to_card_payment.py
+│   └── test_receipt_approval.py
 ├── SECURITY.md
 ├── tests
 │   ├── __init__.py

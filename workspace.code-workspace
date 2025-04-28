@@ -30,7 +30,7 @@
 			"Do you really want to exit [y/N]": "y",
 			"Press any key to continue...": "\r",
 			"Type 'exit' to exit": "exit",
-			"--More--": "q",
+			"--More--": " ",
 			"[Y/n]": "Y",
 			"(y/N)": "y",
 			"Continue? [y/N]": "y",
@@ -47,21 +47,21 @@
 			"Are you sure you want to continue connecting (yes/no/[fingerprint])?": "yes",
 			"Password:": "${input:sshPassword}"
 		},
-		"terminal.integrated.defaultLocation": "view",
-		"terminal.integrated.autoExitBehavior": "never",
+		"terminal.integrated.defaultLocation": "editor",
+		"terminal.integrated.autoExitBehavior": "always",
 		"terminal.integrated.exitBehavior": "always",
 		"terminal.integrated.env.linux": {
 			"TERM": "xterm-256color"
 		},
 		"terminal.integrated.gpuAcceleration": "on",
-		"terminal.integrated.scrollback": 1000,
+		"terminal.integrated.scrollback": 10000,
 		"terminal.integrated.enablePersistentSessions": true,
-		"terminal.integrated.persistentSessionReviveProcess": "never",
+		"terminal.integrated.persistentSessionReviveProcess": "onExitAndWindowClose",
 		"terminal.integrated.shellArgs.linux": [
 			"--login"
 		],
-		"terminal.integrated.limitCharacters": 5000,
-		"terminal.integrated.shellIntegration.history": 2000,
+		"terminal.integrated.limitCharacters": 100000,
+		"terminal.integrated.shellIntegration.history": 5000,
 		"terminal.integrated.allowChords": true,
 		"terminal.integrated.automationProfile.linux": {
 			"path": "bash",
@@ -78,13 +78,21 @@
 		"terminal.integrated.rightClickBehavior": "selectWord",
 		"terminal.integrated.shellIntegration.decorationsEnabled": "both",
 		"terminal.integrated.splitCwd": "inherited",
-		"terminal.integrated.persistentSessionScrollback": 5000,
+		"terminal.integrated.persistentSessionScrollback": 10000,
 		"terminal.integrated.detectLocale": "auto",
 		"terminal.integrated.showExitAlert": false,
 		"terminal.integrated.tabs.enabled": true,
-		"terminal.integrated.tabs.location": "tab",
+		"terminal.integrated.tabs.location": "editor",
 		"terminal.integrated.tabs.showActiveTerminal": "always",
 		"terminal.integrated.tabs.hideCondition": "never",
+		"terminal.integrated.fastScrollSensitivity": 5,
+		"terminal.integrated.mouseWheelScrollSensitivity": 1.5,
+		"terminal.integrated.smoothScrolling": true,
+		"terminal.integrated.bellDuration": 1000,
+		"terminal.integrated.wordSeparators": " ()[]{}',\"`─",
+		"terminal.integrated.experimentalLinkProvider": true,
+		"terminal.integrated.localEchoLatencyThreshold": 30,
+		"terminal.integrated.enableFileLinks": "always",
 		"cursor.general.globalCursorIgnoreList": [
 			"**/credentials.json",
 			"**/credentials.*.json",
@@ -116,6 +124,10 @@
 				"username": "moonvpn_user",
 				"password": "strong_password_here"
 			}
-		]
+		],
+		"accessibility.signals.terminalBell": {
+			"sound": "on"
+		},
+		"terminal.integrated.enableVisualBell": true
 	}
 }

@@ -7,10 +7,11 @@ from enum import Enum
 from typing import List, Optional, TYPE_CHECKING
 import uuid
 
-from sqlalchemy import BigInteger, Boolean, DateTime, String, Text, Column, ForeignKey, Integer, Enum as SQLEnum
+from sqlalchemy import BigInteger, Boolean, DateTime, String, Text, Column, ForeignKey, Integer, Enum as SQLEnum, JSON
 from sqlalchemy.orm import relationship, Mapped
 
 from . import Base
+from .enums import AccountStatus
 
 if TYPE_CHECKING:
     from .user import User
@@ -45,11 +46,19 @@ class ClientAccount(Base):
     email_name = Column(String(255), nullable=True)
     plan_id = Column(Integer, ForeignKey("plans.id"), nullable=False)
     expires_at = Column(DateTime, nullable=False)
+    expiry_time = Column(BigInteger, nullable=False)  # تاریخ انقضا (Timestamp ms از پنل XUI)
     traffic_limit = Column(Integer, nullable=False)  # حجم کل به GB
+    data_limit = Column(BigInteger, nullable=False)  # محدودیت ترافیک (بایت از پنل XUI)
     traffic_used = Column(Integer, default=0, nullable=False)  # حجم مصرف‌شده به GB
+    data_used = Column(BigInteger, default=0, nullable=False)  # ترافیک مصرفی (بایت از پنل XUI)
     status = Column(SQLEnum(AccountStatus), default=AccountStatus.ACTIVE, nullable=False)
+    enable = Column(Boolean, nullable=False, default=True)  # وضعیت فعال/غیرفعال در پنل XUI
     config_url = Column(Text, nullable=True)
     qr_code_path = Column(String(255), nullable=True)
+    inbound_ids = Column(JSON, nullable=True)  # لیست IDهای Inbound فعال برای این اکانت
+    ip_limit = Column(Integer, nullable=True)  # محدودیت تعداد IP مجاز
+    sub_updated_at = Column(DateTime, nullable=True)  # زمان آخرین به‌روزرسانی لینک اشتراک
+    sub_last_user_agent = Column(String(255), nullable=True)  # آخرین User Agent برای آپدیت اشتراک
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     
     # ارتباط با سایر مدل‌ها

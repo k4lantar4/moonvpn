@@ -4,6 +4,7 @@
 
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.utils.keyboard import InlineKeyboardBuilder
+from bot.buttons.receipt_buttons import get_admin_receipts_button
 
 def get_admin_panel_keyboard() -> InlineKeyboardMarkup:
     """ایجاد کیبورد اینلاین برای پنل ادمین"""
@@ -16,6 +17,8 @@ def get_admin_panel_keyboard() -> InlineKeyboardMarkup:
     kb.button(text="👥 کاربران", callback_data="admin_users")
     kb.button(text="💰 پلن‌ها", callback_data="admin_plans")
     kb.button(text="💸 تراکنش‌ها", callback_data="admin_transactions")
+    kb.add(get_admin_receipts_button())  # دکمه مدیریت رسیدها
+    kb.button(text="💳 مدیریت کارت‌های بانکی", callback_data="bank_card:list")
     kb.button(text="⚙️ تنظیمات", callback_data="admin_settings")
     kb.button(text="📄 گزارش تمدیدها", callback_data="admin:renewal_log")
     kb.button(text="🔙 بازگشت", callback_data="start")

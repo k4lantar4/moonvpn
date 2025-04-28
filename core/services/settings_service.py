@@ -39,6 +39,20 @@ class SettingsService:
             logger.error(f"Error getting setting {key}: {str(e)}")
             return default
     
+    # Alias for get() method for compatibility
+    async def get_setting_value(self, key: str, default: Any = None) -> Any:
+        """
+        دریافت مقدار تنظیمات با کلید مشخص (نام مستعار برای متد get)
+        
+        Args:
+            key: کلید تنظیمات
+            default: مقدار پیش‌فرض در صورت عدم وجود
+            
+        Returns:
+            مقدار تنظیمات با نوع مناسب
+        """
+        return await self.get(key, default)
+    
     async def set(self, key: str, value: Any, setting_type: Optional[str] = None, 
                  scope: str = 'system', description: Optional[str] = None) -> bool:
         """

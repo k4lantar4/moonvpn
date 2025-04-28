@@ -7,7 +7,7 @@ class UserRole(str, enum.Enum):
 class PanelStatus(str, enum.Enum):
     ACTIVE = "active"
     INACTIVE = "inactive"
-    ERROR = "error"
+    DELETED = "deleted"
 
 class PanelType(str, enum.Enum):
     XUI = "xui"
@@ -43,4 +43,4 @@ class AccountStatus(str, enum.Enum):
     ACTIVE = "active"
     EXPIRED = "expired"
     DISABLED = "disabled"
-    SUSPENDED = "suspended" 
+    SWITCHED = "switched" 
