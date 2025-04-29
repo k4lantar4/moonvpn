@@ -10,6 +10,7 @@ from datetime import datetime
 
 from db.repositories.user_repo import UserRepository
 from db.models.user import User, UserRole, UserStatus
+from db.models.enums import UserRole
 
 
 class UserService:
@@ -32,12 +33,19 @@ class UserService:
         user = await self.get_user_by_telegram_id(telegram_id)
         return user is not None
     
-    async def is_admin(self, telegram_id: int) -> bool:
-        """بررسی اینکه آیا کاربر ادمین است"""
+    async def is_superadmin(self, telegram_id: int) -> bool:
+        """بررسی اینکه آیا کاربر سوپرادمین است"""
         user = await self.get_user_by_telegram_id(telegram_id)
         if not user:
             return False
-        return user.role.value == "admin"
+        return user.role == UserRole.SUPERADMIN
+
+    async def is_admin(self, telegram_id: int) -> bool:
+        """بررسی اینکه آیا کاربر ادمین است (فقط ادمین، نه سوپرادمین)"""
+        user = await self.get_user_by_telegram_id(telegram_id)
+        if not user:
+            return False
+        return user.role == UserRole.ADMIN
     
     async def update_username(self, telegram_id: int, new_username: str) -> Optional[User]:
         """بروزرسانی نام کاربری"""

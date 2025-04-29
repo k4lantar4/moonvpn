@@ -13,6 +13,7 @@ from core.services.user_service import UserService
 from db.models.receipt_log import ReceiptStatus
 from bot.states.receipt_states import ReceiptAdminStates
 from bot.buttons.admin.receipt_buttons import get_receipt_list_keyboard, get_receipt_manage_buttons
+from core.services.admin_permission_service import AdminPermissionService
 
 logger = logging.getLogger(__name__)
 
@@ -188,12 +189,12 @@ def register_admin_receipt_callbacks(router: Router) -> None:
             
             logger.info(f"Admin {admin_id} attempting to confirm receipt {receipt_id}")
             
-            # بررسی دسترسی ادمین
+            # بررسی دسترسی ادمین (مجوز تایید رسید)
             user_service = UserService(session)
             user = await user_service.get_user_by_telegram_id(admin_id)
-            
-            if not user or user.role not in ["admin", "superadmin"]:
-                await callback.answer("⛔️ دسترسی غیرمجاز!", show_alert=True)
+            perm_service = AdminPermissionService(session)
+            if not user or not await perm_service.has_permission(user, "can_approve_receipt"):
+                await callback.answer("⛔️ شما مجوز تایید رسید را ندارید!", show_alert=True)
                 return
             
             # تایید رسید
@@ -240,13 +241,14 @@ def register_admin_receipt_callbacks(router: Router) -> None:
         try:
             # دریافت شناسه رسید
             receipt_id = int(callback.data.split(":")[3])
+            admin_id = callback.from_user.id
             
-            # بررسی دسترسی ادمین
+            # بررسی دسترسی ادمین (مجوز رد رسید)
             user_service = UserService(session)
-            user = await user_service.get_user_by_telegram_id(callback.from_user.id)
-            
-            if not user or user.role not in ["admin", "superadmin"]:
-                await callback.answer("⛔️ دسترسی غیرمجاز!", show_alert=True)
+            user = await user_service.get_user_by_telegram_id(admin_id)
+            perm_service = AdminPermissionService(session)
+            if not user or not await perm_service.has_permission(user, "can_reject_receipt"):
+                await callback.answer("⛔️ شما مجوز رد رسید را ندارید!", show_alert=True)
                 return
             
             # ذخیره شناسه رسید در استیت
@@ -403,12 +405,12 @@ def register_admin_receipt_callbacks(router: Router) -> None:
     async def receipt_filter_approved(callback: CallbackQuery, session: AsyncSession) -> None:
         """نمایش رسیدهای تایید شده"""
         try:
-            # بررسی دسترسی ادمین
+            # بررسی دسترسی ادمین (مجوز مشاهده رسیدهای تاییدشده)
             user_service = UserService(session)
             user = await user_service.get_user_by_telegram_id(callback.from_user.id)
-            
-            if not user or user.role not in ["admin", "superadmin"]:
-                await callback.answer("⛔️ دسترسی غیرمجاز!", show_alert=True)
+            perm_service = AdminPermissionService(session)
+            if not user or not await perm_service.has_permission(user, "can_view_approved_receipts"):
+                await callback.answer("⛔️ شما مجوز مشاهده لیست رسیدهای تاییدشده را ندارید!", show_alert=True)
                 return
             
             # دریافت لیست رسیدهای تایید شده
@@ -441,12 +443,12 @@ def register_admin_receipt_callbacks(router: Router) -> None:
     async def receipt_filter_rejected(callback: CallbackQuery, session: AsyncSession) -> None:
         """نمایش رسیدهای رد شده"""
         try:
-            # بررسی دسترسی ادمین
+            # بررسی دسترسی ادمین (مجوز مشاهده رسیدهای ردشده)
             user_service = UserService(session)
             user = await user_service.get_user_by_telegram_id(callback.from_user.id)
-            
-            if not user or user.role not in ["admin", "superadmin"]:
-                await callback.answer("⛔️ دسترسی غیرمجاز!", show_alert=True)
+            perm_service = AdminPermissionService(session)
+            if not user or not await perm_service.has_permission(user, "can_view_rejected_receipts"):
+                await callback.answer("⛔️ شما مجوز مشاهده لیست رسیدهای ردشده را ندارید!", show_alert=True)
                 return
             
             # دریافت لیست رسیدهای رد شده
@@ -479,12 +481,12 @@ def register_admin_receipt_callbacks(router: Router) -> None:
     async def receipt_filter_all(callback: CallbackQuery, session: AsyncSession) -> None:
         """نمایش همه رسیدها"""
         try:
-            # بررسی دسترسی ادمین
+            # بررسی دسترسی ادمین (مجوز مشاهده همه رسیدها)
             user_service = UserService(session)
             user = await user_service.get_user_by_telegram_id(callback.from_user.id)
-            
-            if not user or user.role not in ["admin", "superadmin"]:
-                await callback.answer("⛔️ دسترسی غیرمجاز!", show_alert=True)
+            perm_service = AdminPermissionService(session)
+            if not user or not await perm_service.has_permission(user, "can_view_all_receipts"):
+                await callback.answer("⛔️ شما مجوز مشاهده همه رسیدها را ندارید!", show_alert=True)
                 return
             
             # دریافت لیست همه رسیدها

@@ -9,7 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 
-from db.models.user import User, UserRole
+from db.models.user import User
+from db.models.enums import UserRole
 from .base_repository import BaseRepository
 
 

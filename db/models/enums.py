@@ -3,6 +3,8 @@ import enum
 class UserRole(str, enum.Enum):
     USER = "user"
     ADMIN = "admin"
+    AGENT = "agent"
+    SUPERADMIN = "superadmin"
 
 class PanelStatus(str, enum.Enum):
     ACTIVE = "active"
@@ -15,6 +17,7 @@ class PanelType(str, enum.Enum):
 class InboundStatus(str, enum.Enum):
     ACTIVE = "active"
     DISABLED = "disabled"
+    INACTIVE = "inactive"
     DELETED = "deleted" # Synced but removed from panel
 
 class OrderStatus(str, enum.Enum):

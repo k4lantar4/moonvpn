@@ -32,29 +32,9 @@ def register_profile_command(router: Router, session_pool: async_sessionmaker[As
         user_id = message.from_user.id
         
         try:
-            # Initialize repositories
-            user_repo = UserRepository(session)
-            client_repo = ClientRepository(session)
-            order_repo = OrderRepository(session)
-            panel_repo = PanelRepository(session)
-            inbound_repo = InboundRepository(session)
-            plan_repo = PlanRepository(session)
-            renewal_log_repo = ClientRenewalLogRepository(session)
-
-            # Initialize services
+            # فقط استفاده از سرویس‌ها
             user_service = UserService(session)
-            panel_service = PanelService(session)
-            client_service = ClientService(
-                session=session,
-                client_repo=client_repo,
-                order_repo=order_repo,
-                panel_repo=panel_repo,
-                inbound_repo=inbound_repo,
-                user_repo=user_repo,
-                plan_repo=plan_repo,
-                renewal_log_repo=renewal_log_repo,
-                panel_service=panel_service
-            )
+            client_service = ClientService(session)
 
             # Get user info
             user = await user_service.get_user_by_telegram_id(user_id)

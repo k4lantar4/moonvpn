@@ -14,6 +14,7 @@ from . import Base
 from .plan import Plan
 from .receipt_log import ReceiptLog
 from .test_account_log import TestAccountLog
+from .enums import UserRole
 
 if TYPE_CHECKING:
     from .client_account import ClientAccount
@@ -22,13 +23,6 @@ if TYPE_CHECKING:
     from .bank_card import BankCard
     # from .receipt_log import ReceiptLog
     # from .test_account_log import TestAccountLog
-
-class UserRole(str, Enum):
-    """نقش‌های کاربران در سیستم"""
-    USER = "user"
-    ADMIN = "admin"
-    SELLER = "seller"
-
 
 class UserStatus(str, Enum):
     """وضعیت‌های کاربر"""
@@ -86,6 +80,11 @@ class User(Base):
     
     # Wallet relationship
     wallet: Mapped[Optional["Wallet"]] = relationship(back_populates="user", uselist=False)
+
+    # رابطه با مجوز ادمین (یک به یک)
+    admin_permission: Mapped[Optional["AdminPermission"]] = relationship(
+        "AdminPermission", back_populates="user", uselist=False
+    )
     
     def __repr__(self) -> str:
         return f"<User(id={self.id}, telegram_id={self.telegram_id}, role={self.role})>"

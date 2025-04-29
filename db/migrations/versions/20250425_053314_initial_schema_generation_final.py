@@ -89,7 +89,7 @@ def upgrade() -> None:
     sa.Column('port', sa.Integer(), nullable=False),
     sa.Column('settings_json', sa.JSON(), nullable=True),
     sa.Column('sniffing', sa.JSON(), nullable=True),
-    sa.Column('status', sa.Enum('ACTIVE', 'DISABLED', 'DELETED', name='inboundstatus'), nullable=False),
+    sa.Column('status', sa.Enum('ACTIVE', 'DISABLED', 'INACTIVE', 'DELETED', name='inboundstatus'), nullable=False),
     sa.Column('max_clients', sa.Integer(), nullable=True),
     sa.Column('last_synced', sa.DateTime(), nullable=True),
     sa.Column('listen', sa.String(length=100), nullable=True),

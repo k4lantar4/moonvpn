@@ -153,7 +153,7 @@ async def location_selected(callback: CallbackQuery, state: FSMContext, session_
                 location_service = LocationService(session)
                 locations = await location_service.get_available_locations()
                 await callback.message.edit_text(
-                    f"⚠️ هیچ پروتکلی برای لوکیشن {panel.location} موجود نیست.\n"
+                    f"⚠️ هیچ پروتکلی برای لوکیشن {panel.location_name} موجود نیست.\n"
                     "لطفا لوکیشن دیگری انتخاب کنید.",
                     reply_markup=get_location_selection_keyboard(locations)
                 )
@@ -171,13 +171,13 @@ async def location_selected(callback: CallbackQuery, state: FSMContext, session_
             await callback.message.edit_text(
                 f"🔘 مرحله انتخاب پروتکل\n\n"
                 f"{plan_info}"
-                f"🔹 لوکیشن: {panel.flag_emoji} {panel.location}\n\n"
+                f"🔹 لوکیشن: {panel.flag_emoji} {panel.location_name}\n\n"
                 "لطفا پروتکل مورد نظر خود را انتخاب کنید:",
                 reply_markup=get_plan_selection_keyboard(inbounds, panel_id, plan_id)
             )
             
             await state.set_state(BuyState.select_inbound)
-            logger.info(f"User {callback.from_user.id} selected location {panel_id} ({panel.location})")
+            logger.info(f"User {callback.from_user.id} selected location {panel_id} ({panel.location_name})")
             
     except ValueError as e:
         logger.error(f"Invalid panel ID in callback data: {callback.data}, error: {e}")
@@ -196,7 +196,7 @@ async def location_selected(callback: CallbackQuery, state: FSMContext, session_
 
 async def inbound_selected(callback: CallbackQuery, state: FSMContext, session_pool):
     """
-    انتخاب inbound توسط کاربر
+    انتخاب inbound توسط کاربر و نمایش جزئیات اکانت + دکمه پرداخت
     """
     try:
         # استخراج اطلاعات از callback data
@@ -205,7 +205,7 @@ async def inbound_selected(callback: CallbackQuery, state: FSMContext, session_p
             logger.error(f"Invalid callback data format: {callback.data}")
             await callback.answer("فرمت داده نامعتبر است", show_alert=True)
             return
-            
+        
         plan_id = int(parts[2])
         panel_id = int(parts[3])
         inbound_id = int(parts[4])
@@ -218,12 +218,15 @@ async def inbound_selected(callback: CallbackQuery, state: FSMContext, session_p
             plan_service = PlanService(session)
             panel_service = PanelService(session)
             inbound_service = InboundService(session)
+            user_service = UserService(session)
+            order_service = OrderService(session)
             
             plan = await plan_service.get_plan_by_id(plan_id)
             panel = await panel_service.get_panel_by_id(panel_id)
             inbound = await inbound_service.get_inbound(inbound_id)
+            user = await user_service.get_user_by_telegram_id(callback.from_user.id)
             
-            if not all([plan, panel, inbound]):
+            if not all([plan, panel, inbound, user]):
                 missing = []
                 if not plan:
                     missing.append("پلن")
@@ -231,54 +234,61 @@ async def inbound_selected(callback: CallbackQuery, state: FSMContext, session_p
                     missing.append("لوکیشن")
                 if not inbound:
                     missing.append("پروتکل")
-                    
-                logger.error(f"One or more entities not found: Plan {plan_id}, Panel {panel_id}, Inbound {inbound_id}")
+                if not user:
+                    missing.append("کاربر")
+                logger.error(f"One or more entities not found: Plan {plan_id}, Panel {panel_id}, Inbound {inbound_id}, User {callback.from_user.id}")
                 await callback.message.edit_text(
                     f"❌ خطا در دریافت اطلاعات. {', '.join(missing)} انتخابی یافت نشد یا تغییر کرده است.\n"
                     "لطفا دوباره تلاش کنید."
                 )
                 return
             
+            # ایجاد سفارش با وضعیت PENDING
+            order = await order_service.create_order(
+                user_id=user.id,
+                plan_id=plan_id,
+                location_name=panel.location_name,
+                amount=plan.price,
+                status=OrderStatus.PENDING
+            )
+            if not order:
+                logger.error(f"Failed to create order for user {user.id}")
+                await callback.message.edit_text(
+                    "❌ خطا در ایجاد سفارش.\n"
+                    "لطفا دوباره تلاش کنید."
+                )
+                return
+            await state.update_data(order_id=order.id)
+            
             # نمایش خلاصه سفارش با اطلاعات کامل
             summary = (
                 "📋 خلاصه سفارش شما:\n\n"
                 f"🔹 پلن: {plan.name}\n"
             )
-            
-            # اضافه کردن مدت اعتبار اگر موجود است
             if hasattr(plan, 'duration_days') and plan.duration_days:
                 summary += f"🔹 مدت: {plan.duration_days} روز\n"
-            
-            # اضافه کردن حجم ترافیک اگر موجود است
             if hasattr(plan, 'traffic_gb') and plan.traffic_gb:
                 summary += f"🔹 حجم: {plan.traffic_gb} گیگابایت\n"
-            
-            # اضافه کردن قیمت
             if hasattr(plan, 'price'):
                 price_display = f"{int(plan.price):,} تومان" if plan.price else "رایگان"
                 summary += f"🔹 قیمت: {price_display}\n"
-            
-            # اضافه کردن اطلاعات لوکیشن
             flag_emoji = getattr(panel, 'flag_emoji', '🏴')
-            location_name = getattr(panel, 'location', 'نامشخص')
+            location_name = getattr(panel, 'location_name', 'نامشخص')
             summary += f"🔹 لوکیشن: {flag_emoji} {location_name}\n"
-            
-            # اضافه کردن اطلاعات پروتکل
             protocol = getattr(inbound, 'protocol', 'نامشخص').upper()
             port = getattr(inbound, 'port', 'نامشخص')
             summary += f"🔹 پروتکل: {protocol} - پورت {port}\n\n"
+            summary += f"🔹 شناسه سفارش: <code>{order.id}</code>\n"
+            summary += f"\nلطفا روش پرداخت را انتخاب کنید:"
             
-            summary += "آیا از انتخاب خود مطمئن هستید؟"
-            
-            # دکمه‌های تایید یا بازگشت با کیبورد امن
+            # دکمه‌های پرداخت
             await callback.message.edit_text(
-                summary, 
-                reply_markup=confirm_purchase_buttons(plan_id, panel_id, inbound_id)
+                summary,
+                reply_markup=get_payment_keyboard(str(order.id)),
+                parse_mode="HTML"
             )
-            
-            await state.set_state(BuyState.confirm_purchase)
-            logger.info(f"User {callback.from_user.id} selected inbound {inbound_id} ({protocol}@{port})")
-            
+            await state.set_state(BuyState.select_payment)
+            logger.info(f"User {callback.from_user.id} selected inbound {inbound_id} and order {order.id} created. Waiting for payment.")
     except ValueError as e:
         logger.error(f"Invalid IDs in callback data: {callback.data}, error: {e}")
         await callback.answer("شناسه‌های ارسالی نامعتبر هستند", show_alert=True)
@@ -350,23 +360,19 @@ async def confirm_purchase(callback: CallbackQuery, state: FSMContext, session_p
                 
             # ایجاد سفارش موقت
             order_service = OrderService(session)
-            
             # نمایش پیام در حال پردازش
             processing_message = await callback.message.edit_text(
                 "🔄 در حال پردازش سفارش شما...\n"
                 "لطفا چند لحظه صبر کنید."
             )
-            
             try:
-                # ایجاد سفارش با استفاده از سرویس سفارش
                 order = await order_service.create_order(
                     user_id=user.id,
                     plan_id=plan_id,
-                    location_name=panel.location,
+                    location_name=panel.location_name,
                     amount=plan.price,
                     status=OrderStatus.PENDING
                 )
-                
                 if not order:
                     logger.error(f"Failed to create order for user {user_id}")
                     await callback.message.edit_text(
@@ -374,13 +380,8 @@ async def confirm_purchase(callback: CallbackQuery, state: FSMContext, session_p
                         "لطفا دوباره تلاش کنید."
                     )
                     return
-                
-                # ذخیره شناسه سفارش در state
                 await state.update_data(order_id=order.id)
-                
-                # نمایش صفحه پرداخت
                 balance = getattr(user, 'balance', 0)
-                
                 payment_message = (
                     f"✅ سفارش شما با موفقیت ثبت شد.\n\n"
                     f"🔹 شناسه سفارش: <code>{order.id}</code>\n"
@@ -389,15 +390,12 @@ async def confirm_purchase(callback: CallbackQuery, state: FSMContext, session_p
                     f"💰 موجودی کیف پول شما: {int(balance):,} تومان\n\n"
                     "لطفا روش پرداخت را انتخاب کنید:"
                 )
-                
                 await callback.message.edit_text(
                     payment_message,
                     reply_markup=get_payment_keyboard(str(order.id))
                 )
-                
                 await state.set_state(BuyState.select_payment)
                 logger.info(f"Created order {order.id} for user {user_id}, plan {plan_id}, panel {panel_id}")
-                
             except Exception as e:
                 logger.error(f"Error creating order: {e}", exc_info=True)
                 await callback.message.edit_text(
@@ -812,7 +810,7 @@ async def back_to_inbounds(callback: CallbackQuery, state: FSMContext, session_p
                 location_service = LocationService(session)
                 locations = await location_service.get_available_locations()
                 await callback.message.edit_text(
-                    f"⚠️ هیچ پروتکلی برای لوکیشن {panel.location} موجود نیست.\n"
+                    f"⚠️ هیچ پروتکلی برای لوکیشن {panel.location_name} موجود نیست.\n"
                     "لطفا لوکیشن دیگری انتخاب کنید.",
                     reply_markup=get_location_selection_keyboard(locations)
                 )
@@ -826,7 +824,7 @@ async def back_to_inbounds(callback: CallbackQuery, state: FSMContext, session_p
             await callback.message.edit_text(
                 f"🔘 مرحله انتخاب پروتکل\n\n"
                 f"{plan_info}"
-                f"🔹 لوکیشن: {panel.flag_emoji} {panel.location}\n\n"
+                f"🔹 لوکیشن: {panel.flag_emoji} {panel.location_name}\n\n"
                 "لطفا پروتکل مورد نظر خود را انتخاب کنید:",
                 reply_markup=get_plan_selection_keyboard(inbounds, panel_id, plan_id)
             )

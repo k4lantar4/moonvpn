@@ -1,6 +1,6 @@
 # Database Structure
 
-این سند ساختار جداول پایگاه داده پروژه MoonVPN را بر اساس مایگریشن اولیه (`5821b73312a3`) شرح می‌دهد.
+این سند ساختار جداول پایگاه داده پروژه MoonVPN را بر اساس آخرین تغییرات شرح می‌دهد.
 
 ## Table: `discount_codes`
 
@@ -32,6 +32,8 @@
 | `type`          | `Enum(XUI)`                    |                            | No       |                            |
 | `status`        | `Enum(ACTIVE, DISABLED, DELETED)` |                            | No       |                            |
 | `notes`         | `Text`                         |                            | Yes      |                            |
+| `max_clients`   | `Integer`                      |                            | No       |                            |
+| `current_clients`| `Integer`                      |                            | No       |                            |
 
 ## Table: `settings`
 
@@ -229,7 +231,7 @@
 | `amount`              | `DECIMAL(10, 2)`                       |                                    | No       | مبلغ رسید                           |
 | `text_reference`      | `Text`                                 |                                    | Yes      | متن ارسالی کاربر همراه رسید         |
 | `photo_file_id`       | `String(255)`                          |                                    | Yes      | شناسه فایل عکس رسید در تلگرام        |
-| `status`              | `Enum(PENDING, APPROVED, REJECTED, EXPIRED)` |                                    | No       | وضعیت رسید                          |
+| `status`              | `Enum(PENDING, APPROVED, REJECTED, EXPIRED, PENDING_APPROVAL)` |                                    | No       | وضعیت رسید                          |
 | `notes`               | `Text`                                 |                                    | Yes      | یادداشت ادمین                        |
 | `rejection_reason`    | `Text`                                 |                                    | Yes      | دلیل رد شدن رسید                   |
 | `is_flagged`          | `Boolean`                              | Default(False)                     | No       | آیا رسید برای بررسی بیشتر علامت خورده؟ |
@@ -246,4 +248,37 @@
 | `transaction_id`      | `BigInteger`                           | Foreign Key (`transactions.id`)    | Yes      | تراکنش ایجاد شده پس از تایید رسید   |
 | `card_id`             | `BigInteger`                           | Foreign Key (`bank_cards.id`)      | No       | کارت بانکی که واریز به آن انجام شده |
 | `admin_id`            | `BigInteger`                           | Foreign Key (`users.id`)           | Yes      | ادمینی که به رسید پاسخ داده         |
+
+## Table: `admin_permissions`
+
+| Column Name   | Data Type    | Constraints                        | Nullable | Comment                           |
+| ------------ | ------------ | ---------------------------------- | -------- | --------------------------------- |
+| `id`         | `Integer`    | Primary Key, Autoincrement         | No       | شناسه دسترسی                     |
+| `admin_id`   | `BigInteger` | Foreign Key (`users.id`)           | No       | شناسه ادمین                      |
+| `permission` | `String(50)` |                                    | No       | نام دسترسی                       |
+| `created_at` | `DateTime`   |                                    | No       | زمان ایجاد                       |
+
+## Table: `wallet`
+
+| Column Name      | Data Type          | Constraints                        | Nullable | Comment                           |
+| --------------- | ------------------ | ---------------------------------- | -------- | --------------------------------- |
+| `id`            | `BigInteger`       | Primary Key, Autoincrement         | No       | شناسه کیف پول                     |
+| `user_id`       | `BigInteger`       | Foreign Key (`users.id`)           | No       | شناسه کاربر                      |
+| `balance`       | `DECIMAL(10, 2)`   |                                    | No       | موجودی فعلی                      |
+| `total_deposit` | `DECIMAL(10, 2)`   |                                    | No       | مجموع واریزی‌ها                  |
+| `total_spent`   | `DECIMAL(10, 2)`   |                                    | No       | مجموع خرج شده                    |
+| `created_at`    | `DateTime`         |                                    | No       | زمان ایجاد                       |
+| `updated_at`    | `DateTime`         |                                    | No       | زمان آخرین بروزرسانی             |
+
+## Table: `payment_settings`
+
+| Column Name           | Data Type          | Constraints                        | Nullable | Comment                           |
+| -------------------- | ------------------ | ---------------------------------- | -------- | --------------------------------- |
+| `id`                 | `Integer`          | Primary Key, Autoincrement         | No       | شناسه تنظیمات                     |
+| `min_deposit`        | `DECIMAL(10, 2)`   |                                    | No       | حداقل مبلغ شارژ                   |
+| `max_deposit`        | `DECIMAL(10, 2)`   |                                    | No       | حداکثر مبلغ شارژ                  |
+| `receipt_timeout`    | `Integer`          |                                    | No       | مهلت ارسال رسید (دقیقه)           |
+| `auto_approve_amount`| `DECIMAL(10, 2)`   |                                    | Yes      | سقف تایید خودکار رسید             |
+| `created_at`         | `DateTime`         |                                    | No       | زمان ایجاد                       |
+| `updated_at`         | `DateTime`         |                                    | No       | زمان آخرین بروزرسانی             |
 

@@ -19,6 +19,7 @@ from bot.buttons.admin.bank_card_buttons import (
     get_bank_card_rotation_policy_keyboard,
     get_confirm_delete_bank_card_keyboard
 )
+from db.models.enums import UserRole
 
 logger = logging.getLogger(__name__)
 
@@ -35,10 +36,9 @@ def register_admin_bank_card_callbacks(router: Router) -> None:
             session (AsyncSession): نشست دیتابیس
         """
         try:
-            # بررسی دسترسی ادمین
             user_service = UserService(session)
             user = await user_service.get_user_by_telegram_id(callback.from_user.id)
-            
+            # فقط ادمین و سوپرادمین اجازه مشاهده دارند
             if not user or user.role not in ["admin", "superadmin"]:
                 await callback.answer("⛔️ دسترسی غیرمجاز!", show_alert=True)
                 return
@@ -78,13 +78,10 @@ def register_admin_bank_card_callbacks(router: Router) -> None:
             session (AsyncSession): نشست دیتابیس
         """
         try:
-            # دریافت شناسه کارت بانکی
             card_id = int(callback.data.split(":")[3])
-            
-            # بررسی دسترسی ادمین
             user_service = UserService(session)
             user = await user_service.get_user_by_telegram_id(callback.from_user.id)
-            
+            # فقط ادمین و سوپرادمین اجازه مشاهده دارند
             if not user or user.role not in ["admin", "superadmin"]:
                 await callback.answer("⛔️ دسترسی غیرمجاز!", show_alert=True)
                 return
@@ -137,22 +134,20 @@ def register_admin_bank_card_callbacks(router: Router) -> None:
             await callback.answer("⚠️ خطا در بارگذاری مدیریت کارت بانکی", show_alert=True)
     
     @router.callback_query(F.data == "admin:bank_card:add")
-    async def bank_card_add_start(callback: CallbackQuery, state: FSMContext) -> None:
+    async def bank_card_add_start(callback: CallbackQuery, state: FSMContext, session: AsyncSession) -> None:
         """
         شروع فرآیند افزودن کارت بانکی جدید
-        
-        Args:
-            callback (CallbackQuery): کالبک تلگرام
-            state (FSMContext): وضعیت FSM
         """
         await callback.answer()
-        
         try:
-            # تنظیم وضعیت و درخواست ورود شماره کارت
+            user_service = UserService(session)
+            user = await user_service.get_user_by_telegram_id(callback.from_user.id)
+            if not user or user.role != UserRole.SUPERADMIN:
+                await callback.answer("⛔️ فقط سوپرادمین اجازه افزودن کارت دارد!", show_alert=True)
+                return
             await state.set_state(BankCardStates.add_card_number)
             await callback.message.edit_text(
-                "💳 <b>افزودن کارت بانکی جدید</b>\n\n"
-                "لطفاً شماره کارت را بدون فاصله وارد کنید (16 رقم):",
+                "💳 <b>افزودن کارت بانکی جدید</b>\n\nلطفاً شماره کارت را بدون فاصله وارد کنید (16 رقم):",
                 parse_mode="HTML"
             )
         except Exception as e:
@@ -398,38 +393,22 @@ def register_admin_bank_card_callbacks(router: Router) -> None:
     async def confirm_bank_card(callback: CallbackQuery, state: FSMContext, session: AsyncSession) -> None:
         """
         تایید و ذخیره کارت بانکی جدید
-        
-        Args:
-            callback (CallbackQuery): کالبک تلگرام
-            state (FSMContext): وضعیت FSM
-            session (AsyncSession): نشست دیتابیس
         """
         await callback.answer()
-        
         try:
-            # دریافت داده‌های استیت
             data = await state.get_data()
-            
-            # اطلاعات کارت
             card_number = data.get("card_number")
             holder_name = data.get("holder_name")
             bank_name = data.get("bank_name")
             rotation_policy_value = data.get("rotation_policy")
             rotation_interval = data.get("rotation_interval")
-            
-            # تبدیل سیاست چرخش
             rotation_policy = RotationPolicy(rotation_policy_value)
-            
-            # دریافت شناسه ادمین
             user_service = UserService(session)
             user = await user_service.get_user_by_telegram_id(callback.from_user.id)
-            
-            if not user or user.role not in ["admin", "superadmin"]:
-                await callback.message.edit_text("⛔️ دسترسی غیرمجاز!")
+            if not user or user.role != UserRole.SUPERADMIN:
+                await callback.message.edit_text("⛔️ فقط سوپرادمین اجازه ثبت کارت دارد!")
                 await state.clear()
                 return
-            
-            # ثبت کارت بانکی
             bank_card_service = BankCardService(session)
             new_card = await bank_card_service.create_card(
                 card_number=card_number,
@@ -439,13 +418,10 @@ def register_admin_bank_card_callbacks(router: Router) -> None:
                 admin_user_id=user.id,
                 rotation_interval_minutes=rotation_interval if rotation_policy == RotationPolicy.INTERVAL else None
             )
-            
             if not new_card:
                 await callback.message.edit_text("❌ خطا در ثبت کارت بانکی. لطفاً دوباره تلاش کنید.")
                 await state.clear()
                 return
-            
-            # پاسخ موفقیت
             await callback.message.edit_text(
                 f"✅ کارت بانکی با موفقیت ثبت شد!\n\n"
                 f"🆔 شناسه: {new_card.id}\n"
@@ -459,12 +435,8 @@ def register_admin_bank_card_callbacks(router: Router) -> None:
                 ).as_markup(),
                 parse_mode="HTML"
             )
-            
-            # پاک کردن وضعیت
             await state.clear()
-            
-            logger.info(f"Bank card {new_card.id} created successfully by admin {user.id}")
-            
+            logger.info(f"Bank card {new_card.id} created successfully by superadmin {user.id}")
         except Exception as e:
             logger.error(f"خطا در تایید و ذخیره کارت بانکی: {e}", exc_info=True)
             await callback.message.edit_text("⚠️ خطای داخلی در ثبت کارت بانکی. لطفاً دوباره تلاش کنید.")

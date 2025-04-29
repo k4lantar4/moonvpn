@@ -23,7 +23,7 @@ def upgrade() -> None:
     
     # Update panel status enum
     op.alter_column('panels', 'status',
-               existing_type=mysql.ENUM('ACTIVE', 'DISABLED', 'DELETED'),
+               existing_type=mysql.ENUM('ACTIVE', 'DISABLED', 'INACTIVE', 'DELETED'),
                type_=sa.Enum('ACTIVE', 'INACTIVE', 'DELETED', name='panelstatus'),
                existing_nullable=False)
     # ### end Alembic commands ###
@@ -34,7 +34,7 @@ def downgrade() -> None:
     # Revert panel status enum
     op.alter_column('panels', 'status',
                existing_type=sa.Enum('ACTIVE', 'INACTIVE', 'DELETED', name='panelstatus'),
-               type_=mysql.ENUM('ACTIVE', 'DISABLED', 'DELETED'),
+               type_=mysql.ENUM('ACTIVE', 'DISABLED', 'INACTIVE', 'DELETED'),
                existing_nullable=False)
     
     # Drop flag_emoji column

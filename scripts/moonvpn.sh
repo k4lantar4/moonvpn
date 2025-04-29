@@ -87,6 +87,7 @@ show_help() {
     echo "  migrate history Show migration history"
     echo "  migrate generate Create a new migration with message"
     echo "  migrate stamp   Set current migration version without running migrations"
+    echo "  db [subcmd]     Database tools: shell, info, phpmyadmin, <SQL>"
     echo "  shell [service] List available containers or open shell in specified service"
     echo "  status          Check status of all services"
     echo "  build           Build the app container"
@@ -447,7 +448,53 @@ case "$1" in
         exit 1
         ;;
     
+    db)
+        check_docker
+        check_env
+        case "$2" in
+            shell)
+                # چک مقدار متغیرهای دیتابیس
+                if [ -z "$MYSQL_USER" ] || [ -z "$MYSQL_PASSWORD" ] || [ -z "$MYSQL_DATABASE" ]; then
+                  echo "❌ خطا: متغیرهای MYSQL_USER یا MYSQL_PASSWORD یا MYSQL_DATABASE مقدار ندارند!"
+                  echo "MYSQL_USER: $MYSQL_USER"
+                  echo "MYSQL_PASSWORD: $MYSQL_PASSWORD"
+                  echo "MYSQL_DATABASE: $MYSQL_DATABASE"
+                  exit 1
+                fi
+                echo "[DEBUG] MYSQL_USER: $MYSQL_USER, MYSQL_DATABASE: $MYSQL_DATABASE"
+                echo -e "${BLUE}باز کردن mysql shell در کانتینر db...${NC}"
+                docker compose exec db mysql -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE"
+                ;;
+            info)
+                echo -e "${BLUE}اطلاعات اتصال دیتابیس:${NC}"
+                echo -e "  هاست: ${YELLOW}$MYSQL_HOST${NC}"
+                echo -e "  دیتابیس: ${YELLOW}$MYSQL_DATABASE${NC}"
+                echo -e "  کاربر: ${YELLOW}$MYSQL_USER${NC}"
+                echo -e "  رمز عبور: ${YELLOW}(مخفی)${NC}"
+                ;;
+            phpmyadmin)
+                echo -e "${BLUE}phpMyAdmin معمولاً روی پورت 8080 در دسترس است.${NC}"
+                echo -e "${YELLOW}آدرس: http://localhost:8080${NC}"
+                if command -v xdg-open &> /dev/null; then
+                    xdg-open "http://localhost:8080" &
+                fi
+                ;;
+            "")
+                echo -e "${YELLOW}دستور را وارد کنید. مثال:${NC}"
+                echo -e "  moonvpn db shell            # باز کردن mysql shell"
+                echo -e "  moonvpn db info             # نمایش اطلاعات اتصال"
+                echo -e "  moonvpn db phpmyadmin       # باز کردن phpmyadmin"
+                echo -e "  moonvpn db \"SHOW TABLES;\"   # اجرای دستور SQL"
+                ;;
+            *)
+                echo -e "${BLUE}اجرای دستور SQL در دیتابیس...${NC}"
+                docker compose exec db mysql -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE" -e "$2"
+                ;;
+        esac
+        ;;
+    
     shell)
+        check_env
         check_docker
         if [ -z "$2" ]; then
             list_containers
@@ -459,7 +506,24 @@ case "$1" in
                 list_containers
                 exit 1
             fi
-            if [ $# -eq 0 ]; then
+            if [ "$service" = "db" ] && [ $# -gt 0 ]; then
+                # چک مقدار متغیرهای دیتابیس
+                if [ -z "$MYSQL_USER" ] || [ -z "$MYSQL_PASSWORD" ] || [ -z "$MYSQL_DATABASE" ]; then
+                  echo "❌ خطا: متغیرهای MYSQL_USER یا MYSQL_PASSWORD یا MYSQL_DATABASE مقدار ندارند!"
+                  echo "MYSQL_USER: $MYSQL_USER"
+                  echo "MYSQL_PASSWORD: $MYSQL_PASSWORD"
+                  echo "MYSQL_DATABASE: $MYSQL_DATABASE"
+                  exit 1
+                fi
+                echo "[DEBUG] MYSQL_USER: $MYSQL_USER, MYSQL_DATABASE: $MYSQL_DATABASE"
+                # اجرای دستور mysql
+                if [ $# -eq 1 ]; then
+                    docker compose exec db mysql -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE" -e "$1"
+                else
+                    sql_command="$*"
+                    docker compose exec db mysql -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE" -e "$sql_command"
+                fi
+            elif [ $# -eq 0 ]; then
                 echo -e "${BLUE}Opening shell in ${service} container...${NC}"
                 docker compose exec "${service}" bash || {
                     echo -e "${YELLOW}Bash not available in this container, trying sh...${NC}"

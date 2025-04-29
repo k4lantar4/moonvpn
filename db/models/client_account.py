@@ -54,7 +54,7 @@ class ClientAccount(Base):
     status = Column(SQLEnum(AccountStatus), default=AccountStatus.ACTIVE, nullable=False)
     enable = Column(Boolean, nullable=False, default=True)  # وضعیت فعال/غیرفعال در پنل XUI
     config_url = Column(Text, nullable=True)
-    qr_code_path = Column(String(255), nullable=True)
+    qr_code_path = Column(String(255), nullable=True)  # مسیر فایل QR Code تصویری (QR code image file path)
     inbound_ids = Column(JSON, nullable=True)  # لیست IDهای Inbound فعال برای این اکانت
     ip_limit = Column(Integer, nullable=True)  # محدودیت تعداد IP مجاز
     sub_updated_at = Column(DateTime, nullable=True)  # زمان آخرین به‌روزرسانی لینک اشتراک

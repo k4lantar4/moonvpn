@@ -14,10 +14,9 @@ from core.services.plan_service import PlanService
 from core.services.user_service import UserService
 from core.services.order_service import OrderService
 from bot.buttons.plan_buttons import get_plans_keyboard, get_plan_details_keyboard
-from bot.buttons.common_buttons import HELP_MENU_CB, SUPPORT_CHAT_CB, BACK_TO_MAIN_CB, BACK_TO_PLANS_CB
+from bot.buttons.common_buttons import BACK_TO_MAIN_CB, BACK_TO_PLANS_CB, HELP_CB, SUPPORT_CB
 from db.models.order import Order, OrderStatus
 from bot.states.buy_states import BuyState
-from db.repositories.order_repo import OrderRepository
 
 # تنظیم لاگر
 logger = logging.getLogger(__name__)
@@ -98,7 +97,7 @@ def register_callbacks(router: Router, session_pool):
                 # Instantiate services
                 user_service = UserService(session)
                 plan_service = PlanService(session)
-                order_service = OrderService(session) # Instantiate OrderService
+                order_service = OrderService(session)
                 
                 db_user = await user_service.get_user_by_telegram_id(telegram_user_id)
                 if not db_user:
@@ -110,68 +109,40 @@ def register_callbacks(router: Router, session_pool):
                 if not plan:
                     await callback.answer("پلن مورد نظر یافت نشد!", show_alert=True)
                     return
-                    
-                # Check for location info if needed by create_order
-                # Assuming location might be part of the plan or selected earlier
-                # For now, let's assume OrderService handles fetching/validating location if required.
-                # If OrderService requires location_name, we need to get it here (e.g., from plan or state)
-                location_name = plan.available_locations[0] if plan.available_locations else "DefaultLocation" # Example: Get first available location or default
                 
-                # Use OrderService to create the order
-                # This assumes OrderService.create_order handles the commit internally
-                # or the session context manager handles it.
-                # Based on OrderService snippet, create_order expects more args and repo handles commit.
-                # Let's adapt to the OrderService snippet found earlier. It needs user_id, plan_id, amount, location_name
-                # order_service.create_order does not commit itself based on snippet, relies on repo commit? Needs check.
-                # Let's call the repo method directly for now, ASSUMING OrderService wraps this later or repo commits.
-                # THIS IS STILL A PROBLEM if repo doesn't commit. Best is OrderService handles commit.
+                location_name = plan.available_locations[0] if hasattr(plan, 'available_locations') and plan.available_locations else "DefaultLocation"
                 
-                # Reverting to direct model manipulation temporarily until OrderService/Repo are confirmed fixed.
-                # TODO: Fix this flow once OrderService/Repo commit behavior is finalized.
-                new_order_data = {
-                    "user_id": db_user.id,
-                    "plan_id": plan_id,
-                    "location_name": location_name, # Added location name
-                    "amount": plan.price,
-                    "status": OrderStatus.PENDING,
-                    # "created_at": datetime.utcnow() # Let DB handle default?
-                }
-                
-                # Assuming OrderRepository handles commit for now (based on its faulty snippet)
-                # This needs to be revisited!
-                repo = OrderRepository(session)
-                new_order = await repo.create(new_order_data)
-                # If repo doesn't commit, this needs: await session.commit(); await session.refresh(new_order)
-                
-                if not new_order or not new_order.id: # Check if creation seemed successful
-                     logger.error(f"Order creation failed for user {telegram_user_id}, plan {plan_id}")
-                     await callback.answer("خطایی در ثبت سفارش رخ داد.", show_alert=True)
-                     return
+                # استفاده فقط از سرویس برای ایجاد سفارش
+                order = await order_service.create_order(
+                    user_id=db_user.id,
+                    plan_id=plan_id,
+                    location_name=location_name,
+                    amount=plan.price,
+                    status=OrderStatus.PENDING
+                )
+                if not order or not order.id:
+                    logger.error(f"Order creation failed for user {telegram_user_id}, plan {plan_id}")
+                    await callback.answer("خطایی در ثبت سفارش رخ داد.", show_alert=True)
+                    return
 
-                logger.info(f"Created new order ID: {new_order.id} for user {telegram_user_id} (DB ID: {db_user.id})")
+                logger.info(f"Created new order ID: {order.id} for user {telegram_user_id} (DB ID: {db_user.id})")
                 
-                # پیام موفقیت ثبت سفارش
                 text = (
                     f"✅ سفارش شما با موفقیت ثبت شد!\n\n"
-                    f"🔹 شناسه سفارش: {new_order.id}\n"
+                    f"🔹 شناسه سفارش: {order.id}\n"
                     f"🔹 نام پلن: {plan.name}\n"
                     f"🔹 مبلغ: {int(plan.price):,} تومان\n\n"
                     f"سفارش شما در انتظار پرداخت است. لطفاً روش پرداخت را انتخاب کنید."
                 )
-                
-                # ایجاد دکمه‌های پرداخت
                 payment_keyboard = InlineKeyboardMarkup(inline_keyboard=[
-                    [InlineKeyboardButton(text="💰 پرداخت با کیف پول", callback_data=f"pay_with_wallet:{new_order.id}")],
+                    [InlineKeyboardButton(text="💰 پرداخت با کیف پول", callback_data=f"pay_with_wallet:{order.id}")],
                     [InlineKeyboardButton(text="🔙 بازگشت", callback_data="back_to_plans")]
                 ])
-                
                 await callback.message.edit_text(
                     text=text,
                     reply_markup=payment_keyboard
                 )
-                
                 await callback.answer()
-                
         except Exception as e:
             logger.error(f"Error in confirm_plan_callback for user {callback.from_user.id}: {e}", exc_info=True)
             await callback.answer("خطایی در ثبت سفارش رخ داد. لطفاً دوباره تلاش کنید.", show_alert=True)
@@ -278,6 +249,14 @@ def register_callbacks(router: Router, session_pool):
                     [InlineKeyboardButton(text="🔙 بازگشت", callback_data=BACK_TO_PLANS_CB)]
                 ])
             )
+
+    @router.callback_query(F.data == HELP_CB)
+    async def help_callback(callback: CallbackQuery):
+        await callback.answer("راهنمای ربات به زودی تکمیل می‌شود! 😊", show_alert=True)
+
+    @router.callback_query(F.data == SUPPORT_CB)
+    async def support_callback(callback: CallbackQuery):
+        await callback.answer("پشتیبانی به زودی فعال می‌شود! 🆘", show_alert=True)
 
 # New placeholder handlers
 async def handle_help_menu_callback(callback: CallbackQuery):

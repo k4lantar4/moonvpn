@@ -139,12 +139,12 @@ def get_location_selection_keyboard(locations: List[Panel] = None) -> InlineKeyb
             location_map = {}
             for panel in locations:
                 # بررسی معتبر بودن آبجکت پنل
-                if not hasattr(panel, 'id') or not hasattr(panel, 'location'):
+                if not hasattr(panel, 'id') or not hasattr(panel, 'location_name'):
                     logger.warning(f"Invalid panel object encountered: {panel}")
                     continue
                 
-                if panel.location not in location_map:
-                    location_map[panel.location] = {
+                if panel.location_name not in location_map:
+                    location_map[panel.location_name] = {
                         "emoji": getattr(panel, "flag_emoji", "🏴"),
                         "id": panel.id
                     }

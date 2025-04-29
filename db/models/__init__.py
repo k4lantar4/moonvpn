@@ -52,6 +52,7 @@ from .enums import (
     AccountStatus,
     # UserStatus
 )
+from .admin_permission import AdminPermission
 
 # لیست مدل‌ها برای استفاده توسط Alembic و __init__
 __all__ = [
@@ -72,6 +73,7 @@ __all__ = [
     "ReceiptLog",
     "NotificationLog",
     "ClientRenewalLog",
+    "AdminPermission",
     # Enums are also often included if needed directly from db.models
     "UserRole",
     "PanelStatus",

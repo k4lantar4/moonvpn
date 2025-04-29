@@ -16,173 +16,150 @@
 Cross-reference with @memories.md and @lessons-learned.md for context and best practices.`
 
 # Mode: PLAN 🎯
-Current Task: Refactor PanelService (core/services/panel_service.py)
+Current Task: تکمیل فرایند خرید سرویس در ربات MoonVPN تا مرحله پرداخت (wallet/receipt) و ثبت کامل اکانت در جدول client_accounts با رابطه‌های صحیح (user, plan, panel, inbound و ...)، به همراه نمایش دکمه پرداخت بعد از انتخاب لوکیشن و تست end-to-end با پنل واقعی.
 Understanding:
-- Analyze existing methods (`add_panel`, `register_panel`, `get_panel_by_id`, `get_active_panels`, `get_all_panels`, `get_panel_by_location`, `get_panel_by_address`, `update_panel_status`, `sync_panel_inbounds`).
-- Propose creation/refactoring based on analysis.
-- Add new methods: `update_panel` and `delete_panel`.
-- Ensure correct integration with `PanelRepository` and `XuiClient`.
-- Follow principles: typing, error handling, logging, enums, Persian logs.
-- Document changes in scratchpad.
-- Wait for confirmation before implementation.
-
-Analysis Summary:
-- `add_panel`, `get_*`, `update_panel_status`, `sync_panel_inbounds`: Mostly OK, minor logging improvements possible.
-- `register_panel`: Needs clarification/improvement (missing name/flag, no initial sync). Suggest merging or adding optional params + sync.
-- `update_panel`: Missing. Propose implementation with validation and connection re-test.
-- `delete_panel`: Missing. Propose implementation for logical delete (set status to INACTIVE) including related inbounds. Repository dependency: `update_inbounds_status_by_panel_id`.
+- بعد از انتخاب لوکیشن، باید دکمه‌های پرداخت (پرداخت با کیف پول، پرداخت با رسید) نمایش داده شود.
+- با کلیک روی دکمه پرداخت، درخواست خرید به backend ارسال می‌شود و منطق خرید، پرداخت و ساخت اکانت اجرا می‌گردد.
+- پس از پرداخت موفق، اکانت در پنل ساخته شده و اطلاعات کامل آن (user_id, plan_id, panel_id, inbound_id, uuid, config_url, qr_code_path و ...) در client_accounts ذخیره می‌شود.
+- باید اطمینان حاصل شود که تمام رابطه‌ها و فیلدهای لازم به‌درستی مقداردهی و ذخیره شوند.
+- پیام و QR Code به کاربر ارسال می‌شود.
+- تست عملیاتی و بررسی دیتابیس برای صحت ثبت اطلاعات الزامی است.
 
 Questions:
-1.  Regarding `register_panel`: What is the intended difference compared to `add_panel`? Should it automatically fetch name/flag, or should they be optional inputs? Should it perform initial inbound sync?
-2.  For `delete_panel`: Is logical deletion (setting status to `INACTIVE`) the preferred approach?
-3.  Should Persian log messages completely replace English ones, or be added alongside?
+1. آیا نیاز به انتخاب نوع پرداخت (wallet/receipt) توسط کاربر هست یا فقط یکی کافی است؟
+2. آیا بعد از پرداخت موفق، پیام و QR Code باید همزمان ارسال شود یا جداگانه؟
+3. آیا نیاز به ثبت لاگ یا گزارش خاصی برای هر خرید وجود دارد؟
 
-Confidence: 100%
+Confidence: 90%
 
 Next Steps:
-- [X] Get confirmation and clarification from محمدرضا on the questions above.
-- [X] Implement `update_panel`.
-- [X] Implement `delete_panel` (and required repo method - *Dependency noted*).
-- [X] Refactor `register_panel` based on user feedback.
-- [X] Improve logging (Persian messages).
-- [X] Reorder methods in `panel_service.py`.
-- [X] Update relevant documentation (inline comments, potentially CHANGELOG).
+- [ ] بررسی و اصلاح منطق ربات برای نمایش دکمه پرداخت بعد از انتخاب لوکیشن
+- [ ] پیاده‌سازی ارسال درخواست خرید به backend و دریافت نتیجه
+- [ ] اطمینان از ثبت کامل و صحیح اطلاعات اکانت و رابطه‌ها در client_accounts
+- [ ] تست end-to-end با پنل واقعی و بررسی دیتابیس
+- [ ] مستندسازی و ثبت تغییرات در CHANGELOG
 
-**PanelService Refactoring Complete!**
+Current Phase: PHASE-2
+Mode Context: Implementation Type (New Features) - تکمیل فرایند خرید و ثبت اکانت واقعی
+Status: Active
+Confidence: 95%
+Last Updated: v0.2.1
 
-## Refactoring `db/repositories/panel_repo.py` (Completed)
+Tasks:
+[ID-008] اضافه کردن دکمه پرداخت (wallet/receipt) بعد از انتخاب لوکیشن در ربات
+Status: [X] Priority: [High]
+Dependencies: None
+Progress Notes:
+- [v0.2.1] منطق نمایش دکمه پرداخت و جزئیات اکانت بعد از انتخاب پروتکل (inbound) پیاده‌سازی و تست اولیه انجام شد.
 
-**Task:** Analyze and refactor `db/repositories/panel_repo.py` to align with project standards (async, logging, error handling, no commits, bulk methods).
+[ID-009] ارسال درخواست خرید به backend و مدیریت پاسخ (ثبت سفارش، پرداخت، ساخت اکانت)
+Status: [-] Priority: [High]
+Dependencies: [ID-008]
+Progress Notes:
+- [v0.2.1] سفارش بعد از انتخاب پروتکل ایجاد می‌شود و کاربر مستقیماً وارد مرحله پرداخت می‌شود. آماده تست ثبت صحیح اطلاعات و روابط در دیتابیس.
 
-**Actions Taken:**
-- Read the (partial) file content.
-- Analyzed existing methods for async, session usage, commits, logging, errors, docstrings.
-- Removed `session.commit()` from `update_panel` and `delete_panel`.
-- Added standard bilingual (Persian/English) logging using Python's `logging` module to all methods.
-- Added basic try-except blocks for `SQLAlchemyError` to operational methods.
-- Improved and standardized docstrings for all methods (Persian/English).
-- Implemented missing methods: `bulk_add_inbounds`, `bulk_update_inbounds`, `update_inbounds_status_by_panel_id` using `AsyncSession`, `flush`, and appropriate SQLAlchemy constructs (Core API for bulk updates).
-- Ensured all methods are async and use `AsyncSession`.
-- Logically reordered methods within the class.
-- Applied changes to the file.
+[ID-010] اطمینان از ثبت صحیح اطلاعات و رابطه‌ها در client_accounts پس از ساخت اکانت
+Status: [ ] Priority: [High]
+Dependencies: [ID-009]
+Progress Notes:
+- [ ] در انتظار تست عملیاتی.
 
-**Outcome:**
-- `PanelRepository` is now refactored.
-- Methods are async, have logging & basic error handling.
-- Transaction management (`commit`/`rollback`) is delegated to the service layer.
-- Necessary bulk operations for inbounds are implemented.
-- File is ready for integration with `PanelService`.
+[ID-011] تست end-to-end با پنل واقعی و بررسی دیتابیس
+Status: [ ] Priority: [High]
+Dependencies: [ID-010]
+Progress Notes:
+- [ ] در انتظار تست.
 
-**Next Steps:** Integrate `PanelRepository` with `PanelService`, ensuring proper transaction management and data transformation (if needed) in the service layer.
+[ID-012] مستندسازی و ثبت تغییرات در CHANGELOG
+Status: [ ] Priority: [Medium]
+Dependencies: [ID-011]
+Progress Notes:
+- [ ] پس از اتمام پیاده‌سازی و تست.
 
-# Mode: AGENT ⚡️
-Task: بازبینی و بازسازی کامل `db/repositories/panel_repo.py`
-Status: Completed ✅
+# Mode: READY ✅
+Current Task: ---
+Status: Scratchpad cleaned and ready for new tasks.
+
+Current Phase: PHASE-1
+Mode Context: Implementation Type (New Features) - ذخیره و مدیریت QR Code تصویری برای کلاینت‌ها
+Status: Active
 Confidence: 100%
-Last Updated: [Just now]
+Last Updated: v0.1.0
 
-Summary:
-- فایل `db/repositories/panel_repo.py` با موفقیت بازبینی و بازسازی شد.
-- متدهای CRUD و Bulk بررسی و در صورت نیاز اصلاح شدند.
-- استانداردها (async, no commit, logging, error handling, docstrings) اعمال شدند.
-- متدهای `update_panel`, `delete_panel`, `bulk_update_inbounds`, `update_inbounds_status_by_panel_id` به طور قابل توجهی بهبود یافتند تا رفتار session و عدم استفاده از flush/commit در ریپازیتوری واضح‌تر باشد.
-- ترتیب متدها به `CRUD -> Bulk` اصلاح شد.
-- لاگ‌ها و داک‌استرینگ‌ها به‌روز و دقیق‌تر شدند.
+Tasks:
+[ID-001] افزودن فیلد qr_code_path به مدل و اسکیما ClientAccount
+Status: [X] Priority: [High]
+Dependencies: None
+Progress Notes:
+- [v0.1.0] فیلد qr_code_path به مدل و اسکیما اضافه شد و مستندسازی کامل انجام شد.
 
-Report:
-- Confirmed ✅: `__init__`, `get_panel_by_id`, `get_panel_by_url`, `get_all_panels`, `get_active_panels`, `get_panel_inbounds`
-- Modified 🔥: `create_panel`, `update_panel`, `delete_panel`, `bulk_add_inbounds`, `bulk_update_inbounds`, `update_inbounds_status_by_panel_id`
-- Added ➕: None
-- Reordered 🔥: Yes
+[ID-002] پیاده‌سازی ساخت و ذخیره QR Code تصویری هنگام ساخت/آپدیت کلاینت
+Status: [X] Priority: [High]
+Dependencies: [ID-001]
+Progress Notes:
+- [v0.1.0] منطق ساخت و ذخیره QR Code تصویری با استفاده از پکیج qrcode پیاده‌سازی شد.
 
-Next Steps: منتظر دستورات بعدی محمدرضا جان.
+[ID-003] حذف خودکار QR قبلی هنگام تغییر uuid کلاینت
+Status: [X] Priority: [High]
+Dependencies: [ID-002]
+Progress Notes:
+- [v0.1.0] متد حذف QR قبلی هنگام تغییر uuid اضافه شد و تست عملیاتی انجام شد.
 
-## Refactor ClientService (core/services/client_service.py) - Completed
+[ID-004] نصب و اطمینان از وجود پکیج qrcode در محیط داکر و Poetry
+Status: [X] Priority: [High]
+Dependencies: [ID-002]
+Progress Notes:
+- [v0.1.0] poetry install و poetry lock داخل کانتینر app اجرا شد و مشکل ModuleNotFoundError رفع شد.
 
-**Status:** ✅ Completed
-**Confidence:** 100%
-**Summary:**
-- Refactored `core/services/client_service.py` according to the prompt.
-- Removed all `session.commit()` calls, using `session.flush()` instead.
-- Centralized `XuiClient` acquisition using `PanelService`.
-- Made client parameters (`flow`, `limitIp`) dynamic based on `Plan` with defaults.
-- Implemented comprehensive Persian/English logging for operations and errors.
-- Added robust error handling (`try-except`) for XUI and DB errors, including panel rollback logic for creation failures.
-- Added complete Persian docstrings for all public and helper methods.
-- Reviewed inbound selection logic (kept simple strategy for now).
-- Reordered methods logically (Create, Read, Update, Delete, Helpers).
-- All requirements from the prompt addressed.
-**Next Step:** Ready for the next prompt.
+[ID-005] تست عملیاتی و بررسی لاگ‌ها برای اطمینان از عملکرد صحیح
+Status: [-] Priority: [High]
+Dependencies: [ID-004]
+Progress Notes:
+- [v0.1.0] سرویس بدون خطا اجرا شد و آماده تست عملیاتی QR Code است.
 
-## AccountService Refactoring (`core/services/account_service.py`)
+[ID-006] بهبود UX و مستندسازی نهایی (در صورت نیاز)
+Status: [ ] Priority: [Medium]
+Dependencies: [ID-005]
+Progress Notes:
+- [ ] در انتظار بازخورد و تست عملیاتی.
 
-- **Objective**: Refactor `AccountService` to decouple from direct `XuiClient` interaction, delegate panel operations to `ClientService`, and improve logging/error handling.
-- **Changes Implemented**:
-    - Updated `__init__` to inject `ClientService` and `PanelService`, removing direct repo dependencies except `ClientAccountRepository`.
-    - Rewrote `provision_account`:
-        - Calls assumed `ClientService._create_client_on_panel` for panel creation.
-        - Calls assumed `ClientService._get_config_url_from_panel` for config URL.
-        - Creates `ClientAccount` record locally.
-        - Uses `session.flush()`.
-        - Added detailed logging (Fa/En), Farsi docstrings, error handling, and panel rollback logic.
-    - Rewrote `delete_account`:
-        - Calls assumed `ClientService._delete_client_on_panel` (best-effort).
-        - Deletes `ClientAccount` record locally.
-        - Uses `session.flush()`.
-        - Added logging, Farsi docstrings, error handling.
-    - Rewrote `renew_account`:
-        - Calls assumed `ClientService._update_client_on_panel`.
-        - Updates `ClientAccount` record locally.
-        - Uses `session.flush()`.
-        - Added logging, Farsi docstrings, error handling.
-    - Added `deactivate_account`:
-        - Calls assumed `ClientService._disable_client_on_panel`.
-        - Updates `ClientAccount` status to `INACTIVE` locally.
-        - Uses `session.flush()`.
-        - Added logging, Farsi docstrings, error handling.
-    - Updated Read methods (`get_...`) with logging and docstrings.
-    - Ensured logical method ordering (CRUD + Helpers).
-    - Removed direct `XuiClient` usage and direct `session.commit()`.
-- **Dependencies**: Requires implementation of helper methods (`_create_client_on_panel`, `_get_config_url_from_panel`, `_update_client_on_panel`, `_disable_client_on_panel`, `_delete_client_on_panel`, `_rollback_panel_creation`) within `ClientService` that solely handle panel interactions.
+[ID-007] تکمیل ساخت اکانت واقعی (ClientAccount) در پنل با py3xui و xui_client.py و ذخیره اطلاعات کامل کلاینت در دیتابیس
+Status: [-] Priority: [High]
+Dependencies: [ID-002]
+Progress Notes:
+- [v1.0.0] شروع بررسی و اصلاح متدهای ساخت اکانت در AccountService/ClientService برای ارتباط کامل با پنل و ذخیره uuid و subscription_url و QR در دیتابیس. بررسی API پنل برای دریافت اطلاعات کلاینت.
 
-# 🚀 Refactor ClientService Panel Helpers (core/services/client_service.py)
+# 📝 اسکرچ‌پد MoonVPN – وضعیت تا این لحظه
 
-- **Added/Refactored Panel Helper Methods:**
-    - `_get_xui_client(panel_id)`: New helper to fetch XuiClient by ID.
-    - `_create_client_on_panel(panel_id, inbound_remote_id, client_data) -> client_uuid`: Refactored. Creates client on panel.
-    - `_delete_client_on_panel(panel_id, client_uuid) -> bool`: New. Deletes client from panel.
-    - `_update_client_on_panel(panel_id, client_uuid, update_data) -> bool`: New. Updates client on panel.
-    - `_disable_client_on_panel(panel_id, client_uuid) -> bool`: New. Disables client on panel (uses update).
-    - `_get_config_url_from_panel(panel_id, client_uuid) -> Optional[str]`: Refactored. Gets config URL, better error handling.
-    - `_rollback_panel_creation(panel_id, client_uuid) -> None`: Refactored. Attempts panel deletion for rollback, logs errors only.
-- **Rules Adhered To:** All methods are async, no DB commit/flush within helpers, use `PanelService` for XuiClient, proper logging (FA/EN), error handling (raising relevant exceptions), type hints, and docstrings (FA/EN).
-- **Impact:** `ClientService` now has dedicated, reusable methods for panel interactions, separating concerns from DB logic. Methods like `create_client_account_for_order` and `delete_account` updated partially to use these helpers.
-- **Next Steps:** Thoroughly review and test `create_client_account_for_order`'s new logic flow. Test other services using these helpers (e.g., `AccountService`).
+## ۱. رفع خطاهای Enum و State
+- مقدار `INACTIVE` به Enum مربوط به `InboundStatus` در مدل و migrationها اضافه شد.
+- مقدار `select_payment` به جای `payment` در State خرید (`BuyState`) قرار گرفت تا با کد هماهنگ باشد.
+- migrationها اصلاح و اجرا شدند.
+- سرویس با دستور `moonvpn restart` ریستارت شد.
 
-# Mode: Agent ⚡
-## Task: Fix Login Issue + PanelRepository Methods + Service Instantiation
+## ۲. رفع خطای دیتابیس (Data truncated for column 'status')
+- پس از migration، خطای Data truncated برای مقدار INACTIVE در ستون status جدول inbound ظاهر شد.
+- علت: Enum جدول در دیتابیس MySQL هنوز مقدار INACTIVE را نداشت.
+- راه‌حل: اجرای مستقیم دستور ALTER TABLE برای اصلاح Enum ستون status جدول inbound با:
+  ```sql
+  ALTER TABLE inbound MODIFY COLUMN status ENUM('ACTIVE','DISABLED','INACTIVE','DELETED') NOT NULL;
+  ```
+- پس از اجرای دستور و ریستارت مجدد، خطا به طور کامل رفع شد و همگام‌سازی اینباندها و پنل‌ها موفق بود.
 
-**Plan 📝:**
+## ۳. وضعیت فعلی – مشکل دکمه لیست اینباند
+- همگام‌سازی و وضعیت دیتابیس اکنون سالم است.
+- دکمه "لیست اینباند" در پنل ادمین هیچ پاسخی نمی‌دهد.
+- بررسی کد نشان داد:
+  - هیچ هندلری برای نمایش لیست اینباندهای یک پنل در panel_callbacks.py یا inbound_callbacks.py وجود ندارد.
+  - فقط هندلر لیست کلاینت‌های یک اینباند (`inbound_clients:<panel_id>:<inbound_id>`) وجود دارد.
+- راه‌حل پیشنهادی: ایجاد هندلر جدید برای لیست اینباندهای یک پنل و اتصال آن به دکمه مناسب.
 
-1.  **Phase 1: Fix Login XuiClient**
-    *   Read `core/services/panel_service.py`.
-    *   Find `sync_panel_inbounds` and `test_panel_connection` methods.
-    *   Add `await client.login()` before panel calls within these methods.
-    *   Apply edits.
-2.  **Phase 2: Add Methods to PanelRepository**
-    *   Read `db/repositories/panel_repo.py`.
-    *   Define `get_panels_by_status(status: PanelStatus)`.
-    *   Define `get_inbounds_by_panel_id(panel_id: int, status: Optional[InboundStatus] = None)`.
-    *   Ensure type hints, bilingual logging, and error handling.
-    *   Apply edits (flush only).
-3.  **Phase 3: Fix Dependency Injection**
-    *   Read `bot/init_services.py`.
-    *   Check and fix `ClientService` instantiation with all arguments.
-    *   Apply edits if needed.
-    *   Read `bot/commands/profile.py`.
-    *   Check `ClientService` usage/injection. Apply edits if needed.
-    *   Read `bot/commands/wallet.py`.
-    *   Check `ClientService` and `WalletService` usage/injection. Apply edits if needed.
-4.  **Conclusion & Testing:**
-    *   Notify user of completion.
-    *   Suggest running `moonvpn restart` and `moonvpn logs app`.
+---
+
+## اقدامات بعدی (در انتظار تایید محمدرضا)
+- دریافت callback_data دقیق دکمه لیست اینباند یا تایید برای پیاده‌سازی هندلر جدید.
+- پیاده‌سازی کامل نمایش لیست اینباندها با دکمه‌های عملیاتی (در صورت نیاز).
+
+---
+
+آخرین وضعیت: همه خطاهای دیتابیس و همگام‌سازی رفع شده و فقط مشکل UX/دکمه باقی مانده است. 🚀

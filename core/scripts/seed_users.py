@@ -7,6 +7,8 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..',
 import asyncio
 from sqlalchemy import text
 from db import engine
+from db.models.user import User
+from db.models.enums import UserRole
 
 async def seed_users():
     # Seed two test users via raw SQL to bypass ORM mapping

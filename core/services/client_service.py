@@ -6,6 +6,9 @@ from typing import List, Optional, Dict, Any, Tuple
 from datetime import datetime, timedelta
 import uuid
 from core.log_config import logger
+import os
+import qrcode
+import base64
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, delete
@@ -203,6 +206,9 @@ class ClientService:
             else:
                  logger.warning(f"{log_prefix} Could not retrieve config URL, proceeding without it. | دریافت لینک کانفیگ ناموفق بود، ادامه بدون لینک.")
 
+            # --- Generate and Save QR Code ---
+            qr_code_path = await self._generate_and_save_qr(user_id, created_client_uuid_on_panel, config_url) if config_url else None
+            qr_base64 = await self._get_qr_base64(qr_code_path) if qr_code_path else None
 
             # --- 5. Create ClientAccount in Database ---
             logger.info(f"{log_prefix} Preparing to save ClientAccount to database. | آماده‌سازی برای ذخیره اکانت کلاینت در دیتابیس.")
@@ -218,6 +224,7 @@ class ClientService:
                 expire_at=expiry_datetime,
                 status=AccountStatus.ACTIVE, # Start as active
                 config_url=config_url,
+                qr_code_path=qr_code_path,
                 # Initial usage stats
                 data_usage_bytes=0,
                 last_synced_at=datetime.utcnow(), # Set initial sync time
@@ -226,6 +233,8 @@ class ClientService:
             )
             self.session.add(client_account)
             logger.info(f"{log_prefix} ClientAccount object created and added to session. | آبجکت ClientAccount ایجاد و به نشست اضافه شد.")
+            # افزودن base64 به خروجی برای ارسال نوتیفیکیشن
+            client_account.qr_base64 = qr_base64
 
             # --- 6. Flush Session ---
             logger.info(f"{log_prefix} Flushing session to save ClientAccount. | Flush کردن نشست برای ذخیره ClientAccount.")
@@ -951,8 +960,60 @@ class ClientService:
         self.session.add(order) # Add order back to session to mark it for update during flush
         logger.debug(f"{log_prefix} Order entity prepared for update. | موجودیت سفارش برای به‌روزرسانی آماده شد.")
 
-    # Ensure necessary utility methods like _get_validated_order, _get_related_user, etc. are still present or adapted.
-    # Make sure custom exceptions like UserNotFoundError, PlanNotFoundError are defined or replaced.
+    async def _generate_and_save_qr(self, user_id: int, uuid: str, config_url: str) -> str:
+        """
+        ساخت و ذخیره QR Code تصویری برای subscription_url و بازگرداندن مسیر فایل ذخیره شده.
+        Generate and save QR code image for the subscription_url and return the saved file path.
+        مسیر: /data/qrcodes/{user_id}_{uuid}.png
+        """
+        qr_dir = "/data/qrcodes"
+        os.makedirs(qr_dir, exist_ok=True)
+        qr_path = os.path.join(qr_dir, f"{user_id}_{uuid}.png")
+        qr_img = qrcode.make(config_url)
+        qr_img.save(qr_path)
+        return qr_path
+
+    async def _get_qr_base64(self, qr_path: str) -> str:
+        """
+        خواندن فایل QR Code و تبدیل به base64 برای ارسال به ربات.
+        """
+        if not qr_path or not os.path.exists(qr_path):
+            return ""
+        with open(qr_path, "rb") as f:
+            return base64.b64encode(f.read()).decode("utf-8")
+
+    async def _delete_old_qr(self, old_path: str):
+        """
+        حذف فایل QR Code قبلی در صورت وجود.
+        Delete previous QR code image file if exists.
+        """
+        if old_path and os.path.exists(old_path):
+            os.remove(old_path)
+
+    async def update_client_account(
+        self,
+        account_id: int,
+        new_uuid: str,
+        config_url: str,
+        user_id: int
+    ):
+        """
+        بروزرسانی uuid و QR Code کلاینت، حذف QR قبلی و ذخیره جدید.
+        """
+        account = await self.client_repo.get_by_id(account_id)
+        if not account:
+            raise ValueError("ClientAccount not found")
+        old_qr_path = account.qr_code_path
+        # حذف QR قبلی
+        await self._delete_old_qr(old_qr_path)
+        # ساخت QR جدید
+        qr_code_path = await self._generate_and_save_qr(user_id, new_uuid, config_url)
+        # بروزرسانی فیلدها
+        account.remote_uuid = new_uuid
+        account.config_url = config_url
+        account.qr_code_path = qr_code_path
+        await self.session.commit()
+        return account
 
 # Ensure ClientRepository.create exists and accepts a ClientAccount object or kwargs
 # Ensure PanelRepository/InboundRepository methods used are correct

@@ -13,4 +13,4 @@ class BuyState(StatesGroup):
     select_location = State()  # انتخاب لوکیشن
     select_inbound = State()  # انتخاب پروتکل
     confirm_purchase = State()  # تایید نهایی خرید
-    payment = State()  # پرداخت 
+    select_payment = State()  # انتخاب روش پرداخت 

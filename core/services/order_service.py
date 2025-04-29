@@ -597,10 +597,18 @@ class OrderService:
             )
 
             # Optionally, also send QR code if available
-            if account.qr_base64:
+            qr_base64 = getattr(account, 'qr_base64', None)
+            if not qr_base64 and getattr(account, 'qr_code_path', None):
+                # تلاش برای تولید base64 از فایل در صورت نبود مقدار
+                import os, base64
+                qr_path = account.qr_code_path
+                if os.path.exists(qr_path):
+                    with open(qr_path, "rb") as f:
+                        qr_base64 = base64.b64encode(f.read()).decode("utf-8")
+            if qr_base64:
                 await self.notification_service.send_photo_base64(
                     user_id=user.telegram_id,
-                    base64_data=account.qr_base64,
+                    base64_data=qr_base64,
                     caption="QR Code اشتراک شما"
                 )
 
@@ -665,10 +673,18 @@ class OrderService:
             )
 
             # Optionally, also send QR code if available
-            if account.qr_base64:
+            qr_base64 = getattr(account, 'qr_base64', None)
+            if not qr_base64 and getattr(account, 'qr_code_path', None):
+                # تلاش برای تولید base64 از فایل در صورت نبود مقدار
+                import os, base64
+                qr_path = account.qr_code_path
+                if os.path.exists(qr_path):
+                    with open(qr_path, "rb") as f:
+                        qr_base64 = base64.b64encode(f.read()).decode("utf-8")
+            if qr_base64:
                 await self.notification_service.send_photo_base64(
                     user_id=user.telegram_id,
-                    base64_data=account.qr_base64,
+                    base64_data=qr_base64,
                     caption="QR Code اشتراک شما"
                 )
 

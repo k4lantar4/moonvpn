@@ -18,7 +18,7 @@ def get_admin_panel_keyboard() -> InlineKeyboardMarkup:
     kb.button(text="💰 پلن‌ها", callback_data="admin_plans")
     kb.button(text="💸 تراکنش‌ها", callback_data="admin_transactions")
     kb.add(get_admin_receipts_button())  # دکمه مدیریت رسیدها
-    kb.button(text="💳 مدیریت کارت‌های بانکی", callback_data="bank_card:list")
+    kb.button(text="💳 مدیریت کارت‌های بانکی", callback_data="admin:bank_card:list")
     kb.button(text="⚙️ تنظیمات", callback_data="admin_settings")
     kb.button(text="📄 گزارش تمدیدها", callback_data="admin:renewal_log")
     kb.button(text="🔙 بازگشت", callback_data="start")
