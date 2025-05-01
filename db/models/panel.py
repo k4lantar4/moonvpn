@@ -6,7 +6,8 @@ from typing import List, Optional
 from enum import Enum as PythonEnum # Alias standard Enum to avoid conflict
 
 from sqlalchemy import Integer, String, Text, Column, Enum as SQLEnum
-from sqlalchemy.orm import relationship, Mapped
+from sqlalchemy.orm import relationship, Mapped, column_property
+from sqlalchemy.ext.hybrid import hybrid_property
 
 # Import PanelStatus from the central enums file
 from .enums import PanelStatus, PanelType 
@@ -41,7 +42,7 @@ class Panel(Base):
     password = Column(String(255), nullable=False) # Store securely later
     type = Column(SQLEnum(PanelType), 
                   default=PanelType.XUI, nullable=False)
-    status = Column(SQLEnum(PanelStatus), 
+    _status = Column('status', SQLEnum(PanelStatus), 
                     default=PanelStatus.ACTIVE, 
                     nullable=False)
     notes = Column(Text, nullable=True)
@@ -49,6 +50,29 @@ class Panel(Base):
     # ارتباط با سایر مدل‌ها
     inbounds: Mapped[List["Inbound"]] = relationship("Inbound", back_populates="panel", cascade="all, delete-orphan")
     client_accounts: Mapped[List["ClientAccount"]] = relationship("ClientAccount", back_populates="panel")
+    
+    @hybrid_property
+    def status(self) -> PanelStatus:
+        """Get the panel status with proper enum conversion."""
+        if isinstance(self._status, str):
+            try:
+                return PanelStatus[self._status.upper()]
+            except KeyError:
+                # Default to ACTIVE if invalid status
+                return PanelStatus.ACTIVE
+        return self._status
+    
+    @status.setter
+    def status(self, value):
+        """Set the panel status with proper enum conversion."""
+        if isinstance(value, str):
+            try:
+                self._status = PanelStatus[value.upper()]
+            except KeyError:
+                # Default to ACTIVE if invalid status
+                self._status = PanelStatus.ACTIVE
+        else:
+            self._status = value
     
     def __repr__(self) -> str:
         return f"<Panel(id={self.id}, name={self.name}, location={self.location_name})>"

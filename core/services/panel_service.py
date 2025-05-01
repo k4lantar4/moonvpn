@@ -287,32 +287,16 @@ class PanelService:
     async def get_active_panels(self) -> List[Panel]:
         """دریافت تمام پنل‌های فعال از ریپازیتوری"""
         try:
-            # Get all panels with ACTIVE status defined in Enum
-            panels_active_enum = await self.panel_repo.get_panels_by_status(PanelStatus.ACTIVE)
+            # Get panels using repository's enhanced get_active_panels method
+            panels = await self.panel_repo.get_active_panels()
             
-            # WORKAROUND: Also try to get panels with lowercase 'active' due to data inconsistency
-            try:
-                panels_active_str = await self.panel_repo.get_panels_by_raw_status('active')
-                # Merge results and remove duplicates (based on ID)
-                all_potential_panels = {p.id: p for p in panels_active_enum}
-                for p in panels_active_str:
-                    if p.id not in all_potential_panels:
-                        # Correct the status in the object before adding
-                        p.status = PanelStatus.ACTIVE 
-                        all_potential_panels[p.id] = p
-                
-                final_panels = list(all_potential_panels.values())
-                logger.info(f"Workaround applied: Found {len(final_panels)} potentially active panels (including lowercase 'active').")
-                return final_panels
-            except AttributeError:
-                 # If get_panels_by_raw_status doesn't exist in repo, log warning and return original list
-                 logger.warning("PanelRepository does not have get_panels_by_raw_status. Returning panels based on Enum only.")
-                 return panels_active_enum
-            except Exception as raw_e:
-                logger.error(f"Error fetching panels with raw status 'active': {raw_e}")
-                # Fallback to Enum-based fetch if raw fetch fails
-                return panels_active_enum
-
+            # Ensure all returned panels have correct status
+            for panel in panels:
+                if isinstance(panel.status, str):
+                    panel.status = PanelStatus.ACTIVE
+            
+            logger.info(f"دریافت {len(panels)} پنل فعال. (Retrieved {len(panels)} active panels.)")
+            return panels
         except Exception as e:
             logger.error(f"خطا در دریافت پنل‌های فعال: {e}", exc_info=True)
             return []
