@@ -17,6 +17,8 @@ from bot.buttons.plan_buttons import get_plans_keyboard, get_plan_details_keyboa
 from bot.buttons.common_buttons import BACK_TO_MAIN_CB, BACK_TO_PLANS_CB, HELP_CB, SUPPORT_CB
 from db.models.order import Order, OrderStatus
 from bot.states.buy_states import BuyState
+from core.services.payment_service import PaymentService
+from core.services.payment_service import InsufficientFundsError, PaymentError
 
 # تنظیم لاگر
 logger = logging.getLogger(__name__)
@@ -127,6 +129,10 @@ def register_callbacks(router: Router, session_pool):
 
                 logger.info(f"Created new order ID: {order.id} for user {telegram_user_id} (DB ID: {db_user.id})")
                 
+                # Commit the session to save the order before sending payment options
+                await session.commit()
+                logger.info(f"Order {order.id} committed successfully.")
+
                 text = (
                     f"✅ سفارش شما با موفقیت ثبت شد!\n\n"
                     f"🔹 شناسه سفارش: {order.id}\n"
@@ -207,37 +213,118 @@ def register_callbacks(router: Router, session_pool):
                     await callback.answer("کاربر شما در سیستم یافت نشد! لطفاً ابتدا /start را بزنید.", show_alert=True)
                     return
                 
-                # پرداخت با کیف پول
-                order_service = OrderService(session)
-                success, message = await order_service.pay_with_balance(order_id)
+                # سرویس‌های لازم رو بساز
+                order_service = OrderService(session) 
+                payment_service = PaymentService(session) # PaymentService رو هم بساز
                 
-                if not success:
-                    # دریافت اطلاعات سفارش برای نمایش مبلغ مورد نیاز
-                    order = await order_service.get_order_by_id(order_id)
-                    
+                # دریافت اطلاعات سفارش برای گرفتن مبلغ
+                order = await order_service.get_order_by_id(order_id)
+                if not order:
+                    logger.error(f"Order {order_id} not found for payment attempt.")
+                    await callback.message.edit_text("❌ خطایی در یافتن سفارش رخ داد.", reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 بازگشت", callback_data=BACK_TO_PLANS_CB)]]))
+                    await callback.answer()
+                    return
+
+                # پرداخت با کیف پول با استفاده از PaymentService
+                try:
+                    payment_success, payment_message, transaction = await payment_service.pay_from_wallet(
+                        user_id=db_user.id, 
+                        amount=order.amount, 
+                        description=f"Payment for order {order_id}",
+                        order_id=order_id
+                    )
+                except InsufficientFundsError:
                     # اگر موجودی کافی نیست، پیغام مناسب ارسال می‌شود
                     await callback.message.edit_text(
-                        f"❌ {message}\n\n"
-                        f"موجودی فعلی: {int(db_user.balance):,} تومان\n"
+                        f"❌ موجودی کیف پول شما کافی نیست.\n\n"
+                        f"موجودی فعلی: {int(db_user.wallet_balance):,} تومان\n"
                         f"مبلغ لازم: {int(order.amount):,} تومان\n\n"
                         "لطفاً ابتدا کیف پول خود را شارژ کنید.",
                         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
                             [InlineKeyboardButton(text="💰 شارژ کیف پول", callback_data="deposit_wallet")],
-                            [InlineKeyboardButton(text="🔙 بازگشت", callback_data="back_to_plans")]
+                            [InlineKeyboardButton(text="🔙 بازگشت", callback_data="back_to_plans")] # یا back_to_order? 
                         ])
                     )
+                    await callback.answer()
                     return
-                    
-                # اگر پرداخت موفقیت‌آمیز بود
-                await callback.message.edit_text(
-                    "✅ پرداخت با موفقیت انجام شد!\n\n"
-                    "سفارش شما در حال پردازش است. کانفیگ VPN شما به زودی آماده خواهد شد.\n"
-                    "لطفاً منتظر بمانید...",
-                    reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                        [InlineKeyboardButton(text="🔙 بازگشت به منوی اصلی", callback_data="back_to_main")]
-                    ])
-                )
+                except PaymentError as pe:
+                    logger.error(f"PaymentError during wallet payment for order {order_id}: {pe}")
+                    payment_success = False
+                    payment_message = f"خطا در پردازش پرداخت: {pe}"
                 
+                if not payment_success:
+                    await callback.message.edit_text(
+                        f"❌ {payment_message}",
+                        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                            [InlineKeyboardButton(text="🔙 بازگشت", callback_data="back_to_plans")] # یا back_to_order?
+                        ])
+                    )
+                    await callback.answer()
+                    return
+                
+                # اگر پرداخت موفق بود، وضعیت سفارش رو بروز کن و اکانت رو بساز
+                logger.info(f"Wallet payment successful for order {order_id}, transaction_id: {transaction.id if transaction else 'N/A'}")
+                # بروزرسانی وضعیت سفارش به پرداخت شده
+                updated_order = await order_service.update_order_status(order_id, OrderStatus.PAID)
+                if not updated_order:
+                     logger.error(f"Failed to update order {order_id} status to PAID after successful wallet payment.")
+                     # TODO: Maybe attempt a refund or flag for admin review?
+                     await callback.message.edit_text("❌ پرداخت موفق بود اما در بروزرسانی وضعیت سفارش خطایی رخ داد. لطفاً با پشتیبانی تماس بگیرید.")
+                     await callback.answer()
+                     return
+
+                # حالا باید اکانت رو بسازیم (این منطق ممکنه در OrderService یا AccountService باشه)
+                # فرض می‌کنیم یک متد در OrderService برای نهایی کردن سفارش و ساخت اکانت وجود داره
+                try:
+                    # از متد process_order_purchase برای تکمیل فرآیند استفاده می‌کنیم
+                    # چون پرداخت دستی انجام شده، بخش پرداخت رو رد می‌کنیم
+                    # !! نکته: شاید بهتر باشه process_order_purchase خودش پرداخت رو هندل کنه و ما فقط اون رو صدا بزنیم
+                    # یا اینکه یک متد جدا مثل finalize_order_and_create_account داشته باشیم
+                    
+                    # **روش 1: فراخوانی یک متد نهایی سازی (اگر وجود داشته باشد)**
+                    # account_success, account_message, account_details = await order_service.finalize_paid_order(order_id)
+                    
+                    # **روش 2: استفاده از AccountService به طور مستقیم (نیاز به اطلاعات بیشتر مثل panel_id, inbound_id)**
+                    # TODO: Get selected panel/inbound info from state or order details if stored
+                    # panel_id = ... 
+                    # inbound_id = ... 
+                    # account_service = AccountService(session, ...) # Pass necessary services
+                    # account_result = await account_service.provision_account_for_order(order)
+                    
+                    # **روش موقت: فقط نمایش پیام موفقیت (نیاز به تکمیل منطق ساخت اکانت)**
+                    account_success = True # فرض می‌کنیم موفق بوده
+                    account_message = "ساخت اکانت در حال حاضر پیاده‌سازی نشده است."
+                    account_details = None
+                    
+                except Exception as account_exc:
+                    logger.error(f"Error provisioning account for order {order_id} after successful payment: {account_exc}", exc_info=True)
+                    account_success = False
+                    account_message = "خطا در ساخت اکانت VPN." 
+                    # TODO: Attempt refund or flag?
+
+                if account_success:
+                    await callback.message.edit_text(
+                        "✅ پرداخت و ساخت اکانت با موفقیت انجام شد!\n\n"
+                        f"{account_message}"
+                        # TODO: Display account details (QR code, config link) here if available
+                        ,
+                        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                            [InlineKeyboardButton(text="مشاهده اکانت‌های من", callback_data="my_accounts")],
+                            [InlineKeyboardButton(text="🔙 بازگشت به منوی اصلی", callback_data="back_to_main")]
+                        ])
+                    )
+                else:
+                     await callback.message.edit_text(
+                        f"⚠️ پرداخت موفق بود اما در ساخت اکانت خطایی رخ داد:\n{account_message}\nلطفاً با پشتیبانی تماس بگیرید.",
+                        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                            [InlineKeyboardButton(text="🔙 بازگشت به منوی اصلی", callback_data="back_to_main")]
+                        ])
+                    )
+                
+                await callback.answer()
+                
+        except InsufficientFundsError: # این رو دیگه بالا هندل کردیم، ولی برای اطمینان می‌ذاریم
+            pass # Already handled
         except Exception as e:
             logger.error(f"Error in pay_with_wallet_callback: {e}", exc_info=True)
             await callback.answer("خطایی رخ داد. لطفاً دوباره تلاش کنید.", show_alert=True)

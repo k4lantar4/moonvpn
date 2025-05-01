@@ -27,6 +27,10 @@ router = Router()
 _session_maker = None
 
 
+# نکته: برای حفظ سازگاری با هر دو کاربر عادی و ادمین، دکمه خرید سرویس
+# باید یکسان عمل کند. در فایل commands/buy.py هندلر مشترک وجود دارد.
+# در اینجا نیاز به افزودن هندلر نیست.
+
 async def admin_command(message: types.Message):
     """
     دستور /admin برای دسترسی به پنل مدیریت

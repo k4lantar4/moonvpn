@@ -3,11 +3,16 @@
 """
 
 import logging
-from typing import Union
+from typing import Union, List
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
 from aiogram.filters.command import Command
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
+from core.services.account_service import AccountService
+from core.services.client_service import ClientService
+from core.services.panel_service import PanelService
+from db.models.client_account import ClientAccount, AccountStatus
 
 # تنظیم لاگر
 logger = logging.getLogger(__name__)
@@ -21,13 +26,57 @@ async def _display_my_accounts(target: Union[Message, CallbackQuery], session: A
     logger.info(f"Displaying accounts for user {user_id}")
 
     try:
-        # TODO: Implement logic to fetch user accounts from db using session
-        # For now, just send a placeholder message
-        accounts_text = (
-            "📊 اشتراک‌های من:\\n\\n" 
-            "شما هنوز هیچ اشتراکی فعال ندارید.\\n\\n"
-            "برای خرید اشتراک از دکمه '🛒 خرید اشتراک' استفاده کنید."
+        # ایجاد سرویس‌های مورد نیاز
+        panel_service = PanelService(session)
+        client_service = ClientService(
+            session=session,
+            client_repo=None,  # اینها در داخل سرویس مقداردهی می‌شوند
+            order_repo=None,
+            panel_repo=None,
+            inbound_repo=None,
+            user_repo=None,
+            plan_repo=None,
+            renewal_log_repo=None,
+            panel_service=panel_service
         )
+        account_service = AccountService(session, client_service, panel_service)
+        
+        # دریافت اکانت‌های فعال کاربر
+        accounts: List[ClientAccount] = await account_service.get_active_accounts_by_user(user_id)
+        
+        if not accounts:
+            # کاربر هیچ اکانت فعالی ندارد
+            accounts_text = (
+                "📊 اشتراک‌های من:\\n\\n" 
+                "شما هنوز هیچ اشتراکی فعال ندارید.\\n\\n"
+                "برای خرید اشتراک از دکمه '🛒 خرید اشتراک' استفاده کنید."
+            )
+        else:
+            # نمایش لیست اکانت‌های فعال
+            accounts_text = "📊 اشتراک‌های من:\\n\\n"
+            
+            for i, account in enumerate(accounts, 1):
+                # تبدیل وضعیت به متن فارسی
+                status_text = "✅ فعال"
+                if account.status == AccountStatus.EXPIRED:
+                    status_text = "❌ منقضی شده"
+                elif account.status == AccountStatus.DISABLED:
+                    status_text = "⛔ غیرفعال"
+                elif account.status == AccountStatus.SWITCHED:
+                    status_text = "🔄 انتقال یافته"
+                
+                # محاسبه ترافیک باقی‌مانده
+                remaining_gb = account.traffic_limit - account.traffic_used
+                
+                # افزودن اطلاعات اکانت به متن
+                accounts_text += (
+                    f"{i}. {account.client_name} - {status_text}\\n"
+                    f"   📆 انقضاء: {account.expires_at.strftime('%Y-%m-%d')}\\n"
+                    f"   📊 ترافیک: {account.traffic_used} از {account.traffic_limit} GB ({remaining_gb} GB باقی‌مانده)\\n"
+                    f"   🔗 {account.panel.location_name or 'بدون لوکیشن'}\\n\\n"
+                )
+            
+            accounts_text += "برای دریافت کانفیگ یا تمدید، بر روی اکانت مورد نظر کلیک کنید."
         
         if isinstance(target, CallbackQuery):
             # Try editing the message, catch potential errors if message is identical or deleted
@@ -39,7 +88,7 @@ async def _display_my_accounts(target: Union[Message, CallbackQuery], session: A
         else:
             await message.answer(accounts_text)
 
-        logger.info(f"Sent my accounts placeholder to user {user_id}")
+        logger.info(f"Sent my accounts list to user {user_id}")
 
     except Exception as e:
         logger.error(f"Error displaying accounts for user {user_id}: {e}", exc_info=True)
@@ -73,4 +122,4 @@ def register_myaccounts_command(router: Router, session_pool: async_sessionmaker
     router.message.register(cmd_myaccounts, Command("myaccounts"))
     
     # ثبت هندلر برای متن دکمه "اشتراک‌های من"
-    router.message.register(cmd_myaccounts, F.text == "📊 اشتراک‌های من") 
+    router.message.register(cmd_myaccounts, F.text == "📊 اشتراک‌های من")

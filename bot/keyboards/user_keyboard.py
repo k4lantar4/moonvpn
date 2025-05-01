@@ -47,12 +47,12 @@ def get_main_keyboard(role: str = "user") -> ReplyKeyboardMarkup:
     kb = ReplyKeyboardBuilder()
     
     # دکمه‌های مشترک برای همه کاربران
-    kb.button(text="🛒 خرید سرویس")
+    kb.button(text="🛒 خرید سرویس")  # این دکمه با /buy یکسان است
     kb.button(text="💳 کیف پول")
     kb.button(text="📊 اشتراک‌های من")
     kb.button(text="❓ راهنما")
     kb.button(text="💬 پشتیبانی")
-    kb.button(text="👤 حساب کاربری") # Added Profile button based on old version
+    kb.button(text="👤 حساب کاربری")
     
     # دکمه‌های مختص ادمین
     if role in ["admin", "superadmin"]:

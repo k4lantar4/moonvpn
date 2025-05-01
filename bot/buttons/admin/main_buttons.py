@@ -27,6 +27,9 @@ def get_admin_panel_keyboard() -> InlineKeyboardMarkup:
     kb.button(text="💸 تراکنش‌ها", callback_data="admin:order:list")
     kb.button(text="🧾 رسیدهای در انتظار", callback_data="admin:receipt:pending")
     
+    # دکمه خرید سرویس - برای سازگاری با تجربه کاربران
+    kb.button(text="🛒 خرید سرویس", callback_data="admin:buy")
+    
     # سایر دکمه‌های مدیریتی
     kb.button(text="💳 مدیریت کارت‌های بانکی", callback_data="admin:bank_card:list")
     kb.button(text="⚙️ تنظیمات", callback_data="admin:settings")

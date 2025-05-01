@@ -42,6 +42,7 @@ from .test_account_log import TestAccountLog
 from .receipt_log import ReceiptLog
 from .notification_log import NotificationLog
 from .client_renewal_log import ClientRenewalLog
+from .wallet import Wallet
 from .enums import (
     UserRole,
     PanelStatus,
@@ -74,6 +75,7 @@ __all__ = [
     "NotificationLog",
     "ClientRenewalLog",
     "AdminPermission",
+    "Wallet",
     # Enums are also often included if needed directly from db.models
     "UserRole",
     "PanelStatus",

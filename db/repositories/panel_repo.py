@@ -4,7 +4,7 @@ Panel repository for database operations
 
 import logging
 from typing import List, Optional, Dict, Any
-from sqlalchemy import select, update, delete
+from sqlalchemy import select, update, delete, text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload # Added for potential future eager loading needs
@@ -170,6 +170,30 @@ class PanelRepository:
             logger.error(f"خطا در دریافت تمام پنل‌ها: {e}. (Error fetching all panels: {e}).")
             raise
 
+    async def get_panels_by_raw_status(self, raw_status: str) -> List[Panel]:
+        """
+        دریافت پنل‌ها با استفاده از مقدار خام وضعیت (برای سازگاری با داده‌های قدیمی).
+        Get panels using raw status value (for backward compatibility).
+
+        Args:
+            raw_status (str): مقدار خام وضعیت (مثلاً 'active' یا 'ACTIVE').
+                             Raw status value (e.g., 'active' or 'ACTIVE').
+
+        Returns:
+            List[Panel]: لیست پنل‌ها با وضعیت مشخص شده.
+                         List of panels with the specified status.
+        """
+        try:
+            # Use raw SQL to bypass SQLAlchemy's enum validation
+            query = text("SELECT * FROM panels WHERE status = :status")
+            result = await self.session.execute(query, {"status": raw_status})
+            panels = [Panel(**dict(row)) for row in result]
+            logger.debug(f"تعداد {len(panels)} پنل با وضعیت خام '{raw_status}' دریافت شد. (Fetched {len(panels)} panels with raw status '{raw_status}').")
+            return panels
+        except SQLAlchemyError as e:
+            logger.error(f"خطا در دریافت پنل‌ها با وضعیت خام '{raw_status}': {e}. (Error fetching panels with raw status '{raw_status}': {e}).")
+            raise
+
     async def get_active_panels(self) -> List[Panel]:
         """
         دریافت لیستی از تمام پنل‌های فعال.
@@ -180,9 +204,23 @@ class PanelRepository:
         """
         logger.debug("در حال دریافت پنل‌های فعال. (Fetching active panels).")
         try:
+            # Try both uppercase and lowercase status values
+            panels = []
+            
+            # Try with PanelStatus.ACTIVE (uppercase)
             query = select(Panel).where(Panel.status == PanelStatus.ACTIVE).order_by(Panel.id)
             result = await self.session.execute(query)
-            panels = list(result.scalars().all())
+            panels.extend(result.scalars().all())
+            
+            # Try with raw 'active' (lowercase) for backward compatibility
+            try:
+                raw_panels = await self.get_panels_by_raw_status('active')
+                # Add only panels that aren't already in the list
+                existing_ids = {p.id for p in panels}
+                panels.extend([p for p in raw_panels if p.id not in existing_ids])
+            except Exception as e:
+                logger.warning(f"خطا در دریافت پنل‌ها با وضعیت خام 'active': {e}. ادامه با نتایج موجود. (Error fetching panels with raw status 'active': {e}. Continuing with available results.)")
+            
             logger.debug(f"تعداد {len(panels)} پنل فعال دریافت شد. (Fetched {len(panels)} active panels.)")
             return panels
         except SQLAlchemyError as e:

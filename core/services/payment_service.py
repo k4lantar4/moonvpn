@@ -209,6 +209,7 @@ class PaymentService:
             type=TRANSACTION_TYPE_PURCHASE,
             status=TRANSACTION_STATUS_PENDING, # Start as pending until balance is adjusted
             description=description,
+            payment_method='wallet',
             related_entity_id=order_id,
             related_entity_type='order' if order_id else None
         )

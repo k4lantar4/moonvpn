@@ -6,7 +6,7 @@ from typing import List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from db.models.client_account import ClientAccount
+from db.models.client_account import ClientAccount, AccountStatus
 from .base_repository import BaseRepository
 
 class AccountRepository(BaseRepository[ClientAccount]):
@@ -20,13 +20,17 @@ class AccountRepository(BaseRepository[ClientAccount]):
         """دریافت تمام اکانت‌های فعال"""
         return await self.filter_by(is_active=True)
 
+    async def get_active_by_user_id(self, user_id: int) -> List[ClientAccount]:
+        """دریافت اکانت‌های فعال یک کاربر"""
+        return await self.filter_by(user_id=user_id, status=AccountStatus.ACTIVE)
+
     async def get_user_accounts(self, user_id: int) -> List[ClientAccount]:
         """دریافت اکانت‌های یک کاربر"""
         return await self.filter_by(user_id=user_id)
 
-    async def get_account_by_uuid(self, uuid: str) -> Optional[ClientAccount]:
-        """دریافت اکانت با UUID"""
-        accounts = await self.filter_by(uuid=uuid)
+    async def get_by_remote_uuid(self, remote_uuid: str) -> Optional[ClientAccount]:
+        """دریافت اکانت با UUID پنل"""
+        accounts = await self.filter_by(remote_uuid=remote_uuid)
         return accounts[0] if accounts else None
 
     async def get_accounts_by_inbound(self, inbound_id: int) -> List[ClientAccount]:

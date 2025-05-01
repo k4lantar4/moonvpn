@@ -135,31 +135,26 @@ class AccountService:
             # panel_xui_client = await self.panel_service._get_xui_client(panel) # Private method call not ideal
 
             # 5. ایجاد کلاینت در پنل از طریق ClientService
-            # ** فرض: ClientService متد _create_client_on_panel یا مشابه دارد **
-            # این متد باید فقط کلاینت را در پنل ایجاد کند و نتیجه را برگرداند.
             logger.info(f"{log_prefix} Calling ClientService to create client on panel {panel.id}. | فراخوانی ClientService برای ایجاد کلاینت در پنل.")
-            # === نیازمند متد در ClientService ===
+            
             panel_response = await self.client_service._create_client_on_panel(
-                panel_id=panel.id,
-                inbound_id=inbound.inbound_id, # Panel's inbound ID
-                client_settings=client_data_for_panel,
-                log_prefix=log_prefix # Pass log prefix for context
+                panel=panel,
+                inbound_id=inbound.remote_id,
+                client_data=client_data_for_panel
             )
             created_client_uuid_on_panel = client_uuid # Set for potential rollback
             logger.info(f"{log_prefix} Client successfully created on panel via ClientService. Response: {panel_response}. | کلاینت با موفقیت در پنل ایجاد شد.")
-            # =====================================
 
             # 6. دریافت URL کانفیگ از طریق ClientService
-            # ** فرض: ClientService متد _get_config_url_from_panel یا مشابه دارد **
             logger.info(f"{log_prefix} Calling ClientService to get config URL for UUID {client_uuid}. | فراخوانی ClientService برای دریافت URL کانفیگ.")
-            # === نیازمند متد در ClientService ===
-            config_url = await self.client_service._get_config_url_from_panel(
-                panel_id=panel.id,
-                client_uuid=client_uuid,
-                log_prefix=log_prefix
+            
+            config_url = await self.client_service._generate_config_url(
+                panel=panel, 
+                inbound=inbound, 
+                client_uuid=client_uuid, 
+                client_email=email
             )
             logger.info(f"{log_prefix} Config URL received: {config_url}. | URL کانفیگ دریافت شد.")
-            # =====================================
 
             # 7. ایجاد رکورد ClientAccount در دیتابیس
             account_data = {
@@ -168,16 +163,19 @@ class AccountService:
                 "panel_id": panel.id,
                 "inbound_id": inbound.id, # Our DB inbound ID
                 "plan_id": plan.id,
-                "uuid": client_uuid,
-                "label": label,
-                "email": email, # Store email
-                "transfer_id": transfer_id,
-                "transfer_count": 0, # Initial value
+                "remote_uuid": client_uuid,
+                "client_name": label,
+                "email_name": email,
                 "expires_at": expires_at,
-                "traffic_total_gb": plan.traffic_gb,
-                "traffic_used_gb": 0, # Initial value
+                "expiry_time": expire_timestamp_ms,
+                "traffic_limit": plan.traffic_gb,
+                "data_limit": traffic_total_bytes,
+                "traffic_used": 0,
+                "data_used": 0,
                 "status": AccountStatus.ACTIVE,
+                "enable": True,
                 "config_url": config_url,
+                "ip_limit": plan.ip_limit or 1, # Use the value from plan
                 "created_at": datetime.utcnow() # Ensure UTC time
             }
             logger.debug(f"{log_prefix} Prepared ClientAccount data for DB: {account_data}. | آماده‌سازی داده ClientAccount برای دیتابیس.")
@@ -204,9 +202,7 @@ class AccountService:
             # اگر کلاینت روی پنل ایجاد شده بود، آن را حذف کن
             if created_client_uuid_on_panel:
                 logger.warning(f"{log_prefix} Attempting to roll back panel client creation for UUID {created_client_uuid_on_panel}. | تلاش برای بازگردانی ایجاد کلاینت در پنل.")
-                # === نیازمند متد در ClientService ===
-                await self.client_service._rollback_panel_creation(panel.id, created_client_uuid_on_panel, log_prefix)
-                # =====================================
+                await self.client_service._rollback_panel_creation(panel, created_client_uuid_on_panel, log_prefix)
             raise # Re-raise the caught exception
 
         except Exception as e: # Catch potential errors from ClientService calls or others
@@ -216,9 +212,7 @@ class AccountService:
             # اگر کلاینت روی پنل ایجاد شده بود، آن را حذف کن
             if created_client_uuid_on_panel:
                 logger.warning(f"{log_prefix} Attempting to roll back panel client creation for UUID {created_client_uuid_on_panel}. | تلاش برای بازگردانی ایجاد کلاینت در پنل.")
-                 # === نیازمند متد در ClientService ===
-                await self.client_service._rollback_panel_creation(panel.id, created_client_uuid_on_panel, log_prefix)
-                # =====================================
+                await self.client_service._rollback_panel_creation(panel, created_client_uuid_on_panel, log_prefix)
             # Wrap unexpected errors for clarity
             raise ValueError(f"خطای پیش‌بینی نشده در ایجاد اکانت: {e}") from e
 
@@ -329,14 +323,14 @@ class AccountService:
             # 2. آماده‌سازی داده‌های آپدیت برای پنل
             new_expire_timestamp_ms = int(datetime.timestamp(new_expires_at)) * 1000
             client_update_data_for_panel = {
-                "id": account.uuid, # UUID不变
+                "id": account.remote_uuid, # UUID不变
+                "email": account.email_name,
+                "remark": account.client_name,
                 "enable": True, # Ensure it's enabled on renewal
-                "total_gb": new_traffic_total_gb, # Update total traffic
-                "expiry_time": new_expire_timestamp_ms, # Update expiry time
-                # "email": account.email, # Email likely doesn't change
-                # "remark": account.label, # Remark likely doesn't change
+                "totalGB": new_traffic_total_gb * (1024**3), # Update total traffic in bytes (Confirm if API expects bytes or GB)
+                "expiryTime": new_expire_timestamp_ms, # Update expiry time
                 "flow": plan.flow or "", # Update flow if needed
-                "limit_ip": plan.ip_limit or 1 # Update IP limit if needed
+                "limitIP": plan.ip_limit or 1 # Update IP limit if needed
             }
             logger.debug(f"{log_prefix} Prepared client update data for panel API: {client_update_data_for_panel}. | آماده‌سازی داده آپدیت برای API پنل.")
 
@@ -362,8 +356,11 @@ class AccountService:
             update_data = {
                 "plan_id": plan.id,
                 "expires_at": new_expires_at,
-                "traffic_total_gb": new_traffic_total_gb,
+                "expiry_time": new_expire_timestamp_ms,
+                "traffic_limit": new_traffic_total_gb,
+                "data_limit": new_traffic_total_bytes,
                 "status": AccountStatus.ACTIVE, # Ensure status is active after renewal
+                "enable": True, # Ensure it's enabled in DB
                 "updated_at": datetime.utcnow()
             }
             # Preserve existing fields not included in update_data
@@ -446,6 +443,7 @@ class AccountService:
             # 2. آپدیت وضعیت اکانت در دیتابیس
             update_data = {
                 "status": AccountStatus.INACTIVE,
+                "enable": False,
                 "updated_at": datetime.utcnow()
             }
             # Preserve existing fields not included in update_data
@@ -511,28 +509,28 @@ class AccountService:
 
         # 2. تلاش برای حذف کلاینت از پنل از طریق ClientService (Best-effort)
         panel_delete_success = False
-        if panel_id_for_delete and client_uuid_for_delete and inbound_id_for_delete:
+        if panel_id_for_delete and client_uuid_for_delete:
             try:
                 logger.info(f"{log_prefix} Calling ClientService to delete client UUID {client_uuid_for_delete} from panel {panel_id_for_delete}. | فراخوانی ClientService برای حذف کلاینت از پنل.")
-                # ** فرض: ClientService متد _delete_client_on_panel یا مشابه دارد **
-                # === نیازمند متد در ClientService ===
-                panel_delete_success = await self.client_service._delete_client_on_panel(
-                    panel_id=panel_id_for_delete,
-                    client_uuid=client_uuid_for_delete,
-                    inbound_id=inbound_id_for_delete, # Panel's inbound ID needed? Confirm ClientService logic
-                    log_prefix=log_prefix
-                )
-                if panel_delete_success:
-                    logger.info(f"{log_prefix} Client successfully deleted from panel via ClientService. | کلاینت با موفقیت از پنل حذف شد.")
+                
+                # Get panel object
+                panel = await self.panel_service.get_panel_by_id(panel_id_for_delete)
+                if panel:
+                    panel_delete_success = await self.client_service._delete_client_on_panel(
+                        panel=panel,
+                        client_uuid=client_uuid_for_delete
+                    )
+                    if panel_delete_success:
+                        logger.info(f"{log_prefix} Client successfully deleted from panel via ClientService. | کلاینت با موفقیت از پنل حذف شد.")
+                    else:
+                        logger.warning(f"{log_prefix} ClientService reported client UUID {client_uuid_for_delete} not found or deletion failed on panel {panel_id_for_delete}. Proceeding with DB deletion. | حذف کلاینت از پنل ناموفق بود یا کلاینت یافت نشد.")
                 else:
-                    # This case might mean the client didn't exist on the panel
-                    logger.warning(f"{log_prefix} ClientService reported client UUID {client_uuid_for_delete} not found or deletion failed on panel {panel_id_for_delete}. Proceeding with DB deletion. | حذف کلاینت از پنل ناموفق بود یا کلاینت یافت نشد.")
-                # =====================================
+                    logger.warning(f"{log_prefix} Panel {panel_id_for_delete} not found, skipping panel deletion.")
+
             except Exception as panel_err:
-                # Log error but continue to DB deletion
                 logger.error(f"{log_prefix} Error calling ClientService to delete client from panel {panel_id_for_delete}: {panel_err}. Proceeding with DB deletion. | خطا در حذف کلاینت از پنل.", exc_info=True)
         else:
-             logger.warning(f"{log_prefix} Missing panel_id, client_uuid or inbound_id for account. Skipping panel deletion. | اطلاعات لازم برای حذف از پنل موجود نیست.")
+            logger.warning(f"{log_prefix} Missing panel_id or client_uuid for account. Skipping panel deletion. | اطلاعات لازم برای حذف از پنل موجود نیست.")
 
         # 3. حذف رکورد ClientAccount از دیتابیس
         try:

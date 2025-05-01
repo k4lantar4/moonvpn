@@ -952,58 +952,52 @@ async def cancel_payment(callback: CallbackQuery, state: FSMContext, session_poo
 def register_buy_callbacks(router: Router, session_pool):
     """ثبت کالبک‌های مربوط به فرآیند خرید"""
     
-    # کالبک انتخاب پلن
+    logger.info("Registering buy callbacks")
+    
     @router.callback_query(F.data.startswith("buy:plan:"))
     async def _plan_selected_wrapper(callback: CallbackQuery, state: FSMContext):
         await plan_selected(callback, state, session_pool)
     
-    # کالبک انتخاب لوکیشن
     @router.callback_query(F.data.startswith("buy:loc:"))
     async def _location_selected_wrapper(callback: CallbackQuery, state: FSMContext):
         await location_selected(callback, state, session_pool)
     
-    # کالبک انتخاب اینباند/پروتکل
     @router.callback_query(F.data.startswith("buy:inb:"))
     async def _inbound_selected_wrapper(callback: CallbackQuery, state: FSMContext):
         await inbound_selected(callback, state, session_pool)
     
-    # کالبک تایید نهایی خرید
     @router.callback_query(F.data.startswith("buy:confirm:"))
     async def _confirm_purchase_wrapper(callback: CallbackQuery, state: FSMContext):
         await confirm_purchase(callback, state, session_pool)
     
-    # کالبک انتخاب روش پرداخت
     @router.callback_query(F.data.startswith("buy:pay:"))
     async def _handle_payment_method_wrapper(callback: CallbackQuery, state: FSMContext):
         await handle_payment_method(callback, state, session_pool)
     
-    # کالبک بازگشت به لیست پلن‌ها
     @router.callback_query(F.data == BUY_CB["BACK_TO_PLANS"])
     async def _back_to_plans_wrapper(callback: CallbackQuery, state: FSMContext):
         await back_to_plans(callback, state, session_pool)
     
-    # کالبک بازگشت به انتخاب لوکیشن
     @router.callback_query(F.data.startswith("buy:back:loc:"))
     async def _back_to_locations_wrapper(callback: CallbackQuery, state: FSMContext):
         await back_to_locations(callback, state, session_pool)
     
-    # کالبک بازگشت به انتخاب اینباند
     @router.callback_query(F.data.startswith("buy:back:inb:"))
     async def _back_to_inbounds_wrapper(callback: CallbackQuery, state: FSMContext):
         await back_to_inbounds(callback, state, session_pool)
     
-    # کالبک بروزرسانی لیست پلن‌ها
     @router.callback_query(F.data == BUY_CB["REFRESH_PLANS"])
     async def _refresh_plans_wrapper(callback: CallbackQuery, state: FSMContext):
         await refresh_plans(callback, state, session_pool)
     
-    # کالبک انصراف از پرداخت
     @router.callback_query(F.data == BUY_CB["CANCEL_PAYMENT"])
     async def _cancel_payment_wrapper(callback: CallbackQuery, state: FSMContext):
         await cancel_payment(callback, state, session_pool)
     
-    # کالبک بررسی وضعیت پرداخت
     @router.callback_query(F.data.startswith("payment:check:"))
     async def _payment_check_wrapper(callback: CallbackQuery, state: FSMContext):
         # این کالبک در آینده پیاده‌سازی خواهد شد
-        await callback.answer("در حال حاضر وضعیت پرداخت از طریق /myaccounts قابل مشاهده است", show_alert=True) 
+        logger.debug(f"Payment check callback received: {callback.data}")
+        await callback.answer("بررسی وضعیت پرداخت...")
+    
+    logger.info("Buy callbacks registered successfully") 

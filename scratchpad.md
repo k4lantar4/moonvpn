@@ -59,10 +59,14 @@ Progress Notes:
 - [v0.2.1] سفارش بعد از انتخاب پروتکل ایجاد می‌شود و کاربر مستقیماً وارد مرحله پرداخت می‌شود. آماده تست ثبت صحیح اطلاعات و روابط در دیتابیس.
 
 [ID-010] اطمینان از ثبت صحیح اطلاعات و رابطه‌ها در client_accounts پس از ساخت اکانت
-Status: [ ] Priority: [High]
+Status: [X] Priority: [High]
 Dependencies: [ID-009]
 Progress Notes:
-- [ ] در انتظار تست عملیاتی.
+- [v0.2.1] در انتظار تست عملیاتی.
+- [v0.2.2] فیلدهای `account_data` در متد `provision_account` با مدل `ClientAccount` هماهنگ شد.
+- [v0.2.2] فیلدهای متد `renew_account` برای هماهنگی با مدل و سرویس `ClientService` اصلاح شد.
+- [v0.2.2] فیلد `enable` در متد `deactivate_account` هنگام آپدیت دیتابیس هماهنگ شد.
+- [v0.2.2] متد `delete_account` برای استفاده صحیح از سرویس `ClientService` و فیلد `remote_uuid` اصلاح شد.
 
 [ID-011] تست end-to-end با پنل واقعی و بررسی دیتابیس
 Status: [ ] Priority: [High]

@@ -25,6 +25,7 @@ class TransactionService:
         type: str, # e.g., 'deposit', 'withdrawal', 'purchase', 'refund'
         status: str, # e.g., 'pending', 'completed', 'failed'
         description: Optional[str] = None,
+        payment_method: Optional[str] = None, # Added parameter
         related_entity_id: Optional[int] = None, # e.g., order_id
         related_entity_type: Optional[str] = None # e.g., 'order'
     ) -> Optional[TransactionSchema]:
@@ -38,14 +39,17 @@ class TransactionService:
             type=type,
             status=status,
             description=description or f"{type.capitalize()} transaction",
+            payment_method=payment_method, # Pass to schema
             created_at=datetime.utcnow(),
             related_entity_id=related_entity_id,
             related_entity_type=related_entity_type
         )
         # The repository handles the creation and session.add()
-        transaction = await self.transaction_repo.create(transaction_data)
+        # Use the correct repository method (_create_transaction_async for async session)
+        transaction = await self.transaction_repo._create_transaction_async(transaction_data.model_dump())
         if transaction:
-            return TransactionSchema.from_orm(transaction)
+            # Convert the ORM model to the Pydantic schema before returning
+            return TransactionSchema.model_validate(transaction)
         return None
         # No commit here
 

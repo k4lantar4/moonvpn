@@ -24,7 +24,11 @@ def register_buy_command(router: Router, session_pool: async_sessionmaker):
     @router.message(Command("buy"))
     @router.message(F.text == "🛒 خرید سرویس")
     async def cmd_buy(message: Message, state: FSMContext):
-        """شروع فرایند خرید پلن و دریافت کانفیگ"""
+        """شروع فرایند خرید پلن و دریافت کانفیگ
+        
+        این فانکشن هم از طریق دستور /buy و هم از طریق دکمه کیبورد 'خرید سرویس' فراخوانی می‌شود.
+        هر دو مسیر دقیقاً یک فرایند یکسان را آغاز می‌کنند.
+        """
         user_id = message.from_user.id
         logger.info(f"Buy command received from user {user_id}")
         

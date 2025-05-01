@@ -2,7 +2,7 @@
 Client service for managing VPN client accounts
 """
 
-from typing import List, Optional, Dict, Any, Tuple
+from typing import List, Optional, Dict, Any, Tuple, Union
 from datetime import datetime, timedelta
 import uuid
 from core.log_config import logger
@@ -106,7 +106,7 @@ class ClientService:
         self.plan_repo = plan_repo
         self.renewal_log_repo = renewal_log_repo
         self.panel_service = panel_service
-    
+
     async def create_client_account_for_order(
         self,
         panel_id: int,
@@ -217,11 +217,11 @@ class ClientService:
                 plan_id=plan.id,
                 panel_id=panel_id,
                 inbound_remote_id=inbound_remote_id, # Store the inbound remote ID
-                client_uuid=created_client_uuid_on_panel,
-                remark=client_remark,
-                email=client_email,
+                remote_uuid=created_client_uuid_on_panel,
+                client_name=client_remark,
+                email_name=client_email,
                 data_limit_gb=plan.data_limit_gb, # Store the plan limit
-                expire_at=expiry_datetime,
+                expires_at=expiry_datetime,
                 status=AccountStatus.ACTIVE, # Start as active
                 config_url=config_url,
                 qr_code_path=qr_code_path,
@@ -292,15 +292,21 @@ class ClientService:
     async def get_user_active_accounts(self, user_id: int) -> List[ClientAccount]:
         """Get all active VPN accounts for a user"""
         return await self.client_repo.get_active_accounts_by_user_id(user_id)
-    
+        
     async def get_account_by_id(self, account_id: int) -> Optional[ClientAccount]:
         """Get a client account by ID"""
         return await self.client_repo.get_by_id(account_id)
-    
+        
     async def get_account_by_uuid(self, client_uuid: str) -> Optional[ClientAccount]:
-        """Get a specific client account by its remote UUID"""
-        return await self.client_repo.get_by_uuid(client_uuid)
-    
+        """Gets a client account by UUID from the database."""
+        logger.info(f"[ClientService] Fetching account with UUID {client_uuid}")
+        try:
+            # Use repository method
+            return await self.client_repo.get_by_remote_uuid(client_uuid)
+        except SQLAlchemyError as e:
+            logger.error(f"Database error fetching account with UUID {client_uuid}: {e}", exc_info=True)
+            return None
+        
     async def update_account_status(self, account_id: int, status: AccountStatus) -> Optional[ClientAccount]:
         """Update account status"""
         # Ensure status is a valid AccountStatus enum member
@@ -317,7 +323,7 @@ class ClientService:
             await self.session.commit()
             await self.session.refresh(account)
         return account
-    
+
     async def delete_account(self, account_id: int, user_id: Optional[int] = None, deleted_by: Optional[int] = None) -> bool:
         """
         Deletes a client account from the database and attempts to delete from the panel.
@@ -364,7 +370,7 @@ class ClientService:
                  logger.error(f"{log_prefix} Failed to delete client from panel during account deletion: {panel_err}. Proceeding with DB deletion. | حذف کلاینت از پنل ناموفق بود. ادامه با حذف از دیتابیس.")
             except Exception as e:
                  logger.error(f"{log_prefix} Unexpected error deleting client from panel: {e}. Proceeding with DB deletion. | خطای پیش‌بینی نشده هنگام حذف از پنل.")
-        else:
+            else:
              logger.warning(f"{log_prefix} Skipping panel deletion: Missing panel_id or client_uuid. | رد شدن از حذف پنل: panel_id یا client_uuid موجود نیست.")
 
         # Delete from database
@@ -379,7 +385,7 @@ class ClientService:
             deleted = await self.client_repo.delete_account(account_id) # Assuming this handles commit/flush
             if deleted:
                  logger.info(f"{log_prefix} Account successfully deleted from database. | اکانت با موفقیت از دیتابیس حذف شد.")
-                 return True
+                return True
             else:
                  # This case might happen if the account was deleted between fetch and delete, or repo method failed silently
                  logger.warning(f"{log_prefix} Database deletion reported unsuccessful by repository. | حذف از دیتابیس توسط ریپازیتوری ناموفق گزارش شد.")
@@ -387,13 +393,13 @@ class ClientService:
                  return False
         except SQLAlchemyError as db_err:
             logger.error(f"{log_prefix} Database error during account deletion: {db_err}. | خطای دیتابیس حین حذف اکانت.")
-            await self.session.rollback()
+             await self.session.rollback()
             return False
         except Exception as e:
             logger.error(f"{log_prefix} Unexpected error during database deletion: {e}. | خطای پیش‌بینی نشده حین حذف از دیتابیس.")
             await self.session.rollback()
             return False
-
+             
     async def extend_client_account(
         self,
         client_uuid: str,
@@ -670,7 +676,7 @@ class ClientService:
                  return False
         except SQLAlchemyError as db_err:
             logger.error(f"{log_prefix} Database error during account deletion: {db_err}. | خطای دیتابیس حین حذف اکانت.")
-            await self.session.rollback()
+             await self.session.rollback()
             return False
         except Exception as e:
             logger.error(f"{log_prefix} Unexpected error during database deletion: {e}. | خطای پیش‌بینی نشده حین حذف از دیتابیس.")
@@ -696,23 +702,23 @@ class ClientService:
     async def _get_related_user(self, user_id: int, log_prefix: str) -> User:
         """دریافت کاربر مرتبط با سفارش."""
         logger.debug(f"{log_prefix} Fetching related user (ID: {user_id}). | دریافت کاربر مرتبط.")
-        user = await self.user_repo.get_by_id(user_id)
-        if not user:
+         user = await self.user_repo.get_by_id(user_id)
+         if not user:
             logger.error(f"{log_prefix} User not found for ID: {user_id}. | کاربر یافت نشد.")
             raise OrderNotFoundError(f"کاربر مرتبط با سفارش (ID: {user_id}) یافت نشد.")
         logger.debug(f"{log_prefix} Related user found. | کاربر مرتبط یافت شد.")
-        return user
-
+         return user
+         
     async def _get_related_plan(self, plan_id: int, log_prefix: str) -> Plan:
         """دریافت پلن مرتبط با سفارش."""
         logger.debug(f"{log_prefix} Fetching related plan (ID: {plan_id}). | دریافت پلن مرتبط.")
-        plan = await self.plan_repo.get_by_id(plan_id)
-        if not plan:
+         plan = await self.plan_repo.get_by_id(plan_id)
+         if not plan:
             logger.error(f"{log_prefix} Plan not found for ID: {plan_id}. | پلن یافت نشد.")
             raise OrderNotFoundError(f"پلن مرتبط با سفارش (ID: {plan_id}) یافت نشد.")
         logger.debug(f"{log_prefix} Related plan found. | پلن مرتبط یافت شد.")
-        return plan
-
+         return plan
+         
     async def _find_active_panel_and_inbound(self, location_name: str, log_prefix: str) -> Tuple[Panel, Inbound]:
         """پیدا کردن پنل و اینباند فعال بر اساس لوکیشن."""
         logger.debug(f"{log_prefix} Finding active panel for location: '{location_name}'. | جستجوی پنل فعال برای لوکیشن.")
@@ -767,7 +773,7 @@ class ClientService:
         if limit_ip is None or limit_ip <= 0:
             limit_ip = 1 # Ensure limitIp is at least 1
         sub_id = str(uuid.uuid4()).replace('-', '')
-
+        
         client_data_for_panel = {
             "id": client_uuid,
             "email": client_email,
@@ -823,14 +829,14 @@ class ClientService:
 
             if success:
                 logger.info(f"[Panel ID: {panel_id}] Client successfully deleted from panel. | کلاینت با موفقیت از پنل حذف شد.")
-                return True
+             return True 
             else:
                 # If XuiClient.delete_client returns False, it usually means client not found or panel error
                 logger.warning(f"[Panel ID: {panel_id}] Panel reported client deletion as unsuccessful (client might not exist or panel error). | حذف از پنل ناموفق گزارش داد (ممکن است کلاینت یافت نشده باشد یا خطای پنل).")
                 # Consider raising an error here if False indicates a failure that needs attention
                 # For now, align with the return type bool, but log warning.
                 # If XuiClient raises XuiNotFoundError, it will be caught below.
-                return False
+            return False
 
         except (XuiConnectionError, XuiAuthenticationError, PanelUnavailableError) as comm_err:
             logger.error(f"[Panel ID: {panel_id}] Communication error during client deletion: {comm_err}. | خطای ارتباطی حین حذف کلاینت.")
@@ -924,31 +930,26 @@ class ClientService:
         except Exception as e:
             # Log other errors but don't raise, return None as per original logic/requirement interpretation
             logger.warning(f"{log_prefix} Failed to get config URL from panel due to unexpected error: {e}. Returning None. | دریافت URL کانفیگ به دلیل خطای پیش‌بینی نشده ناموفق بود.")
-            return None
+             return None
 
-    async def _rollback_panel_creation(self, panel_id: int, client_uuid: str, log_prefix: str):
-        """تلاش می‌کند یک کلاینت را از پنل حذف کند، معمولاً برای بازگردانی پس از شکست در مراحل بعدی
-        (مانند ذخیره دیتابیس) استفاده می‌شود. خطاها را لاگ می‌کند اما آن‌ها را مجدداً raise نمی‌کند.
-
-        Args:
-            panel_id: The ID of the panel where the client was potentially created.
-            client_uuid: The UUID of the client to attempt to delete.
-        """
-        logger.warning(f"{log_prefix} Attempting panel rollback: Deleting client. | تلاش برای بازگردانی پنل: حذف کلاینت.")
+    async def _rollback_panel_creation(self, panel_id_or_obj: Union[int, Panel], client_uuid: str, log_prefix: str):
+        """[Helper] Attempts to delete a client from the panel after a failed operation."""
+        logger.warning(f"{log_prefix} Rolling back panel operation: Attempting to delete client UUID {client_uuid}.")
         try:
-            # We can reuse the delete helper method, but catch its specific errors here
-            # Or call XuiClient directly for simpler error handling in this specific case
-            panel_xui_client = await self._get_xui_client(panel_id)
-            logger.debug(f"{log_prefix} Executing delete_client on XuiClient for rollback. | اجرای متد delete_client برای بازگردانی.")
-            await panel_xui_client.delete_client(client_uuid)
-            logger.info(f"{log_prefix} Panel rollback successful: Client possibly deleted. | بازگردانی پنل موفقیت‌آمیز بود: کلاینت احتمالاً حذف شد.")
-        except (XuiConnectionError, XuiAuthenticationError, PanelUnavailableError) as comm_err:
-            logger.error(f"{log_prefix} Panel rollback failed: Communication error: {comm_err}. Manual cleanup might be required. | بازگردانی پنل ناموفق بود: خطای ارتباطی.")
-        except XuiNotFoundError:
-             logger.warning(f"{log_prefix} Panel rollback: Client not found on panel (already deleted or never created?). | بازگردانی پنل: کلاینت در پنل یافت نشد.")
-        except Exception as e:
-            logger.error(f"{log_prefix} Panel rollback failed: Unexpected error deleting client: {e}. Manual cleanup possibly required. | بازگردانی پنل ناموفق بود: خطای پیش‌بینی نشده.")
-        # Do not re-raise any exceptions here
+            panel: Optional[Panel]
+            if isinstance(panel_id_or_obj, int):
+                 panel = await self._get_validated_panel(panel_id_or_obj, log_prefix)
+            else:
+                 panel = panel_id_or_obj
+                 
+            if panel:
+                 await self._delete_client_on_panel(panel, client_uuid)
+                 logger.info(f"{log_prefix} Rollback successful: Deleted client UUID {client_uuid} from panel.")
+            else:
+                 logger.error(f"{log_prefix} Cannot perform rollback: Panel object not available.")
+        except Exception as rollback_err:
+            logger.error(f"{log_prefix} Error during panel rollback (deleting client {client_uuid}): {rollback_err}", exc_info=True)
+            # Log the error but don't raise, as the original error is more important
 
     async def _prepare_order_update(self, order: Order, client_account_id: int, log_prefix: str):
         """آماده‌سازی آبجکت Order برای به‌روزرسانی (بدون flush)."""
@@ -971,7 +972,7 @@ class ClientService:
         qr_path = os.path.join(qr_dir, f"{user_id}_{uuid}.png")
         qr_img = qrcode.make(config_url)
         qr_img.save(qr_path)
-        return qr_path
+            return qr_path
 
     async def _get_qr_base64(self, qr_path: str) -> str:
         """
@@ -988,7 +989,7 @@ class ClientService:
         Delete previous QR code image file if exists.
         """
         if old_path and os.path.exists(old_path):
-            os.remove(old_path)
+                os.remove(old_path)
 
     async def update_client_account(
         self,
