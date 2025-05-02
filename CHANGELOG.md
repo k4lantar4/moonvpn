@@ -4,6 +4,12 @@
 - ...
 
 ### Changed
+- Refactored `bot/` directory to a features-based structure:
+  - Created `features/` directory and subdirectories for each feature (common, wallet, buy, etc.).
+  - Moved relevant handlers, keyboards, and states into their respective feature directories.
+  - Updated `main.py` to use `RedisStorage` and register feature routers.
+  - Migrated `common` feature handlers (e.g., `/start`) to `features/common/handlers.py`.
+  - Migrated `wallet` feature handlers, keyboards, and states to `features/wallet/`.
 - Refactored and completed `core.integrations.XuiClient`:
   - Added missing methods from `py3xui.async_api` for clients, inbounds, server, and database operations.
   - Renamed existing methods for consistency with `py3xui`.
@@ -21,9 +27,12 @@
   - Made sure all handler methods properly check admin permissions
 
 ### Fixed
+- Fixed `TypeError` in `bot/middlewares/auth.py` by correcting arguments passed to `UserRepository.get_or_create_user`.
+- Fixed `AttributeError` in `bot/features/common/handlers.py` by using `user.full_name` or `user.username` instead of `user.first_name`.
 - ...
 
 ### Removed
+- Removed old `bot/commands/`, `bot/callbacks/`, `bot/buttons/`, and `bot/states.py` files after refactoring.
 - ...
 
 

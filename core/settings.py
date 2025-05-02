@@ -51,3 +51,9 @@ DATABASE_URL: str = os.getenv(
 # اطمینان از استفاده از درایور aiomysql
 if "pymysql" in DATABASE_URL:
     DATABASE_URL = DATABASE_URL.replace("pymysql", "aiomysql")
+
+# تنظیمات Redis برای FSM Storage
+REDIS_HOST: str = os.getenv("REDIS_HOST", "redis") # نام سرویس داکر به عنوان پیش‌فرض
+REDIS_PORT: int = int(os.getenv("REDIS_PORT", "6379")) # پورت پیش‌فرض ردیس
+# REDIS_DB: int = int(os.getenv("REDIS_DB", "0")) # در صورت نیاز به دیتابیس خاص ردیس
+# REDIS_PASSWORD: str | None = os.getenv("REDIS_PASSWORD", None) # در صورت نیاز به پسورد ردیس

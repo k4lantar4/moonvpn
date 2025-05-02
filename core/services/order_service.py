@@ -113,7 +113,7 @@ class OrderService:
         status: OrderStatus = OrderStatus.PENDING
     ) -> Optional[Order]:
         """
-        Creates a new order and flushes the transaction (but doesn't commit).
+        Creates a new order and commits the transaction.
         
         Args:
             user_id: شناسه کاربر
@@ -124,6 +124,9 @@ class OrderService:
             
         Returns:
             شیء Order ایجاد شده یا None در صورت خطا
+            
+        Raises:
+            OrderCreationError: در صورت بروز خطا در ایجاد سفارش
         """
         order_data = {
             "user_id": user_id,
@@ -131,15 +134,24 @@ class OrderService:
             "location_name": location_name,
             "amount": amount,
             "status": status,
+            "created_at": datetime.utcnow(),
+            "updated_at": datetime.utcnow()
         }
         try:
-            order = await self.order_repo.create(order_data)
-            await self.session.flush()  # Flush changes to get ID, but don't commit yet
-            logger.info(f"Created order {order.id} for user {user_id}, plan {plan_id}")
-            return order
+            # Create order in a transaction
+            async with self.session.begin_nested() as nested:
+                try:
+                    order = await self.order_repo.create(order_data)
+                    await self.session.flush()
+                    logger.info(f"Created order {order.id} for user {user_id}, plan {plan_id}")
+                    return order
+                except Exception as e:
+                    await nested.rollback()
+                    logger.error(f"Failed to create order for user {user_id}, plan {plan_id}: {e}", exc_info=True)
+                    raise OrderCreationError(f"Failed to create order: {str(e)}")
         except Exception as e:
-            logger.error(f"Failed to create order for user {user_id}, plan {plan_id}: {e}", exc_info=True)
-            raise OrderCreationError(f"Failed to create order: {str(e)}")
+            logger.error(f"Transaction error while creating order for user {user_id}, plan {plan_id}: {e}", exc_info=True)
+            raise OrderCreationError(f"Transaction error: {str(e)}")
     
     async def get_order_by_id(self, order_id: int) -> Optional[Order]:
         """Get order details by ID using the repository."""
@@ -151,7 +163,7 @@ class OrderService:
     
     async def update_order_status(self, order_id: int, new_status: OrderStatus) -> Optional[Order]:
         """
-        Update the status of an order using the repository and flush.
+        Update the status of an order using the repository and commit the transaction.
         
         Args:
             order_id: شناسه سفارش
@@ -159,19 +171,36 @@ class OrderService:
             
         Returns:
             شیء Order بروزرسانی شده یا None در صورت خطا
+            
+        Raises:
+            OrderError: در صورت بروز خطا در بروزرسانی وضعیت سفارش
         """
         try:
-            updated_order = await self.order_repo.update_status(order_id, new_status)
-            if updated_order:
-                await self.session.flush()
-                logger.info(f"Order {order_id} status updated to {new_status}")
-                return updated_order
-            else:
-                logger.warning(f"Attempted to update status for non-existent order {order_id}")
-                return None
+            # Update order status in a transaction
+            async with self.session.begin_nested() as nested:
+                try:
+                    # First check if order exists
+                    order = await self.get_order_by_id(order_id)
+                    if not order:
+                        logger.warning(f"Attempted to update status for non-existent order {order_id}")
+                        return None
+                        
+                    # Update the order status
+                    updated_order = await self.order_repo.update_status(order_id, new_status)
+                    if updated_order:
+                        await self.session.flush()
+                        logger.info(f"Order {order_id} status updated to {new_status}")
+                        return updated_order
+                    else:
+                        logger.warning(f"Failed to update status for order {order_id}")
+                        return None
+                except Exception as e:
+                    await nested.rollback()
+                    logger.error(f"Failed to update status for order {order_id} to {new_status}: {e}", exc_info=True)
+                    raise OrderError(f"Failed to update order status: {str(e)}")
         except Exception as e:
-            logger.error(f"Failed to update status for order {order_id} to {new_status}: {e}", exc_info=True)
-            raise OrderError(f"Failed to update order status: {str(e)}")
+            logger.error(f"Transaction error while updating order {order_id} status: {e}", exc_info=True)
+            raise OrderError(f"Transaction error: {str(e)}")
     
     async def process_order_purchase(
         self,
@@ -408,22 +437,20 @@ class OrderService:
         if not user or not plan:
             return False, "اطلاعات کاربر یا پلن یافت نشد."
             
-        # Use the new consolidated method
-        async with self.session.begin():
-            try:
-                success, message, result_data = await self.process_order_purchase(
-                    user_id=order.user_id,
-                    plan_id=order.plan_id,
-                    location_name=order.location_name,
-                    payment_method="wallet",
-                    discount_code=None,  # No discount here as price already set in order
-                    send_notifications=True
-                )
-                
-                return success, message
-            except Exception as e:
-                logger.error(f"Error in attempt_payment_from_wallet for order {order_id}: {e}", exc_info=True)
-                return False, f"خطا در پردازش پرداخت: {str(e)}"
+        try:
+            success, message, result_data = await self.process_order_purchase(
+                user_id=order.user_id,
+                plan_id=order.plan_id,
+                location_name=order.location_name,
+                payment_method="wallet",
+                discount_code=None,  # No discount here as price already set in order
+                send_notifications=True
+            )
+            
+            return success, message
+        except Exception as e:
+            logger.error(f"Error in attempt_payment_from_wallet for order {order_id}: {e}", exc_info=True)
+            return False, f"خطا در پردازش پرداخت: {str(e)}"
     
     async def process_receipt_approval(self, order_id: int, approved_by_user_id: int) -> Tuple[bool, str, Optional[ClientAccount]]:
         """

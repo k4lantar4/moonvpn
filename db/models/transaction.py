@@ -11,6 +11,7 @@ from sqlalchemy.orm import relationship, Mapped
 from sqlalchemy.sql import func
 
 from . import Base
+from .enums import PaymentMethod
 
 
 class TransactionType(str, Enum):
@@ -40,9 +41,11 @@ class Transaction(Base):
     amount = Column(DECIMAL(10, 2), nullable=False) # Assuming 2 decimal places for currency
     type = Column(SQLEnum(TransactionType), nullable=False, default=TransactionType.DEPOSIT)
     status = Column(SQLEnum(TransactionStatus), nullable=False, default=TransactionStatus.PENDING)
+    payment_method = Column(SQLEnum(PaymentMethod), nullable=True)  # روش پرداخت
     gateway = Column(String(100), nullable=True) # e.g., bank_transfer, wallet
     reference = Column(String(255), nullable=True) # External reference ID
     tracking_code = Column(String(50), unique=True, nullable=True) # Internal tracking code
+    description = Column(String(500), nullable=True) # توضیحات تراکنش
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     
     # ارتباط با سایر مدل‌ها

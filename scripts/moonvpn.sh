@@ -267,6 +267,24 @@ case "$1" in
         echo -e "${BLUE}Restarting MoonVPN services...${NC}"
         docker compose restart
         echo -e "${GREEN}Services restarted successfully${NC}"
+        # Pause to allow services to fully restart
+        
+        echo -e "${BLUE}Checking logs for errors after restart...${NC}"
+        sleep 2
+        logs=$(docker compose logs app --timestamps --no-color)
+        error_count=$(echo "$logs" | grep -E 'SyntaxError|TypeError|RuntimeError|Exception' | wc -l)
+        echo -e "${YELLOW}Total critical Python errors: ${NC}$error_count"
+        if [[ $error_count -eq 0 ]]; then
+          echo -e "${GREEN}👍 No critical Python errors found in app logs.${NC}"
+        else
+          echo -e "${BLUE}Last 10 critical Python errors (file:line + message):${NC}"
+          echo "$logs" \
+            | grep -E 'File \"(/app|/root|/home)/.*\", line [0-9]+' -A1 \
+            | grep -E 'File |SyntaxError|TypeError|RuntimeError|Exception' \
+            | grep -v '<frozen runpy>' \
+            | grep -v '/usr/local/lib/python3.12/' \
+            | tail -n 20
+        fi
         ;;
 
     restart-bot)
@@ -544,8 +562,19 @@ case "$1" in
     
     build)
         check_docker
-        echo -e "${BLUE}Building MoonVPN services...${NC}"
-        docker compose build
+        # Support optional --no-cache flag
+        no_cache=0
+        for arg in "$@"; do
+            if [[ "$arg" == "--no-cache" ]]; then
+                no_cache=1
+            fi
+        done
+        echo -e "${BLUE}Building MoonVPN services${NC}${no_cache:+ with --no-cache}" 
+        if [[ $no_cache -eq 1 ]]; then
+            docker compose build --no-cache
+        else
+            docker compose build
+        fi
         echo -e "${GREEN}Build completed${NC}"
         ;;
     

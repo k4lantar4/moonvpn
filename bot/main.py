@@ -7,35 +7,24 @@ import asyncio
 import logging
 from typing import Any, Dict
 
-from aiogram import Bot, Dispatcher, Router
+from aiogram import Bot, Dispatcher
 from aiogram.enums import ParseMode
-from aiogram.fsm.storage.memory import MemoryStorage
+from aiogram.fsm.storage.redis import RedisStorage
+from redis.asyncio.client import Redis
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from aiogram.client.default import DefaultBotProperties
 
-from core.settings import DATABASE_URL, BOT_TOKEN
+from core.settings import DATABASE_URL, BOT_TOKEN, REDIS_HOST, REDIS_PORT
 from core.services.notification_service import NotificationService
 from core.services.panel_service import PanelService
-from bot.commands import (
-    start_router,
-    register_buy_command,
-    register_admin_commands,
-    register_wallet_command,
-    register_plans_command,
-    register_profile_command,
-    register_myaccounts_command,
-)
-from bot.callbacks import (
-    register_buy_callbacks,
-    register_wallet_callbacks,
-    register_admin_callbacks,
-    register_callbacks,
-    register_plan_callbacks,
-    register_panel_callbacks,
-    register_inbound_callbacks,
-    register_account_callbacks,
-)
 from bot.middlewares import AuthMiddleware, ErrorMiddleware
+from bot.features.common.handlers import router as common_router
+from bot.features.buy.handlers import router as buy_router
+from bot.features.wallet.handlers import router as wallet_router
+from bot.features.admin.handlers import router as admin_router
+from bot.features.profile.handlers import router as profile_router
+from bot.features.my_accounts.handlers import router as my_accounts_router
+from bot.features.panel_management.handlers import router as panel_management_router
 
 # تنظیمات لاگینگ
 logging.basicConfig(
@@ -69,12 +58,10 @@ async def setup_bot() -> Bot:
 
 async def setup_dispatcher() -> Dispatcher:
     """راه‌اندازی و پیکربندی دیسپچر"""
-    # راه‌اندازی storage و dispatcher
-    storage = MemoryStorage() # نکته: برای پروداکشن، RediStorage ممکن است بهتر باشد
+    # راه‌اندازی Redis و RedisStorage
+    redis_client = Redis(host=REDIS_HOST, port=REDIS_PORT, db=0)
+    storage = RedisStorage(redis=redis_client)
     dp = Dispatcher(storage=storage)
-    
-    # ایجاد روتر اصلی
-    router = Router(name="main_router")
     
     # ثبت میدلورها
     dp.message.middleware(AuthMiddleware(SessionLocal))
@@ -82,28 +69,14 @@ async def setup_dispatcher() -> Dispatcher:
     dp.message.middleware(ErrorMiddleware())
     dp.callback_query.middleware(ErrorMiddleware())
     
-    # ثبت هندلرهای دستورات
-    register_buy_command(router, SessionLocal)
-    register_admin_commands(router, SessionLocal)
-    register_wallet_command(router, SessionLocal)
-    register_plans_command(router, SessionLocal)
-    register_profile_command(router, SessionLocal)
-    register_myaccounts_command(router, SessionLocal)
-    
-    # ثبت هندلرهای callback
-    register_buy_callbacks(router, SessionLocal)
-    register_wallet_callbacks(router, SessionLocal)
-    register_admin_callbacks(router, SessionLocal)
-    register_callbacks(router, SessionLocal)
-    register_plan_callbacks(router, SessionLocal)
-    # register panel callbacks for listing inbounds
-    register_panel_callbacks(router, SessionLocal)
-    register_inbound_callbacks(router, SessionLocal)
-    register_account_callbacks(router, SessionLocal)
-    
-    # افزودن روتر به دیسپچر
-    dp.include_router(start_router)
-    dp.include_router(router)
+    # ثبت روترهای جدید ویژگی‌ها
+    dp.include_router(common_router)
+    dp.include_router(buy_router)
+    dp.include_router(wallet_router)
+    dp.include_router(admin_router)
+    dp.include_router(profile_router)
+    dp.include_router(my_accounts_router)
+    dp.include_router(panel_management_router)
     
     return dp
 
@@ -120,10 +93,6 @@ async def init_services():
         try:
             sync_results = await panel_service.sync_all_panels_inbounds()
             logger.info(f"ورودی‌ها برای {len(sync_results)} پنل با موفقیت همگام‌سازی شدند")
-            await notification_service.notify_admins(
-                f"🔄 ورودی‌های پنل با موفقیت همگام‌سازی شدند\n"
-                f"تعداد پنل‌های همگام‌شده: {len(sync_results)}"
-            )
         except Exception as e:
             logger.error(f"خطا در همگام‌سازی ورودی‌ها: {e}", exc_info=True)
             await notification_service.notify_admins(
@@ -149,16 +118,22 @@ async def main():
         # شروع polling
         logger.info("ربات MoonVPN آماده است!")
         await bot.delete_webhook(drop_pending_updates=True)
-        await dp.start_polling(bot)
+        await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())
         
     except Exception as e:
         logger.critical(f"اجرای ربات با خطا مواجه شد: {e}", exc_info=True)
         raise
     finally:
+        if 'redis_client' in locals() and redis_client:
+            await redis_client.close()
         if notification_service:
             await notification_service.cleanup()
 
 if __name__ == "__main__":
+    if not REDIS_HOST or not REDIS_PORT:
+        logger.error("متغیرهای محیطی REDIS_HOST یا REDIS_PORT تنظیم نشده‌اند!")
+        exit(1)
+        
     try:
         asyncio.run(main())
     except (KeyboardInterrupt, SystemExit):

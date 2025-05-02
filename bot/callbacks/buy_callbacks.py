@@ -8,6 +8,7 @@ from datetime import datetime
 from aiogram import Router, F
 from aiogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.fsm.context import FSMContext
+import asyncio
 
 from core.services.plan_service import PlanService
 from core.services.panel_service import PanelService
@@ -214,81 +215,106 @@ async def inbound_selected(callback: CallbackQuery, state: FSMContext, session_p
         await state.update_data(plan_id=plan_id, panel_id=panel_id, inbound_id=inbound_id)
         
         async with session_pool() as session:
-            # دریافت اطلاعات پلن، پنل و اینباند با استفاده از سرویس‌ها
-            plan_service = PlanService(session)
-            panel_service = PanelService(session)
-            inbound_service = InboundService(session)
-            user_service = UserService(session)
-            order_service = OrderService(session)
-            
-            plan = await plan_service.get_plan_by_id(plan_id)
-            panel = await panel_service.get_panel_by_id(panel_id)
-            inbound = await inbound_service.get_inbound(inbound_id)
-            user = await user_service.get_user_by_telegram_id(callback.from_user.id)
-            
-            if not all([plan, panel, inbound, user]):
-                missing = []
-                if not plan:
-                    missing.append("پلن")
-                if not panel:
-                    missing.append("لوکیشن")
-                if not inbound:
-                    missing.append("پروتکل")
-                if not user:
-                    missing.append("کاربر")
-                logger.error(f"One or more entities not found: Plan {plan_id}, Panel {panel_id}, Inbound {inbound_id}, User {callback.from_user.id}")
-                await callback.message.edit_text(
-                    f"❌ خطا در دریافت اطلاعات. {', '.join(missing)} انتخابی یافت نشد یا تغییر کرده است.\n"
-                    "لطفا دوباره تلاش کنید."
-                )
-                return
-            
-            # ایجاد سفارش با وضعیت PENDING
-            order = await order_service.create_order(
-                user_id=user.id,
-                plan_id=plan_id,
-                location_name=panel.location_name,
-                amount=plan.price,
-                status=OrderStatus.PENDING
-            )
-            if not order:
-                logger.error(f"Failed to create order for user {user.id}")
-                await callback.message.edit_text(
-                    "❌ خطا در ایجاد سفارش.\n"
-                    "لطفا دوباره تلاش کنید."
-                )
-                return
-            await state.update_data(order_id=order.id)
-            
-            # نمایش خلاصه سفارش با اطلاعات کامل
-            summary = (
-                "📋 خلاصه سفارش شما:\n\n"
-                f"🔹 پلن: {plan.name}\n"
-            )
-            if hasattr(plan, 'duration_days') and plan.duration_days:
-                summary += f"🔹 مدت: {plan.duration_days} روز\n"
-            if hasattr(plan, 'traffic_gb') and plan.traffic_gb:
-                summary += f"🔹 حجم: {plan.traffic_gb} گیگابایت\n"
-            if hasattr(plan, 'price'):
-                price_display = f"{int(plan.price):,} تومان" if plan.price else "رایگان"
-                summary += f"🔹 قیمت: {price_display}\n"
-            flag_emoji = getattr(panel, 'flag_emoji', '🏴')
-            location_name = getattr(panel, 'location_name', 'نامشخص')
-            summary += f"🔹 لوکیشن: {flag_emoji} {location_name}\n"
-            protocol = getattr(inbound, 'protocol', 'نامشخص').upper()
-            port = getattr(inbound, 'port', 'نامشخص')
-            summary += f"🔹 پروتکل: {protocol} - پورت {port}\n\n"
-            summary += f"🔹 شناسه سفارش: <code>{order.id}</code>\n"
-            summary += f"\nلطفا روش پرداخت را انتخاب کنید:"
-            
-            # دکمه‌های پرداخت
-            await callback.message.edit_text(
-                summary,
-                reply_markup=get_payment_keyboard(str(order.id)),
-                parse_mode="HTML"
-            )
-            await state.set_state(BuyState.select_payment)
-            logger.info(f"User {callback.from_user.id} selected inbound {inbound_id} and order {order.id} created. Waiting for payment.")
+            # Start an explicit transaction
+            async with session.begin():
+                try:
+                    # دریافت اطلاعات پلن، پنل و اینباند با استفاده از سرویس‌ها
+                    plan_service = PlanService(session)
+                    panel_service = PanelService(session)
+                    inbound_service = InboundService(session)
+                    user_service = UserService(session)
+                    order_service = OrderService(session)
+                    
+                    plan = await plan_service.get_plan_by_id(plan_id)
+                    panel = await panel_service.get_panel_by_id(panel_id)
+                    inbound = await inbound_service.get_inbound(inbound_id)
+                    user = await user_service.get_user_by_telegram_id(callback.from_user.id)
+                    
+                    if not all([plan, panel, inbound, user]):
+                        missing = []
+                        if not plan:
+                            missing.append("پلن")
+                        if not panel:
+                            missing.append("لوکیشن")
+                        if not inbound:
+                            missing.append("پروتکل")
+                        if not user:
+                            missing.append("کاربر")
+                        logger.error(f"One or more entities not found: Plan {plan_id}, Panel {panel_id}, Inbound {inbound_id}, User {callback.from_user.id}")
+                        await callback.message.edit_text(
+                            f"❌ خطا در دریافت اطلاعات. {', '.join(missing)} انتخابی یافت نشد یا تغییر کرده است.\n"
+                            "لطفا دوباره تلاش کنید."
+                        )
+                        return
+                    
+                    # ایجاد سفارش با وضعیت PENDING
+                    order = await order_service.create_order(
+                        user_id=user.id,
+                        plan_id=plan_id,
+                        location_name=panel.location_name,
+                        amount=plan.price,
+                        status=OrderStatus.PENDING
+                    )
+                    
+                    if not order:
+                        logger.error(f"Failed to create order for user {user.id}")
+                        await callback.message.edit_text(
+                            "❌ خطا در ایجاد سفارش.\n"
+                            "لطفا دوباره تلاش کنید."
+                        )
+                        return
+                        
+                    # Verify order was created successfully
+                    created_order = await order_service.get_order_by_id(order.id)
+                    if not created_order:
+                        logger.error(f"Order {order.id} not found immediately after creation")
+                        await callback.message.edit_text(
+                            "❌ خطا در تأیید ایجاد سفارش.\n"
+                            "لطفا دوباره تلاش کنید."
+                        )
+                        return
+                        
+                    await state.update_data(order_id=order.id)
+                    logger.info(f"Successfully created and verified order {order.id} for user {user.id}")
+                    
+                    # نمایش خلاصه سفارش با اطلاعات کامل
+                    summary = (
+                        "📋 خلاصه سفارش شما:\n\n"
+                        f"🔹 پلن: {plan.name}\n"
+                    )
+                    if hasattr(plan, 'duration_days') and plan.duration_days:
+                        summary += f"🔹 مدت: {plan.duration_days} روز\n"
+                    if hasattr(plan, 'traffic_gb') and plan.traffic_gb:
+                        summary += f"🔹 حجم: {plan.traffic_gb} گیگابایت\n"
+                    if hasattr(plan, 'price'):
+                        price_display = f"{int(plan.price):,} تومان" if plan.price else "رایگان"
+                        summary += f"🔹 قیمت: {price_display}\n"
+                    flag_emoji = getattr(panel, 'flag_emoji', '🏴')
+                    location_name = getattr(panel, 'location_name', 'نامشخص')
+                    summary += f"🔹 لوکیشن: {flag_emoji} {location_name}\n"
+                    protocol = getattr(inbound, 'protocol', 'نامشخص').upper()
+                    port = getattr(inbound, 'port', 'نامشخص')
+                    summary += f"🔹 پروتکل: {protocol} - پورت {port}\n\n"
+                    summary += f"🔹 شناسه سفارش: <code>{order.id}</code>\n"
+                    summary += f"\nلطفا روش پرداخت را انتخاب کنید:"
+                    
+                    # دکمه‌های پرداخت
+                    await callback.message.edit_text(
+                        summary,
+                        reply_markup=get_payment_keyboard(str(order.id)),
+                        parse_mode="HTML"
+                    )
+                    await state.set_state(BuyState.select_payment)
+                    logger.info(f"User {callback.from_user.id} selected inbound {inbound_id} and order {order.id} created. Waiting for payment.")
+                    
+                except Exception as e:
+                    logger.error(f"Error in transaction: {e}", exc_info=True)
+                    await callback.message.edit_text(
+                        "❌ خطا در پردازش سفارش.\n"
+                        "لطفا دوباره تلاش کنید."
+                    )
+                    return
+                    
     except ValueError as e:
         logger.error(f"Invalid IDs in callback data: {callback.data}, error: {e}")
         await callback.answer("شناسه‌های ارسالی نامعتبر هستند", show_alert=True)
@@ -328,6 +354,7 @@ async def confirm_purchase(callback: CallbackQuery, state: FSMContext, session_p
             confirmed_at=datetime.now().isoformat()
         )
         
+        # دریافت شناسه کاربر از کالبک
         user_id = callback.from_user.id
         
         async with session_pool() as session:
@@ -421,195 +448,215 @@ async def confirm_purchase(callback: CallbackQuery, state: FSMContext, session_p
 
 async def handle_payment_method(callback: CallbackQuery, state: FSMContext, session_pool):
     """
-    پردازش انتخاب روش پرداخت
+    پردازش انتخاب روش پرداخت توسط کاربر
     """
     try:
         # استخراج اطلاعات از callback data
         parts = callback.data.split(":")
-        if len(parts) < 4:
+        if len(parts) < 3:
             logger.error(f"Invalid callback data format: {callback.data}")
             await callback.answer("فرمت داده نامعتبر است", show_alert=True)
             return
             
-        payment_method = parts[2]  # "wallet", "card", "online"
-        payment_id = parts[3]  # order_id
+        payment_method = parts[2]
+        order_id = int(parts[3]) if len(parts) > 3 else None
         
+        if not order_id:
+            # سعی در بازیابی از state
+            user_data = await state.get_data()
+            order_id = user_data.get("order_id")
+            
+        if not order_id:
+            logger.error("No order ID found in callback data or state")
+            await callback.answer("شناسه سفارش یافت نشد", show_alert=True)
+            return
+            
+        # دریافت شناسه کاربر از کالبک
         user_id = callback.from_user.id
         
-        # بررسی معتبر بودن روش پرداخت
-        valid_methods = ["wallet", "card", "online"]
-        if payment_method not in valid_methods:
-            logger.error(f"Invalid payment method: {payment_method}")
-            await callback.answer("روش پرداخت نامعتبر است", show_alert=True)
-            return
-            
-        # نمایش پیام در حال پردازش
-        await callback.message.edit_text(
-            "🔄 در حال پردازش پرداخت...\n"
-            "لطفا چند لحظه صبر کنید."
-        )
-        
-        try:
-            order_id = int(payment_id)
-        except ValueError:
-            logger.error(f"Invalid order ID: {payment_id}")
-            await callback.answer("شناسه سفارش نامعتبر است", show_alert=True)
-            return
-        
         async with session_pool() as session:
-            # دریافت اطلاعات سفارش
-            order_service = OrderService(session)
-            
-            # دریافت اطلاعات کاربر
-            user_service = UserService(session)
-            
-            # دریافت سرویس نوتیفیکیشن
-            notification_service = NotificationService(session)
-            
-            # دریافت سرویس تنظیمات
-            settings_service = SettingsService(session)
-            
-            order = await order_service.get_order_by_id(order_id)
-            if not order:
-                logger.error(f"Order {order_id} not found")
-                await callback.message.edit_text(
-                    "❌ سفارش مورد نظر یافت نشد.\n"
-                    "لطفا دوباره از طریق منوی اصلی اقدام کنید.",
-                    reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                        [InlineKeyboardButton(text="🏠 بازگشت به منوی اصلی", callback_data="start")]
-                    ])
-                )
-                return
-            
-            # بررسی مطابقت کاربر با سفارش
-            if order.user_id != user_id:
-                logger.warning(f"User {user_id} tried to pay for order {order_id} belonging to user {order.user_id}")
-                await callback.answer("این سفارش متعلق به شما نیست", show_alert=True)
-                return
-            
-            # دریافت اطلاعات کاربر
-            user = await user_service.get_user_by_id(user_id)
-            if not user:
-                logger.error(f"User {user_id} not found")
-                await callback.message.edit_text(
-                    "❌ اطلاعات کاربری شما یافت نشد.\n"
-                    "لطفا دوباره از طریق منوی اصلی اقدام کنید.",
-                    reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                        [InlineKeyboardButton(text="🏠 بازگشت به منوی اصلی", callback_data="start")]
-                    ])
-                )
-                return
-                
-            # پردازش براساس روش پرداخت
-            if payment_method == "wallet":
-                # پرداخت از کیف پول
-                success, message = await order_service.attempt_payment_from_wallet(order_id)
-                
-                if success:
-                    # پرداخت موفق - نمایش اطلاعات نهایی
+            try:
+                # دریافت اطلاعات کاربر
+                user_service = UserService(session)
+                user = await user_service.get_user_by_telegram_id(user_id)
+                if not user:
+                    logger.error(f"User {user_id} not found")
                     await callback.message.edit_text(
-                        f"✅ پرداخت از کیف پول با موفقیت انجام شد.\n\n"
-                        f"🔹 شناسه سفارش: <code>{order_id}</code>\n"
-                        f"🔹 مبلغ: {int(order.amount):,} تومان\n\n"
-                        "اکانت شما به زودی فعال خواهد شد.\n"
-                        "برای مشاهده اکانت‌های خود از دستور /myaccounts استفاده کنید.",
-                        reply_markup=get_payment_status_keyboard(order_id)
-                    )
-                    
-                    # ارسال نوتیفیکیشن به ادمین
-                    await notification_service.notify_admin(
-                        f"💰 پرداخت از کیف پول انجام شد\n"
-                        f"کاربر: {user_id} (@{user.username or 'بدون یوزرنیم'})\n"
-                        f"سفارش: {order_id}\n"
-                        f"مبلغ: {int(order.amount):,} تومان"
-                    )
-                    
-                    await state.clear()
-                    logger.info(f"Wallet payment successful for order {order_id} by user {user_id}")
-                else:
-                    # پرداخت ناموفق - نمایش خطا
-                    await callback.message.edit_text(
-                        f"❌ {message}\n\n"
-                        f"🔹 شناسه سفارش: <code>{order_id}</code>\n"
-                        f"🔹 مبلغ: {int(order.amount):,} تومان\n\n"
-                        "لطفا روش دیگری برای پرداخت انتخاب کنید:",
-                        reply_markup=get_payment_keyboard(str(order_id))
-                    )
-                    logger.warning(f"Wallet payment failed for order {order_id} by user {user_id}: {message}")
-                    
-            elif payment_method == "card":
-                # پرداخت کارت به کارت
-                # دریافت اطلاعات کارت‌های بانکی از تنظیمات
-                bank_cards = await settings_service.get_setting_value("bank_cards", default="[]")
-                
-                try:
-                    # تبدیل رشته JSON به لیست
-                    cards = json.loads(bank_cards) if isinstance(bank_cards, str) else bank_cards
-                    
-                    if not cards:
-                        await callback.message.edit_text(
-                            "❌ در حال حاضر امکان پرداخت کارت به کارت وجود ندارد.\n"
-                            "لطفا روش دیگری را انتخاب کنید:",
-                            reply_markup=get_payment_keyboard(str(order_id))
-                        )
-                        return
-                        
-                    # ایجاد متن کارت‌ها
-                    cards_text = "\n".join([f"🏦 {card.get('bank', 'نامشخص')}: <code>{card.get('number', '')}</code> - {card.get('owner', '')}" for card in cards])
-                    
-                    # به‌روزرسانی وضعیت سفارش
-                    await order_service.update_order_status(order_id, OrderStatus.WAITING_FOR_RECEIPT)
-                    
-                    # نمایش اطلاعات پرداخت کارت به کارت
-                    await callback.message.edit_text(
-                        f"💳 پرداخت کارت به کارت\n\n"
-                        f"🔹 شناسه سفارش: <code>{order_id}</code>\n"
-                        f"🔹 مبلغ: {int(order.amount):,} تومان\n\n"
-                        f"لطفا مبلغ فوق را به یکی از شماره کارت‌های زیر واریز کنید:\n\n"
-                        f"{cards_text}\n\n"
-                        "⚠️ پس از واریز، رسید پرداخت را با دستور /receipt ارسال کنید.\n"
-                        "⚠️ حتما شناسه سفارش را در توضیحات واریز ذکر کنید.",
+                        "❌ اطلاعات کاربری شما یافت نشد.\n"
+                        "لطفا دوباره از طریق منوی اصلی اقدام کنید.",
                         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
                             [InlineKeyboardButton(text="🏠 بازگشت به منوی اصلی", callback_data="start")]
                         ])
                     )
-                    
-                    # ارسال نوتیفیکیشن به ادمین
-                    await notification_service.notify_admin(
-                        f"🧾 درخواست پرداخت کارت به کارت\n"
-                        f"کاربر: {user_id} (@{user.username or 'بدون یوزرنیم'})\n"
-                        f"سفارش: {order_id}\n"
-                        f"مبلغ: {int(order.amount):,} تومان\n"
-                        f"منتظر دریافت رسید..."
-                    )
-                    
-                    await state.clear()
-                    logger.info(f"Card payment instructions sent for order {order_id} to user {user_id}")
+                    return
+
+                # دریافت اطلاعات سفارش
+                order_service = OrderService(session)
                 
-                except Exception as e:
-                    logger.error(f"Error processing card payment: {e}", exc_info=True)
+                # دریافت سرویس نوتیفیکیشن
+                notification_service = NotificationService(session)
+                
+                # دریافت سرویس تنظیمات
+                settings_service = SettingsService(session)
+                
+                # First try to get order directly
+                order = await order_service.get_order_by_id(order_id)
+                
+                # If order not found, verify from state and try to recover
+                if not order:
+                    user_data = await state.get_data()
+                    stored_order_id = user_data.get("order_id")
+                    
+                    if stored_order_id and stored_order_id == order_id:
+                        # Try to get order with retries if it matches state
+                        retries = 3
+                        for attempt in range(retries):
+                            order = await order_service.get_order_by_id(order_id)
+                            if order:
+                                break
+                            if attempt < retries - 1:
+                                await asyncio.sleep(1)  # Wait before retry
+                
+                if not order:
+                    logger.error(f"Order {order_id} not found and could not be recovered")
+                    # Clear state since order cannot be found
+                    await state.clear()
                     await callback.message.edit_text(
-                        "❌ خطا در پردازش پرداخت کارت به کارت.\n"
-                        "لطفا روش دیگری را انتخاب کنید یا با پشتیبانی تماس بگیرید:",
+                        "❌ سفارش مورد نظر یافت نشد.\n"
+                        "لطفا دوباره از طریق منوی اصلی اقدام کنید.",
+                        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                            [InlineKeyboardButton(text="🏠 بازگشت به منوی اصلی", callback_data="start")]
+                        ])
+                    )
+                    return
+                
+                # بررسی مطابقت کاربر با سفارش
+                if order.user_id != user.id:
+                    logger.warning(f"User {user_id} (DB ID: {user.id}) tried to pay for order {order_id} belonging to user {order.user_id}")
+                    await callback.answer("این سفارش متعلق به شما نیست", show_alert=True)
+                    return
+                
+                # Process based on payment method
+                if payment_method == "wallet":
+                    # پرداخت از کیف پول
+                    success, message = await order_service.attempt_payment_from_wallet(order_id)
+                    
+                    if success:
+                        # پرداخت موفق - نمایش اطلاعات نهایی
+                        await callback.message.edit_text(
+                            f"✅ پرداخت از کیف پول با موفقیت انجام شد.\n\n"
+                            f"🔹 شناسه سفارش: <code>{order_id}</code>\n"
+                            f"🔹 مبلغ: {int(order.amount):,} تومان\n\n"
+                            "اکانت شما به زودی فعال خواهد شد.\n"
+                            "برای مشاهده اکانت‌های خود از دستور /myaccounts استفاده کنید.",
+                            reply_markup=get_payment_status_keyboard(order_id)
+                        )
+                        
+                        # ارسال نوتیفیکیشن به ادمین
+                        await notification_service.notify_admin(
+                            f"💰 پرداخت از کیف پول انجام شد\n"
+                            f"کاربر: {user_id} (@{user.username or 'بدون یوزرنیم'})\n"
+                            f"سفارش: {order_id}\n"
+                            f"مبلغ: {int(order.amount):,} تومان"
+                        )
+                        
+                        await state.clear()
+                        logger.info(f"Wallet payment successful for order {order_id} by user {user_id}")
+                    else:
+                        # پرداخت ناموفق - نمایش خطا
+                        await callback.message.edit_text(
+                            f"❌ {message}\n\n"
+                            f"🔹 شناسه سفارش: <code>{order_id}</code>\n"
+                            f"🔹 مبلغ: {int(order.amount):,} تومان\n\n"
+                            "لطفا روش دیگری برای پرداخت انتخاب کنید:",
+                            reply_markup=get_payment_keyboard(str(order_id))
+                        )
+                        logger.warning(f"Wallet payment failed for order {order_id} by user {user_id}: {message}")
+                    
+                elif payment_method == "card":
+                    # پرداخت کارت به کارت
+                    # دریافت اطلاعات کارت‌های بانکی از تنظیمات
+                    bank_cards = await settings_service.get_setting_value("bank_cards", default="[]")
+                    
+                    try:
+                        # تبدیل رشته JSON به لیست
+                        cards = json.loads(bank_cards) if isinstance(bank_cards, str) else bank_cards
+                        
+                        if not cards:
+                            await callback.message.edit_text(
+                                "❌ در حال حاضر امکان پرداخت کارت به کارت وجود ندارد.\n"
+                                "لطفا روش دیگری را انتخاب کنید:",
+                                reply_markup=get_payment_keyboard(str(order_id))
+                            )
+                            return
+                                
+                        # ایجاد متن کارت‌ها
+                        cards_text = "\n".join([f"🏦 {card.get('bank', 'نامشخص')}: <code>{card.get('number', '')}</code> - {card.get('owner', '')}" for card in cards])
+                        
+                        # به‌روزرسانی وضعیت سفارش
+                        await order_service.update_order_status(order_id, OrderStatus.WAITING_FOR_RECEIPT)
+                        
+                        # نمایش اطلاعات پرداخت کارت به کارت
+                        await callback.message.edit_text(
+                            f"💳 پرداخت کارت به کارت\n\n"
+                            f"🔹 شناسه سفارش: <code>{order_id}</code>\n"
+                            f"🔹 مبلغ: {int(order.amount):,} تومان\n\n"
+                            f"لطفا مبلغ فوق را به یکی از شماره کارت‌های زیر واریز کنید:\n\n"
+                            f"{cards_text}\n\n"
+                            "⚠️ پس از واریز، رسید پرداخت را با دستور /receipt ارسال کنید.\n"
+                            "⚠️ حتما شناسه سفارش را در توضیحات واریز ذکر کنید.",
+                            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                                [InlineKeyboardButton(text="🏠 بازگشت به منوی اصلی", callback_data="start")]
+                            ])
+                        )
+                        
+                        # ارسال نوتیفیکیشن به ادمین
+                        await notification_service.notify_admin(
+                            f"🧾 درخواست پرداخت کارت به کارت\n"
+                            f"کاربر: {user_id} (@{user.username or 'بدون یوزرنیم'})\n"
+                            f"سفارش: {order_id}\n"
+                            f"مبلغ: {int(order.amount):,} تومان\n"
+                            f"منتظر دریافت رسید..."
+                        )
+                        
+                        await state.clear()
+                        logger.info(f"Card payment instructions sent for order {order_id} to user {user_id}")
+                    
+                    except Exception as e:
+                        logger.error(f"Error processing card payment: {e}", exc_info=True)
+                        await callback.message.edit_text(
+                            "❌ خطا در پردازش پرداخت کارت به کارت.\n"
+                            "لطفا روش دیگری را انتخاب کنید یا با پشتیبانی تماس بگیرید:",
+                            reply_markup=get_payment_keyboard(str(order_id))
+                        )
+                
+                elif payment_method == "online":
+                    # پرداخت آنلاین - در حال حاضر پیاده‌سازی نشده
+                    await callback.message.edit_text(
+                        "🔄 درگاه پرداخت آنلاین در حال راه‌اندازی است.\n"
+                        "لطفا از روش دیگری برای پرداخت استفاده کنید:",
                         reply_markup=get_payment_keyboard(str(order_id))
                     )
-            
-            elif payment_method == "online":
-                # پرداخت آنلاین - در حال حاضر پیاده‌سازی نشده
+                    logger.info(f"Online payment requested for order {order_id} by user {user_id} - not implemented yet")
+                
+                else:
+                    logger.warning(f"Unknown payment method: {payment_method}")
+                    await callback.answer("روش پرداخت نامعتبر است", show_alert=True)
+                    await callback.message.edit_text(
+                        "❌ روش پرداخت انتخابی نامعتبر است.\n"
+                        "لطفا روش دیگری را انتخاب کنید:",
+                        reply_markup=get_payment_keyboard(str(order_id))
+                    )
+                    
+            except Exception as e:
+                logger.error(f"Error in payment method handling: {e}", exc_info=True)
+                await callback.answer("خطا در پردازش درخواست پرداخت", show_alert=True)
                 await callback.message.edit_text(
-                    "🔄 درگاه پرداخت آنلاین در حال راه‌اندازی است.\n"
-                    "لطفا از روش دیگری برای پرداخت استفاده کنید:",
-                    reply_markup=get_payment_keyboard(str(order_id))
-                )
-                logger.info(f"Online payment requested for order {order_id} by user {user_id} - not implemented yet")
-            
-            else:
-                logger.warning(f"Unknown payment method: {payment_method}")
-                await callback.answer("روش پرداخت نامعتبر است", show_alert=True)
-                await callback.message.edit_text(
-                    "❌ روش پرداخت انتخابی نامعتبر است.\n"
-                    "لطفا روش دیگری را انتخاب کنید:",
-                    reply_markup=get_payment_keyboard(str(order_id))
+                    "❌ خطا در پردازش پرداخت.\n"
+                    "لطفا دوباره از طریق منوی اصلی اقدام کنید.",
+                    reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                        [InlineKeyboardButton(text="🏠 بازگشت به منوی اصلی", callback_data="start")]
+                    ])
                 )
                 
     except ValueError as e:

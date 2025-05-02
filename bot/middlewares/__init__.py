@@ -13,5 +13,5 @@ from .error import ErrorMiddleware
 
 __all__ = [
     "AuthMiddleware",
-    "ErrorMiddleware"
+    "ErrorMiddleware",
 ]

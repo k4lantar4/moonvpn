@@ -69,6 +69,58 @@ class PaymentService:
         self.bank_card_repo = BankCardRepository(session)
         self.discount_repo = DiscountCodeRepository(session)
     
+    async def create_transaction(
+        self,
+        user_id: int,
+        amount: float,
+        type: str,
+        status: str,
+        description: Optional[str] = None,
+        payment_method: Optional[str] = None,
+        reference_id: Optional[str] = None,
+        related_entity_id: Optional[int] = None,
+        related_entity_type: Optional[str] = None
+    ) -> Optional[Transaction]:
+        """
+        Creates a new transaction using the transaction service.
+        
+        Args:
+            user_id: شناسه کاربر
+            amount: مبلغ تراکنش
+            type: نوع تراکنش
+            status: وضعیت تراکنش
+            description: توضیحات تراکنش (اختیاری)
+            payment_method: روش پرداخت (اختیاری)
+            reference_id: شناسه مرجع (اختیاری)
+            related_entity_id: شناسه موجودیت مرتبط (اختیاری)
+            related_entity_type: نوع موجودیت مرتبط (اختیاری)
+            
+        Returns:
+            Transaction: تراکنش ایجاد شده یا None در صورت خطا
+        """
+        try:
+            transaction = await self.transaction_service.create_transaction(
+                user_id=user_id,
+                amount=amount,
+                type=type,
+                status=status,
+                description=description,
+                payment_method=payment_method,
+                related_entity_id=related_entity_id,
+                related_entity_type=related_entity_type
+            )
+            
+            if transaction:
+                logger.info(f"Created transaction {transaction.id} for user {user_id}: {amount} {type}")
+                return transaction
+            else:
+                logger.error(f"Failed to create transaction for user {user_id}")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Error creating transaction for user {user_id}: {e}", exc_info=True)
+            return None
+        
     async def get_user_balance(self, user_id: int) -> Decimal:
         """
         دریافت موجودی کیف پول کاربر

@@ -64,4 +64,20 @@ class BaseRepository(Generic[T]):
         """بررسی وجود رکورد با شناسه"""
         query = select(self.model.id).where(self.model.id == id)
         result = await self.session.execute(query)
-        return result.scalar_one_or_none() is not None 
+        return result.scalar_one_or_none() is not None
+
+    async def filter_by(self, **kwargs) -> List[T]:
+        """
+        فیلتر کردن رکوردها بر اساس پارامترهای ارسالی
+        
+        Args:
+            **kwargs: پارامترهای فیلتر به صورت key=value
+            
+        Returns:
+            List[T]: لیست رکوردهای منطبق با فیلتر
+        """
+        query = select(self.model)
+        for key, value in kwargs.items():
+            query = query.where(getattr(self.model, key) == value)
+        result = await self.session.execute(query)
+        return list(result.scalars().all()) 
